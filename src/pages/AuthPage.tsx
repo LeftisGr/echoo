@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Mail, RefreshCcw, Shield, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
+
   PageShell,
   SectionTitle,
   Surface,
@@ -21,8 +24,12 @@ import {
 } from "@/lib/presence-content";
 
 const AuthPage = () => {
-  const navigate = useNavigate();
-  const { copy, language, login, profile, rerollUsername, updateProfile } = usePresence();
+  const [email, setEmail] = useState("");
+  const { copy, language, login, profile, rerollUsername, updateProfile, authenticated } = usePresence();
+
+  if (authenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (!profile) {
     return null;
@@ -32,11 +39,7 @@ const AuthPage = () => {
     <PageShell className="space-y-6">
       <Surface className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <div className="space-y-5">
-          <SectionTitle
-            eyebrow={copy.brand.name}
-            title={copy.auth.title}
-            body={copy.auth.body}
-          />
+          <SectionTitle eyebrow={copy.brand.name} title={copy.auth.title} body={copy.auth.body} />
           <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5 text-sm leading-7 text-violet-50">
             <p className="font-medium">{copy.auth.helper}</p>
             <div className="mt-4 flex items-center gap-2 text-violet-100/75">
@@ -44,28 +47,35 @@ const AuthPage = () => {
               <span>{copy.landing.safetyBody}</span>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button
-              className="h-12 rounded-full bg-white text-slate-950 hover:bg-white/90"
-              onClick={async () => {
-                await login("google");
-                navigate("/dashboard");
-              }}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {copy.auth.google}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={async () => {
-                await login("magic");
-                navigate("/dashboard");
-              }}
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              {copy.auth.magic}
-            </Button>
+          <div className="space-y-3 rounded-[28px] border border-white/10 bg-black/20 p-4">
+            <Input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              placeholder="name@example.com"
+              className="h-12 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                className="h-12 rounded-full bg-white text-slate-950 hover:bg-white/90"
+                onClick={async () => {
+                  await login("google");
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {copy.auth.google}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                onClick={async () => {
+                  await login("magic", email);
+                }}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {copy.auth.magic}
+              </Button>
+            </div>
           </div>
         </div>
 

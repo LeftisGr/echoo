@@ -10,11 +10,20 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { supabase } from "@/integrations/supabase/client";
 import { getCopy, interestTags, partnerReplies, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
+  createRoomRecord,
+  endRoom,
+  findBestMatch,
   hasSupabaseConfig,
   joinQueue,
   leaveQueue,
+  loadActiveRoomForUser,
+  loadProfile,
+  loadRoomById,
+  loadRoomMessages,
+
   persistMessage,
   persistRating,
   persistReport,
@@ -49,7 +58,7 @@ interface PresenceContextValue {
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
   adminMetrics: AdminMetrics;
-  login: (method: AuthMethod) => Promise<void>;
+  login: (method: AuthMethod, email?: string) => Promise<void>;
   logout: () => void;
   rerollUsername: () => void;
   updateProfile: (updates: Partial<PresenceProfile>) => void;
@@ -70,11 +79,10 @@ interface PresenceContextValue {
 }
 
 const PresenceContext = createContext<PresenceContextValue | null>(null);
-
 const storageKey = "presence-mvp-state";
 
 function createId() {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID();
 }
 
 function vibrate(pattern: number | number[]) {
@@ -91,9 +99,9 @@ function generateUsername() {
   return `${randomFrom(usernamePrefixes)}${randomFrom(usernameSuffixes)}`;
 }
 
-function createDefaultProfile(): PresenceProfile {
+function createDefaultProfile(userId?: string): PresenceProfile {
   return {
-    id: createId(),
+    id: userId ?? createId(),
     username: generateUsername(),
     ageRange: "25-34",
     gender: "prefer-not",
@@ -117,11 +125,14 @@ function createInitialQueue(profile: PresenceProfile | null): QueueState {
   };
 }
 
-function createPartner(profile: PresenceProfile | null): RoomSession["partner"] {
-  const language = profile?.language === "both" ? randomFrom(["greek", "english", "both"] as const) : profile?.language ?? "both";
+function createPartner(profile: PresenceProfile | null, fallbackId?: string): RoomSession["partner"] {
+  const language =
+    profile?.language === "both"
+      ? randomFrom(["greek", "english", "both"] as const)
+      : profile?.language ?? "both";
 
   return {
-    id: createId(),
+    id: fallbackId ?? createId(),
     username: generateUsername(),
     ageRange: randomFrom(["18-24", "25-34", "35-44", "45+"] as const),
     gender: randomFrom(["male", "female", "nonbinary", "prefer-not"] as const),
@@ -143,39 +154,18 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return {
-      language: "en",
-      profile: null,
-      authenticated: false,
-      room: null,
-      reportsCount: 0,
-      ratings: [],
-    };
+    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return {
-      language: "en",
-      profile: null,
-      authenticated: false,
-      room: null,
-      reportsCount: 0,
-      ratings: [],
-    };
+    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
   }
 
   try {
     return JSON.parse(raw) as PresenceStoredState;
   } catch {
-    return {
-      language: "en",
-      profile: null,
-      authenticated: false,
-      room: null,
-      reportsCount: 0,
-      ratings: [],
-    };
+    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
   }
 }
 
@@ -184,20 +174,33 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>(stored.language);
   const [authenticated, setAuthenticated] = useState(stored.authenticated);
   const [profile, setProfile] = useState<PresenceProfile | null>(stored.profile ?? createDefaultProfile());
+  const [userId, setUserId] = useState<string | null>(stored.profile?.id ?? null);
   const [queue, setQueue] = useState<QueueState>(createInitialQueue(stored.profile));
   const [room, setRoom] = useState<RoomSession | null>(stored.room);
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-  const [online, setOnline] = useState(
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
+  const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
+  const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
+    totalUsers: 0,
+    activeUsers: 0,
+    queueCount: 0,
+    activeRooms: 0,
+    averageSessionDuration: 7,
+    reportsCount: 0,
+    dailySignups: 0,
+    usersOnlineNow: 0,
+    avgWaitTimeSeconds: 18,
+  });
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
   const replyTimeoutRef = useRef<number | null>(null);
   const queueTimersRef = useRef<number[]>([]);
+  const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const matchIntervalRef = useRef<number | null>(null);
+  const matchedRoomIdsRef = useRef<Set<string>>(new Set());
 
   const copy = useMemo(() => getCopy(language), [language]);
 
@@ -236,9 +239,44 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const syncAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      const sessionUser = data.session?.user;
+      if (sessionUser) {
+        await hydrateAuthenticatedUser(sessionUser.id);
+      }
+      setAuthenticated(Boolean(sessionUser));
+      setUserId(sessionUser?.id ?? null);
+    };
+
+    void syncAuth();
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user ?? null;
+      setAuthenticated(Boolean(sessionUser));
+      setUserId(sessionUser?.id ?? null);
+      if (sessionUser) {
+        void hydrateAuthenticatedUser(sessionUser.id);
+      } else {
+        stopRoomSubscriptions();
+        setRoom(null);
+        setProfile(null);
+        setQueue(createInitialQueue(null));
+        setVoiceState("idle");
+      }
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (!queue.active) {
       queueTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       queueTimersRef.current = [];
+      if (matchIntervalRef.current) {
+        window.clearInterval(matchIntervalRef.current);
+        matchIntervalRef.current = null;
+      }
       return;
     }
 
@@ -254,123 +292,348 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       toast(copy.misc.noUsers);
     }, 3600);
 
-    const foundId = window.setTimeout(async () => {
-      const nextRoomId = createId();
-      const partner = createPartner(profile);
-      const systemMessage = createSystemMessage(
-        nextRoomId,
-        language === "en"
-          ? "Connection opened. Stay curious and respectful."
-          : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.",
-      );
-
-      const nextRoom: RoomSession = {
-        id: nextRoomId,
-        userA: profile?.id ?? createId(),
-        userB: partner.id,
-        startedAt: new Date().toISOString(),
-        voiceEnabled: false,
-        status: "active",
-        partner,
-        messages: [systemMessage],
-      };
-
-      setRoom(nextRoom);
-      setQueue(createInitialQueue(profile));
-      await persistRoom(nextRoom);
-      toast.success(copy.misc.sessionReady);
-      if (hapticsEnabled) {
-        vibrate([60, 40, 80]);
-      }
-    }, 6500);
-
-    queueTimersRef.current = [rotationId, relaxId, foundId];
+    queueTimersRef.current = [rotationId, relaxId];
 
     return () => {
       window.clearInterval(rotationId);
       window.clearTimeout(relaxId);
-      window.clearTimeout(foundId);
     };
-  }, [copy.misc.noUsers, copy.misc.sessionReady, hapticsEnabled, language, profile, queue.active]);
+  }, [copy.misc.noUsers, language, queue.active]);
 
   useEffect(() => {
     return () => {
       if (replyTimeoutRef.current) {
         window.clearTimeout(replyTimeoutRef.current);
       }
+      if (matchIntervalRef.current) {
+        window.clearInterval(matchIntervalRef.current);
+      }
+      stopRoomSubscriptions();
       voiceControllerRef.current?.stop();
     };
   }, []);
 
-  const adminMetrics = useMemo<AdminMetrics>(() => {
-    const activeUsers = authenticated ? 1 : 0;
-    const activeRooms = room?.status === "active" ? 1 : 0;
-    const durationMinutes = room?.endedAt
-      ? Math.max(
-          1,
-          Math.round(
-            (new Date(room.endedAt).getTime() - new Date(room.startedAt).getTime()) /
-              60000,
-          ),
-        )
-      : 7;
+  useEffect(() => {
+    void refreshAdminMetrics();
+  }, [authenticated, queue.active, reportsCount, room]);
 
-    return {
-      totalUsers: 1842,
-      activeUsers: 426 + activeUsers,
-      queueCount: queue.active ? 37 : 29,
-      activeRooms: 92 + activeRooms,
-      averageSessionDuration: durationMinutes,
-      reportsCount: 18 + reportsCount,
-      dailySignups: 73,
-      usersOnlineNow: 486,
-      avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
+  useEffect(() => {
+    if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const latestRoom = await loadRoomById(room.id);
+      if (latestRoom) {
+        setRoom((current) => {
+          if (!current || current.id !== room.id) {
+            return current;
+          }
+
+          return {
+            ...current,
+            endedAt: latestRoom.endedAt,
+            voiceEnabled: latestRoom.voiceEnabled,
+            status: latestRoom.endedAt ? "ended" : "active",
+          };
+        });
+      }
+
+      const latestMessages = (await loadRoomMessages(room.id)) as ChatMessage[];
+      setRoom((current) => {
+        if (!current || current.id !== room.id) {
+          return current;
+        }
+
+        const mergedMessages = latestMessages.reduce((acc: ChatMessage[], message) => {
+
+          if (acc.some((item) => item.id === message.id)) {
+            return acc;
+          }
+          acc.push(message);
+          return acc;
+        }, current.messages.slice());
+
+        return {
+          ...current,
+          messages: mergedMessages,
+        };
+      });
+    }, 2400);
+
+    return () => window.clearInterval(interval);
+  }, [reconnectEnabled, room?.id]);
+
+  async function hydrateAuthenticatedUser(currentUserId: string) {
+    const loadedProfile = await loadProfile(currentUserId);
+    if (loadedProfile) {
+      setProfile(loadedProfile);
+      setQueue((current) => ({
+        ...current,
+        filters: {
+          preference: loadedProfile.preference,
+          language: loadedProfile.language,
+        },
+      }));
+    } else {
+      const fallbackProfile = createDefaultProfile(currentUserId);
+      setProfile(fallbackProfile);
+      await syncProfile(fallbackProfile);
+    }
+
+    const activeRoom = await loadActiveRoomForUser(currentUserId);
+    if (activeRoom) {
+      await openRoom(activeRoom.id, currentUserId, activeRoom);
+    } else {
+      stopRoomSubscriptions();
+      setRoom(null);
+    }
+  }
+
+  async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
+    const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
+    const partnerProfile = await loadProfile(partnerId);
+    const partner = partnerProfile ?? createPartner(profile, partnerId);
+    const messages = await loadRoomMessages(nextRoom.id);
+
+  setRoom({
+    ...nextRoom,
+    partner,
+    messages: messages.length
+      ? messages
+      : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],
+    status: nextRoom.endedAt ? "ended" : "active",
+  });
+
+  }
+
+  function stopRoomSubscriptions() {
+    roomChannelRef.current?.unsubscribe();
+    roomChannelRef.current = null;
+  }
+
+  function subscribeToRoom(roomId: string) {
+    stopRoomSubscriptions();
+
+    const channel = supabase
+      .channel(`presence-room-${roomId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
+        const inserted = payload.new as {
+          id: string;
+          room_id: string;
+          sender_id: string;
+          content: string;
+          created_at: string;
+        };
+
+        setRoom((current) => {
+          if (!current || current.id !== roomId) {
+            return current;
+          }
+
+          if (current.messages.some((message) => message.id === inserted.id)) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: [
+              ...current.messages,
+              {
+                id: inserted.id,
+                roomId: inserted.room_id,
+                senderId: inserted.sender_id,
+                content: inserted.content,
+                createdAt: inserted.created_at,
+                type: "text",
+              },
+            ],
+          };
+        });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
+        const updated = payload.new as {
+          id: string;
+          user_a: string;
+          user_b: string;
+          started_at: string;
+          ended_at: string | null;
+          voice_enabled: boolean;
+        };
+
+        setRoom((current) => {
+          if (!current || current.id !== roomId) {
+            return current;
+          }
+
+          return {
+            ...current,
+            endedAt: updated.ended_at ?? undefined,
+            voiceEnabled: updated.voice_enabled,
+            status: updated.ended_at ? "ended" : "active",
+          };
+        });
+      })
+      .subscribe();
+
+    roomChannelRef.current = channel;
+  }
+
+  async function openRoom(roomId: string, currentUserId: string, existingRoom?: {
+    id: string;
+    userA: string;
+    userB: string;
+    startedAt: string;
+    endedAt?: string;
+    voiceEnabled: boolean;
+  }) {
+    if (!profile) {
+      return;
+    }
+
+    const roomBase = existingRoom ?? (await loadActiveRoomForUser(currentUserId));
+    if (!roomBase) {
+      return;
+    }
+
+    const roomSession: RoomSession = {
+      id: roomBase.id,
+      userA: roomBase.userA,
+      userB: roomBase.userB,
+      startedAt: roomBase.startedAt,
+      endedAt: roomBase.endedAt,
+      voiceEnabled: roomBase.voiceEnabled,
+      status: roomBase.endedAt ? "ended" : "active",
+      partner: createPartner(profile),
+      messages: [],
     };
-  }, [authenticated, queue.active, queue.estimatedWaitSeconds, reportsCount, room]);
+
+    setRoom(roomSession);
+    await hydrateRoomPartner(roomSession, currentUserId);
+    subscribeToRoom(roomId);
+  }
+
+  async function refreshAdminMetrics() {
+    if (!hasSupabaseConfig) {
+      const activeUsers = authenticated ? 1 : 0;
+      const activeRooms = room?.status === "active" ? 1 : 0;
+      setAdminMetrics({
+        totalUsers: 1842,
+        activeUsers: 426 + activeUsers,
+        queueCount: queue.active ? 37 : 29,
+        activeRooms: 92 + activeRooms,
+        averageSessionDuration: 7,
+        reportsCount: 18 + reportsCount,
+        dailySignups: 73,
+        usersOnlineNow: 486,
+        avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
+      });
+      return;
+    }
+
+    const [{ count: totalUsers }, { count: activeUsers }, { count: queueCount }, { count: activeRooms }, { count: reportsTotal }] = await Promise.all([
+      supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
+      supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
+      supabase.from("rooms").select("id", { count: "exact", head: true }).is("ended_at", null),
+      supabase.from("reports").select("id", { count: "exact", head: true }),
+    ]);
+
+    setAdminMetrics({
+      totalUsers: totalUsers ?? 0,
+      activeUsers: activeUsers ?? 0,
+      queueCount: queueCount ?? 0,
+      activeRooms: activeRooms ?? 0,
+      averageSessionDuration: 7,
+      reportsCount: reportsTotal ?? 0,
+      dailySignups: 73,
+      usersOnlineNow: (activeUsers ?? 0) + (queueCount ?? 0),
+      avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
+    });
+  }
 
   const setLanguage = useCallback((nextLanguage: AppLanguage) => {
     setLanguageState(nextLanguage);
   }, []);
 
   const login = useCallback(
-    async (_method: AuthMethod) => {
-      const ensuredProfile = profile ?? createDefaultProfile();
-      setProfile(ensuredProfile);
-      setAuthenticated(true);
-      await syncProfile(ensuredProfile);
-      toast.success(copy.misc.signedIn);
-      if (hapticsEnabled) {
-        vibrate(40);
+    async (method: AuthMethod, email?: string) => {
+      const completeLocalLogin = async () => {
+        const localProfile = profile ?? createDefaultProfile(userId ?? undefined);
+        setProfile(localProfile);
+        setUserId(localProfile.id);
+        setAuthenticated(true);
+        await syncProfile(localProfile);
+        toast.success(copy.misc.signedIn);
+      };
+
+      if (method === "google") {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
+        if (error) {
+          toast.error(error.message);
+          await completeLocalLogin();
+        }
+        return;
       }
+
+      if (!email) {
+        toast.error(language === "en" ? "Add an email address to receive the magic link." : "Πρόσθεσε ένα email για να λάβεις το magic link.");
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+        await completeLocalLogin();
+        return;
+      }
+
+      toast.success(language === "en" ? "Magic link sent." : "Το magic link στάλθηκε.");
     },
-    [copy.misc.signedIn, hapticsEnabled, profile],
+    [copy.misc.signedIn, language, profile, userId],
   );
 
   const logout = useCallback(() => {
     voiceControllerRef.current?.stop();
     voiceControllerRef.current = null;
     setVoiceState("idle");
+    void supabase.auth.signOut();
     setAuthenticated(false);
-    setQueue(createInitialQueue(profile));
     setRoom(null);
+    setQueue(createInitialQueue(profile));
     toast(copy.misc.signedOut);
   }, [copy.misc.signedOut, profile]);
 
   const rerollUsername = useCallback(() => {
-    setProfile((current) => ({
-      ...(current ?? createDefaultProfile()),
-      username: generateUsername(),
-    }));
+    setProfile((current) => {
+      const nextProfile = {
+        ...(current ?? createDefaultProfile(userId ?? undefined)),
+        username: generateUsername(),
+      };
+      void syncProfile(nextProfile);
+      return nextProfile;
+    });
     if (hapticsEnabled) {
       vibrate(20);
     }
-  }, [hapticsEnabled]);
+  }, [hapticsEnabled, userId]);
 
   const updateProfile = useCallback(
     (updates: Partial<PresenceProfile>) => {
       setProfile((current) => {
         const nextProfile = {
-          ...(current ?? createDefaultProfile()),
+          ...(current ?? createDefaultProfile(userId ?? undefined)),
           ...updates,
         };
         void syncProfile(nextProfile);
@@ -387,7 +650,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
       toast(copy.misc.profileSaved);
     },
-    [copy.misc.profileSaved],
+    [copy.misc.profileSaved, userId],
   );
 
   const setQueueFilters = useCallback((filters: Partial<QueueFilters>) => {
@@ -421,14 +684,82 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       preference: profile.preference,
       language: profile.language,
     });
+
+    if (matchIntervalRef.current) {
+      window.clearInterval(matchIntervalRef.current);
+    }
+
+    const startedAt = Date.now();
+    matchIntervalRef.current = window.setInterval(async () => {
+      if (!profile || room) {
+        return;
+      }
+
+      const relaxed = Date.now() - startedAt > 3500;
+      const candidate = await findBestMatch(profile, relaxed);
+      if (!candidate) {
+        return;
+      }
+
+      const existingRoom = await loadActiveRoomForUser(profile.id);
+      if (existingRoom) {
+        await openRoom(existingRoom.id, profile.id, existingRoom);
+        setQueue(createInitialQueue(profile));
+        if (matchIntervalRef.current) {
+          window.clearInterval(matchIntervalRef.current);
+          matchIntervalRef.current = null;
+        }
+        return;
+      }
+
+      const newRoom = await createRoomRecord(profile.id, candidate.id);
+      if (!newRoom) {
+        return;
+      }
+
+      const systemMessage = createSystemMessage(
+        newRoom.id,
+        language === "en"
+          ? "Connection opened. Stay curious and respectful."
+          : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.",
+      );
+
+      const nextRoom: RoomSession = {
+        ...newRoom,
+        partner: candidate,
+        messages: [systemMessage],
+        status: "active",
+      };
+
+      await persistRoom(nextRoom);
+      await leaveQueue(profile.id);
+      await leaveQueue(candidate.id);
+      setRoom(nextRoom);
+      setQueue(createInitialQueue(profile));
+      subscribeToRoom(nextRoom.id);
+      toast.success(copy.misc.sessionReady);
+      if (hapticsEnabled) {
+        vibrate([60, 40, 80]);
+      }
+
+      if (matchIntervalRef.current) {
+        window.clearInterval(matchIntervalRef.current);
+        matchIntervalRef.current = null;
+      }
+    }, 2200);
+
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, hapticsEnabled, profile]);
+  }, [authenticated, copy.misc.sessionReady, hapticsEnabled, language, profile, room]);
 
   const cancelQueue = useCallback(async () => {
     if (profile) {
       await leaveQueue(profile.id);
+    }
+    if (matchIntervalRef.current) {
+      window.clearInterval(matchIntervalRef.current);
+      matchIntervalRef.current = null;
     }
     setQueue(createInitialQueue(profile));
   }, [profile]);
@@ -464,9 +795,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         type: "text",
       };
 
-      const nextMessages = [...room.messages, userMessage];
-      const nextRoom = { ...room, messages: nextMessages };
-      setRoom(nextRoom);
+      setRoom((current) =>
+        current
+          ? {
+              ...current,
+              messages: current.messages.some((message) => message.id === userMessage.id)
+                ? current.messages
+                : [...current.messages, userMessage],
+            }
+          : current,
+      );
       await persistMessage(userMessage);
 
       if (replyTimeoutRef.current) {
@@ -520,62 +858,65 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         setVoiceState("error");
-        toast.error(hasSupabaseConfig ? copy.misc.reconnecting : "Microphone permission was not granted.");
+        toast.error(language === "en" ? "Microphone permission was not granted." : "Δεν δόθηκε άδεια στο μικρόφωνο.");
       }
     },
-    [copy.misc.reconnecting, copy.session.connected, copy.session.voiceStarting, hapticsEnabled],
+    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language],
   );
 
   const leaveRoom = useCallback(
     (reason?: string) => {
       stopVoiceChat();
-      setRoom((current) => {
-        if (!current) {
-          return current;
-        }
+      if (!room) {
+        return;
+      }
 
-        const nextRoom = {
-          ...current,
-          status: "ended" as const,
-          endedAt: new Date().toISOString(),
-          messages: reason
-            ? [...current.messages, createSystemMessage(current.id, reason)]
-            : current.messages,
-        };
+      const nextRoom = {
+        ...room,
+        status: "ended" as const,
+        endedAt: new Date().toISOString(),
+        messages: reason
+          ? [...room.messages, createSystemMessage(room.id, reason)]
+          : room.messages,
+      };
 
-        void persistRoom(nextRoom);
-        return nextRoom;
-      });
+      void endRoom(nextRoom);
+      void persistRoom(nextRoom);
+      setRoom(nextRoom);
+      if (matchIntervalRef.current) {
+        window.clearInterval(matchIntervalRef.current);
+        matchIntervalRef.current = null;
+      }
     },
-    [stopVoiceChat],
+    [room, stopVoiceChat],
   );
 
   const rateRoom = useCallback(
     async (score: RatingScore) => {
-      if (!room) {
+      if (!room || !userId) {
         return;
       }
 
       setRoom((current) => (current ? { ...current, rating: score } : current));
       setRatings((current) => [...current, score]);
-      await persistRating(room.id, score);
+      await persistRating(room.id, userId, score);
       toast.success(copy.misc.ratingSaved);
     },
-    [copy.misc.ratingSaved, room],
+    [copy.misc.ratingSaved, room, userId],
   );
 
   const reportCurrentRoom = useCallback(
     async (reason: string) => {
-      if (!room) {
+      if (!room || !userId) {
         return;
       }
 
       setReportsCount((current) => current + 1);
-      await persistReport(room.id, room.partner.id, reason);
+      await persistReport(room.id, userId, room.partner.id, reason);
       toast.success(copy.misc.reported);
       leaveRoom(language === "en" ? "Conversation ended after a report." : "Η συνομιλία ολοκληρώθηκε μετά από αναφορά.");
     },
-    [copy.misc.reported, language, leaveRoom, room],
+    [copy.misc.reported, language, leaveRoom, room, userId],
   );
 
   const blockCurrentPartner = useCallback(() => {
@@ -658,10 +999,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
 export function usePresence() {
   const context = useContext(PresenceContext);
-
   if (!context) {
     throw new Error("usePresence must be used inside PresenceProvider");
   }
-
   return context;
 }
