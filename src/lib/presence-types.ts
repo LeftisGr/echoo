@@ -1,0 +1,94 @@
+export type AppLanguage = "en" | "el";
+
+export type AuthMethod = "google" | "magic";
+
+export type AgeRange = "18-24" | "25-34" | "35-44" | "45+";
+
+export type GenderOption = "male" | "female" | "nonbinary" | "prefer-not";
+
+export type PreferenceOption = "male" | "female" | "anyone";
+
+export type LanguagePreference = "greek" | "english" | "both";
+
+export type RatingScore = "good" | "neutral" | "bad";
+
+export type RoomStatus = "idle" | "active" | "ended";
+
+export type VoiceState = "idle" | "connecting" | "connected" | "error";
+
+export interface PresenceProfile {
+  id: string;
+  username: string;
+  ageRange: AgeRange;
+  gender: GenderOption;
+  preference: PreferenceOption;
+  language: LanguagePreference;
+  interests: string[];
+  createdAt: string;
+}
+
+export interface QueueFilters {
+  preference: PreferenceOption;
+  language: LanguagePreference;
+}
+
+export interface PartnerProfile {
+  id: string;
+  username: string;
+  ageRange: AgeRange;
+  gender: GenderOption;
+  language: LanguagePreference;
+  interests: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  type: "text" | "system";
+}
+
+export interface RoomSession {
+  id: string;
+  userA: string;
+  userB: string;
+  startedAt: string;
+  endedAt?: string;
+  voiceEnabled: boolean;
+  status: RoomStatus;
+  partner: PartnerProfile;
+  messages: ChatMessage[];
+  rating?: RatingScore;
+}
+
+export interface QueueState {
+  active: boolean;
+  joinedAt?: string;
+  estimatedWaitSeconds: number;
+  filters: QueueFilters;
+  messageIndex: number;
+  softRelaxed: boolean;
+}
+
+export interface AdminMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  queueCount: number;
+  activeRooms: number;
+  averageSessionDuration: number;
+  reportsCount: number;
+  dailySignups: number;
+  usersOnlineNow: number;
+  avgWaitTimeSeconds: number;
+}
+
+export interface PresenceStoredState {
+  language: AppLanguage;
+  profile: PresenceProfile | null;
+  authenticated: boolean;
+  room: RoomSession | null;
+  reportsCount: number;
+  ratings: RatingScore[];
+}

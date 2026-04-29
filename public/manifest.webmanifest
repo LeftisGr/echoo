@@ -1,0 +1,17 @@
+{
+  "name": "Presence",
+  "short_name": "Presence",
+  "description": "Anonymous 1-to-1 conversations that begin with text and unlock voice later.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
