@@ -13,9 +13,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getCopy, interestTags, partnerReplies, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
-  createRoomRecord,
   endRoom,
-  findBestMatch,
+
   hasSupabaseConfig,
   joinQueue,
   leaveQueue,
@@ -23,7 +22,7 @@ import {
   loadProfile,
   loadRoomById,
   loadRoomMessages,
-
+  matchQueueUser,
   persistMessage,
   persistRating,
   persistReport,
@@ -199,6 +198,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const replyTimeoutRef = useRef<number | null>(null);
   const queueTimersRef = useRef<number[]>([]);
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const matchmakingInFlightRef = useRef(false);
   const matchIntervalRef = useRef<number | null>(null);
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
 
@@ -366,6 +367,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
     const loadedProfile = await loadProfile(currentUserId);
+    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+
     if (loadedProfile) {
       setProfile(loadedProfile);
       setQueue((current) => ({
@@ -376,14 +379,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         },
       }));
     } else {
-      const fallbackProfile = createDefaultProfile(currentUserId);
-      setProfile(fallbackProfile);
-      await syncProfile(fallbackProfile);
+      setProfile(profileToUse);
+      await syncProfile(profileToUse);
     }
 
     const activeRoom = await loadActiveRoomForUser(currentUserId);
     if (activeRoom) {
       await openRoom(activeRoom.id, currentUserId, activeRoom);
+      setQueue(createInitialQueue(profileToUse));
     } else {
       stopRoomSubscriptions();
       setRoom(null);
@@ -410,6 +413,62 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   function stopRoomSubscriptions() {
     roomChannelRef.current?.unsubscribe();
     roomChannelRef.current = null;
+  }
+
+  function stopQueueSubscriptions() {
+    queueChannelRef.current?.unsubscribe();
+    queueChannelRef.current = null;
+  }
+
+  function subscribeToQueueChanges(currentUserId: string) {
+    stopQueueSubscriptions();
+
+    const channel = supabase
+      .channel(`presence-queue-${currentUserId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "queue" }, () => {
+        void attemptRealtimeMatch(currentUserId);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "queue" }, () => {
+        void attemptRealtimeMatch(currentUserId);
+      })
+      .subscribe();
+
+    queueChannelRef.current = channel;
+  }
+
+  async function attemptRealtimeMatch(currentUserId: string) {
+    if (!authenticated || !profile || room || !queue.active || matchmakingInFlightRef.current) {
+      return;
+    }
+
+    matchmakingInFlightRef.current = true;
+
+    try {
+      const match = await matchQueueUser(currentUserId);
+      if (!match.roomId) {
+        return;
+      }
+
+      if (matchedRoomIdsRef.current.has(match.roomId)) {
+        return;
+      }
+
+      const activeRoom = await loadRoomById(match.roomId);
+      if (!activeRoom) {
+        return;
+      }
+
+      matchedRoomIdsRef.current.add(activeRoom.id);
+      await openRoom(activeRoom.id, currentUserId, activeRoom);
+      setQueue(createInitialQueue(profile));
+      stopQueueSubscriptions();
+      toast.success(copy.misc.sessionReady);
+      if (hapticsEnabled) {
+        vibrate([60, 40, 80]);
+      }
+    } finally {
+      matchmakingInFlightRef.current = false;
+    }
   }
 
   function subscribeToRoom(roomId: string) {
@@ -513,6 +572,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     subscribeToRoom(roomId);
   }
 
+  useEffect(() => {
+    if (!authenticated || !profile || !userId || !queue.active || room) {
+      stopQueueSubscriptions();
+      return;
+    }
+
+    subscribeToQueueChanges(userId);
+    void attemptRealtimeMatch(userId);
+
+    return () => {
+      stopQueueSubscriptions();
+    };
+  }, [authenticated, profile, queue.active, room?.id, userId]);
+
   async function refreshAdminMetrics() {
     if (!hasSupabaseConfig) {
       const activeUsers = authenticated ? 1 : 0;
@@ -607,6 +680,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     voiceControllerRef.current?.stop();
     voiceControllerRef.current = null;
+    matchmakingInFlightRef.current = false;
+    stopQueueSubscriptions();
+    stopRoomSubscriptions();
     setVoiceState("idle");
     void supabase.auth.signOut();
     setAuthenticated(false);
@@ -668,6 +744,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    stopQueueSubscriptions();
+    stopRoomSubscriptions();
     setRoom(null);
     setQueue({
       active: true,
@@ -680,78 +758,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       messageIndex: 0,
       softRelaxed: false,
     });
+
     await joinQueue(profile.id, {
       preference: profile.preference,
       language: profile.language,
     });
 
-    if (matchIntervalRef.current) {
-      window.clearInterval(matchIntervalRef.current);
-    }
-
-    const startedAt = Date.now();
-    matchIntervalRef.current = window.setInterval(async () => {
-      if (!profile || room) {
-        return;
-      }
-
-      const relaxed = Date.now() - startedAt > 3500;
-      const candidate = await findBestMatch(profile, relaxed);
-      if (!candidate) {
-        return;
-      }
-
-      const existingRoom = await loadActiveRoomForUser(profile.id);
-      if (existingRoom) {
-        await openRoom(existingRoom.id, profile.id, existingRoom);
-        setQueue(createInitialQueue(profile));
-        if (matchIntervalRef.current) {
-          window.clearInterval(matchIntervalRef.current);
-          matchIntervalRef.current = null;
-        }
-        return;
-      }
-
-      const newRoom = await createRoomRecord(profile.id, candidate.id);
-      if (!newRoom) {
-        return;
-      }
-
-      const systemMessage = createSystemMessage(
-        newRoom.id,
-        language === "en"
-          ? "Connection opened. Stay curious and respectful."
-          : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.",
-      );
-
-      const nextRoom: RoomSession = {
-        ...newRoom,
-        partner: candidate,
-        messages: [systemMessage],
-        status: "active",
-      };
-
-      await persistRoom(nextRoom);
-      await leaveQueue(profile.id);
-      await leaveQueue(candidate.id);
-      setRoom(nextRoom);
-      setQueue(createInitialQueue(profile));
-      subscribeToRoom(nextRoom.id);
-      toast.success(copy.misc.sessionReady);
-      if (hapticsEnabled) {
-        vibrate([60, 40, 80]);
-      }
-
-      if (matchIntervalRef.current) {
-        window.clearInterval(matchIntervalRef.current);
-        matchIntervalRef.current = null;
-      }
-    }, 2200);
+    void attemptRealtimeMatch(profile.id);
 
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, copy.misc.sessionReady, hapticsEnabled, language, profile, room]);
+  }, [attemptRealtimeMatch, authenticated, hapticsEnabled, profile, stopQueueSubscriptions, stopRoomSubscriptions]);
 
   const cancelQueue = useCallback(async () => {
     if (profile) {
@@ -762,7 +780,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchIntervalRef.current = null;
     }
     setQueue(createInitialQueue(profile));
-  }, [profile]);
+  }, [profile, stopQueueSubscriptions]);
 
   const unlockVoice = useCallback(() => {
     setRoom((current) => {

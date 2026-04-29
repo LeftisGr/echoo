@@ -93,6 +93,13 @@ interface LiveMessageRow {
   created_at: string;
 }
 
+interface MatchQueueRow {
+  room_id: string;
+  partner_id: string;
+  created_room: boolean;
+  already_matched: boolean;
+}
+
 function createOfflineResult<T>(value: T) {
   return Promise.resolve(value);
 }
@@ -238,6 +245,29 @@ export async function leaveQueue(userId: string) {
   }
 
   return { ok: true, userId };
+}
+
+export async function matchQueueUser(userId: string) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ roomId: null as string | null, partnerId: null as string | null, createdRoom: false, alreadyMatched: false });
+  }
+
+  const { data, error } = await supabase.rpc("match_queue_user", {
+    target_user_id: userId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = (data as MatchQueueRow[] | null | undefined)?.[0] ?? null;
+
+  return {
+    roomId: row?.room_id ?? null,
+    partnerId: row?.partner_id ?? null,
+    createdRoom: row?.created_room ?? false,
+    alreadyMatched: row?.already_matched ?? false,
+  };
 }
 
 export async function findBestMatch(user: PresenceProfile, relaxed = false) {
