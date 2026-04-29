@@ -63,7 +63,8 @@ const QueuePage = () => {
               <LoaderCircle className="h-10 w-10 animate-spin" />
             </div>
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.28em] text-white/40">Presence live queue</p>
+              <p className="text-xs uppercase tracking-[0.28em] text-white/40">Echoo live queue</p>
+
               <h1 className="text-3xl font-semibold tracking-tight text-white">{copy.queue.title}</h1>
               <p className="text-sm text-white/60">{copy.queue.body}</p>
             </div>

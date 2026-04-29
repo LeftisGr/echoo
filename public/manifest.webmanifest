@@ -1,6 +1,7 @@
 {
-  "name": "Presence",
-  "short_name": "Presence",
+  "name": "Echoo",
+  "short_name": "Echoo",
+
   "description": "Anonymous 1-to-1 conversations that begin with text and unlock voice later.",
   "start_url": "/",
   "display": "standalone",

@@ -20,7 +20,8 @@ const AdminPage = () => {
       <Surface className="space-y-4 p-6 sm:p-8">
         <SectionTitle
           eyebrow="hidden route"
-          title="Presence admin"
+          title="Echoo admin"
+
           body="Lean operating dashboard for launch metrics, queue health, and trust & safety signals."
         />
       </Surface>

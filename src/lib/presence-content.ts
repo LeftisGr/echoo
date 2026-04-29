@@ -208,7 +208,8 @@ export const copy = {
     },
     safety: {
       title: "Safety comes before chemistry",
-      body: "Presence keeps every room lightweight, anonymous, and easy to leave. Respect is the default rule.",
+      body: "Echoo keeps every room lightweight, anonymous, and easy to leave. Respect is the default rule.",
+
       rules: [
         "No harassment, hate speech, sexual coercion, or threats.",
         "Leave instantly if a conversation feels wrong.",
@@ -278,11 +279,12 @@ export const copy = {
   },
   el: {
     brand: {
-      name: "Presence",
+      name: "Echoo",
       tagline: "Πρώτα λόγια. Μετά φωνή. Χωρίς φωτογραφίες. Χωρίς swipes. Μόνο σύνδεση.",
       waitlist: "MVP έτοιμο για γρήγορο λανσάρισμα στην Ελλάδα",
     },
     nav: {
+
       startNow: "Ξεκίνα τώρα",
       dashboard: "Αρχική",
       safety: "Ασφάλεια",
@@ -297,15 +299,17 @@ export const copy = {
       heroEyebrow: "Ανώνυμες συνομιλίες σε πραγματικό χρόνο",
       heroTitle: "Γνώρισε έναν άγνωστο μέσα από λέξεις πριν από οτιδήποτε άλλο.",
       heroBody:
-        "Το Presence είναι μια mobile-first ανώνυμη εφαρμογή για άμεσες 1-to-1 συνομιλίες. Ξεκινάς με κείμενο, ξεκλειδώνεις φωνή μετά από χρόνο και η χημεία χτίζεται χωρίς εικόνες.",
+        "Το Echoo είναι μια mobile-first ανώνυμη εφαρμογή για άμεσες 1-to-1 συνομιλίες. Ξεκινάς με κείμενο, ξεκλειδώνεις φωνή μετά από χρόνο και η χημεία χτίζεται χωρίς εικόνες.",
+
       heroPrimary: "Ξεκίνα τώρα",
       heroSecondary: "Δες πώς δουλεύει",
       statUsers: "online τώρα",
       statWait: "μέση αναμονή",
       statSafety: "στρώματα ασφάλειας",
-      whatIsTitle: "Τι είναι το Presence",
+      whatIsTitle: "Τι είναι το Echoo",
       whatIsBody:
         "Ένας premium χώρος για ειλικρινείς, ανώνυμες one-to-one συνομιλίες. Χωρίς φωτογραφίες προφίλ. Χωρίς δημόσιο feed. Χωρίς ατελείωτα swipes.",
+
       stepsTitle: "Πώς λειτουργεί",
       whyPhotosTitle: "Γιατί χωρίς φωτογραφίες",
       whyPhotosBody:
@@ -409,10 +413,12 @@ export const copy = {
     legal: {
       privacyTitle: "Απόρρητο",
       privacyBody:
-        "Το Presence σχεδιάζεται γύρω από την ελάχιστη ταυτότητα, τα ιδιωτικά δωμάτια και τον σαφή έλεγχο του χρήστη. Τα προσωπικά δεδομένα πρέπει να περιορίζονται μόνο σε όσα χρειάζονται για τη λειτουργία της υπηρεσίας.",
+        "Το Echoo σχεδιάζεται γύρω από την ελάχιστη ταυτότητα, τα ιδιωτικά δωμάτια και τον σαφή έλεγχο του χρήστη. Τα προσωπικά δεδομένα πρέπει να περιορίζονται μόνο σε όσα χρειάζονται για τη λειτουργία της υπηρεσίας.",
+
       termsTitle: "Όροι",
       termsBody:
-        "Χρησιμοποίησε το Presence με σεβασμό, μην κακομεταχειρίζεσαι άλλους χρήστες και να γνωρίζεις ότι τα ανώνυμα δωμάτια μπορούν να εποπτεύονται μέσω reports και μηχανισμών ασφάλειας.",
+        "Χρησιμοποίησε το Echoo με σεβασμό, μην κακομεταχειρίζεσαι άλλους χρήστες και να γνωρίζεις ότι τα ανώνυμα δωμάτια μπορούν να εποπτεύονται μέσω reports και μηχανισμών ασφάλειας.",
+
     },
     misc: {
       both: "Και τα δύο",

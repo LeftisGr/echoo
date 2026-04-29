@@ -39,7 +39,8 @@ const AuthPage = () => {
     <PageShell className="space-y-6">
       <Surface className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <div className="space-y-5">
-          <SectionTitle eyebrow={copy.brand.name} title={copy.auth.title} body={copy.auth.body} />
+          <SectionTitle eyebrow="Echoo" title={copy.auth.title} body={copy.auth.body} />
+
           <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5 text-sm leading-7 text-violet-50">
             <p className="font-medium">{copy.auth.helper}</p>
             <div className="mt-4 flex items-center gap-2 text-violet-100/75">

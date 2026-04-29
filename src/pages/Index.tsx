@@ -159,7 +159,8 @@ const Index = () => {
               <Users className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm text-white/50">{copy.landing.whatIsTitle}</p>
+              <p className="text-sm text-white/50">{language === "en" ? "What is Echoo" : "Τι είναι το Echoo"}</p>
+
               <p className="mt-1 text-sm leading-6 text-white/80">{copy.landing.whatIsBody}</p>
             </div>
           </Surface>
@@ -195,8 +196,12 @@ const Index = () => {
 
       <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Surface>
-          <SectionTitle title={copy.landing.whatIsTitle} body={copy.landing.whatIsBody} />
+          <SectionTitle
+            title={language === "en" ? "What is Echoo" : "Τι είναι το Echoo"}
+            body={copy.landing.whatIsBody}
+          />
         </Surface>
+
         <Surface id="how-it-works" className="space-y-6">
           <SectionTitle title={copy.landing.stepsTitle} />
           <div className="grid gap-4 sm:grid-cols-3">
@@ -304,8 +309,9 @@ const Index = () => {
       </section>
 
       <footer className="pb-6 text-center text-xs text-white/40">
-        Presence MVP · Greece-first · Greek + English · Anonymous by design
+        Echoo MVP · Greece-first · Greek + English · Anonymous by design
       </footer>
+
       <StickyBottomBar />
     </PageShell>
   );

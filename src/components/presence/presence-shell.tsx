@@ -7,19 +7,74 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/components/presence/presence-provider";
 
+function MenuSheet() {
+  const { copy } = usePresence();
+
+  const links = [
+    { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
+    { to: "/safety", label: copy.nav.safety, icon: Shield },
+    { to: "/settings", label: copy.nav.settings, icon: Globe },
+  ];
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10 hover:text-white"
+        >
+          <Menu className="mr-2 h-4 w-4" />
+          {copy.landing.stickyMenu}
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="border-white/10 bg-[#0d1020] text-white">
+        <SheetHeader>
+          <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
+        </SheetHeader>
+        <div className="mt-8 space-y-3">
+          {links.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </Link>
+          ))}
+          <Link
+            to="/contact"
+            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
+          >
+            {copy.nav.contact}
+          </Link>
+          <Link
+            to="/admin/presence"
+            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
+          >
+            {copy.nav.admin}
+          </Link>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function PresenceLogo({ compact = false }: { compact?: boolean }) {
   const { copy } = usePresence();
 
   return (
     <div className="flex items-center gap-3">
       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[15px] font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-        P
+        E
       </div>
       {!compact && (
         <div>
-          <p className="text-sm font-semibold tracking-[0.22em] text-white/90 uppercase">
-            {copy.brand.name}
+          <p className="text-[0.9rem] font-semibold tracking-[0.34em] text-white uppercase">
+            Echoo
           </p>
+
           <p className="text-xs text-white/50">{copy.brand.waitlist}</p>
         </div>
       )}
@@ -70,68 +125,11 @@ export function PageShell({
           <Link to="/" className="shrink-0">
             <PresenceLogo />
           </Link>
-          <div className="flex items-center gap-2">
-            <LanguageToggle />
-            <MobileMenu />
-          </div>
+          <LanguageToggle />
         </header>
         <main className={cn("flex-1", className)}>{children}</main>
       </div>
     </div>
-  );
-}
-
-function MobileMenu() {
-  const { copy } = usePresence();
-
-  const links = [
-    { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
-    { to: "/safety", label: copy.nav.safety, icon: Shield },
-    { to: "/settings", label: copy.nav.settings, icon: Globe },
-  ];
-
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="h-11 w-11 rounded-full border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="border-white/10 bg-[#0d1020] text-white">
-        <SheetHeader>
-          <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
-        </SheetHeader>
-        <div className="mt-8 space-y-3">
-          {links.map(({ to, label, icon: Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
-          <Link
-            to="/contact"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
-          >
-            {copy.nav.contact}
-          </Link>
-          <Link
-            to="/admin/presence"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
-          >
-            {copy.nav.admin}
-          </Link>
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 
@@ -181,14 +179,7 @@ export function StickyBottomBar() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/90 px-4 py-3 backdrop-blur xl:hidden">
       <div className="mx-auto flex max-w-6xl items-center gap-3">
-        <Link to="/">
-          <Button
-            variant="outline"
-            className="h-12 rounded-full border-white/15 bg-white/5 px-5 text-white hover:bg-white/10 hover:text-white"
-          >
-            {copy.landing.stickyMenu}
-          </Button>
-        </Link>
+        <MenuSheet />
         <Link to="/auth" className="flex-1">
           <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
             {copy.landing.stickySession}
