@@ -200,7 +200,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const matchmakingInFlightRef = useRef(false);
-  const matchIntervalRef = useRef<number | null>(null);
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
 
   const copy = useMemo(() => getCopy(language), [language]);
@@ -274,10 +273,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (!queue.active) {
       queueTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       queueTimersRef.current = [];
-      if (matchIntervalRef.current) {
-        window.clearInterval(matchIntervalRef.current);
-        matchIntervalRef.current = null;
-      }
       return;
     }
 
@@ -306,9 +301,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (replyTimeoutRef.current) {
         window.clearTimeout(replyTimeoutRef.current);
       }
-      if (matchIntervalRef.current) {
-        window.clearInterval(matchIntervalRef.current);
-      }
+      stopQueueSubscriptions();
       stopRoomSubscriptions();
       voiceControllerRef.current?.stop();
     };
@@ -769,18 +762,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [attemptRealtimeMatch, authenticated, hapticsEnabled, profile, stopQueueSubscriptions, stopRoomSubscriptions]);
+  }, [authenticated, hapticsEnabled, profile]);
 
   const cancelQueue = useCallback(async () => {
+    stopQueueSubscriptions();
     if (profile) {
       await leaveQueue(profile.id);
     }
-    if (matchIntervalRef.current) {
-      window.clearInterval(matchIntervalRef.current);
-      matchIntervalRef.current = null;
-    }
     setQueue(createInitialQueue(profile));
-  }, [profile, stopQueueSubscriptions]);
+  }, [profile]);
 
   const unlockVoice = useCallback(() => {
     setRoom((current) => {
@@ -901,10 +891,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       void endRoom(nextRoom);
       void persistRoom(nextRoom);
       setRoom(nextRoom);
-      if (matchIntervalRef.current) {
-        window.clearInterval(matchIntervalRef.current);
-        matchIntervalRef.current = null;
-      }
     },
     [room, stopVoiceChat],
   );
