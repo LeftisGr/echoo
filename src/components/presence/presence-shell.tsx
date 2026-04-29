@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Globe, Menu, Shield, Sparkles } from "lucide-react";
+import { Globe, Menu, Shield, Sparkles, UserCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,22 +62,16 @@ function MenuSheet() {
 }
 
 export function PresenceLogo({ compact = false }: { compact?: boolean }) {
-  const { copy } = usePresence();
-
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[15px] font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-        E
-      </div>
-      {!compact && (
-        <div>
-          <p className="text-[0.9rem] font-semibold tracking-[0.34em] text-white uppercase">
-            Echoo
-          </p>
-
-          <p className="text-xs text-white/50">{copy.brand.waitlist}</p>
-        </div>
-      )}
+    <div className="flex items-center">
+      <p
+        className={cn(
+          "font-serif text-2xl font-semibold tracking-[0.22em] text-white sm:text-3xl",
+          compact && "text-xl sm:text-2xl",
+        )}
+      >
+        Echoo
+      </p>
     </div>
   );
 }
@@ -111,6 +105,23 @@ export function LanguageToggle() {
   );
 }
 
+function ProfileButton() {
+  const { authenticated, profile } = usePresence();
+  const to = authenticated ? "/settings" : "/auth";
+  const label = authenticated ? profile?.username ?? "Profile" : "Sign in";
+
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      title={label}
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10 hover:text-white"
+    >
+      <UserCircle2 className="h-5 w-5" />
+    </Link>
+  );
+}
+
 export function PageShell({
   children,
   className,
@@ -125,7 +136,10 @@ export function PageShell({
           <Link to="/" className="shrink-0">
             <PresenceLogo />
           </Link>
-          <LanguageToggle />
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ProfileButton />
+          </div>
         </header>
         <main className={cn("flex-1", className)}>{children}</main>
       </div>
