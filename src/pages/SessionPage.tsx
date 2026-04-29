@@ -81,8 +81,21 @@ const SessionPage = () => {
     return () => stopVoiceChat();
   }, [stopVoiceChat]);
 
-  if (!authenticated || !profile) {
+  if (!authenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (!profile) {
+    return (
+      <PageShell className="flex items-center">
+        <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
+          <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">
+            {language === "en" ? "Loading your room..." : "Φορτώνουμε το room σου..."}
+          </h1>
+        </Surface>
+      </PageShell>
+    );
   }
 
   if (!room) {
@@ -261,49 +274,33 @@ const SessionPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-                {room.voiceEnabled
-                  ? voiceState === "connected"
-                    ? copy.session.connected
-                    : copy.session.keepText
-                  : copy.session.textNote}
+              <div className="rounded-[26px] border border-white/10 bg-white/5 p-4 text-sm text-white/65">
+                {copy.session.countdownLabel}: {formattedTimer}
               </div>
-            )}
-            {voiceState === "connected" && (
-              <Button
-                variant="outline"
-                className="h-12 rounded-full border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/15 hover:text-red-50"
-                onClick={stopVoiceChat}
-              >
-                <PhoneOff className="mr-2 h-4 w-4" />
-                {copy.session.leave}
-              </Button>
             )}
           </Surface>
 
           <Surface className="space-y-4 p-5">
-            <div className="flex items-center gap-3 text-white">
-              <ShieldAlert className="h-5 w-5 text-violet-200" />
-              <div>
-                <p className="text-sm font-medium text-white">{language === "en" ? "Safety" : "Ασφάλεια"}</p>
-
-                <p className="text-sm text-white/55">{copy.landing.safetyBody}</p>
-              </div>
+            <div className="flex items-center gap-2 text-white/80">
+              <ShieldAlert className="h-4 w-4 text-violet-200" />
+              <p className="text-sm font-medium">{copy.safety.title}</p>
             </div>
-            <div className="grid gap-3">
+            <p className="text-sm leading-6 text-white/60">{copy.landing.safetyBody}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 variant="outline"
-                className="h-12 rounded-full border-amber-400/20 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15 hover:text-amber-50"
-                onClick={() => void reportCurrentRoom(language === "en" ? "Abusive behavior" : "Κακοποιητική συμπεριφορά")}
+                className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                onClick={() => reportCurrentRoom(language === "en" ? "Conversation reported from the room." : "Η συνομιλία αναφέρθηκε από το room.")}
               >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 {copy.session.report}
               </Button>
               <Button
                 variant="outline"
-                className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                className="h-12 rounded-full border-rose-400/20 bg-rose-400/10 text-rose-50 hover:bg-rose-400/15 hover:text-rose-50"
                 onClick={blockCurrentPartner}
               >
+                <PhoneOff className="mr-2 h-4 w-4" />
                 {copy.session.block}
               </Button>
             </div>

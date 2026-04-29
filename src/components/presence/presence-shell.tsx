@@ -11,6 +11,7 @@ function MenuSheet() {
   const { copy } = usePresence();
 
   const links = [
+    { to: "/", label: copy.nav.home, icon: Sparkles },
     { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
     { to: "/safety", label: copy.nav.safety, icon: Shield },
     { to: "/settings", label: copy.nav.settings, icon: Globe },
@@ -78,30 +79,18 @@ export function PresenceLogo({ compact = false }: { compact?: boolean }) {
 
 export function LanguageToggle() {
   const { language, setLanguage } = usePresence();
+  const nextLabel = language === "en" ? "EL" : "EN";
 
   return (
-    <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 p-1">
-      <button
-        className={cn(
-          "rounded-full px-3 py-1.5 text-xs font-medium transition",
-          language === "en" ? "bg-white text-slate-950" : "text-white/60",
-        )}
-        onClick={() => setLanguage("en")}
-        type="button"
-      >
-        EN
-      </button>
-      <button
-        className={cn(
-          "rounded-full px-3 py-1.5 text-xs font-medium transition",
-          language === "el" ? "bg-white text-slate-950" : "text-white/60",
-        )}
-        onClick={() => setLanguage("el")}
-        type="button"
-      >
-        EL
-      </button>
-    </div>
+    <button
+      className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-xs font-medium tracking-[0.18em] text-white transition hover:bg-white/10"
+      onClick={() => setLanguage(language === "en" ? "el" : "en")}
+      type="button"
+      aria-label={nextLabel}
+      title={nextLabel}
+    >
+      {nextLabel}
+    </button>
   );
 }
 

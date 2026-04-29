@@ -4,12 +4,7 @@ import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-
-  PageShell,
-  SectionTitle,
-  Surface,
-} from "@/components/presence/presence-shell";
+import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 import {
   ageRangeOptions,
@@ -29,10 +24,6 @@ const AuthPage = () => {
 
   if (authenticated) {
     return <Navigate to="/dashboard" replace />;
-  }
-
-  if (!profile) {
-    return null;
   }
 
   return (
@@ -80,81 +71,93 @@ const AuthPage = () => {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <Surface className="space-y-4 bg-black/20 p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-white/50">{copy.auth.profileTitle}</p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">{profile.username}</h2>
+        {profile ? (
+          <div className="space-y-4">
+            <Surface className="space-y-4 bg-black/20 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-white/50">{copy.auth.profileTitle}</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">{profile.username}</h2>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                  onClick={rerollUsername}
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  {copy.auth.reroll}
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={rerollUsername}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                {copy.auth.reroll}
-              </Button>
-            </div>
-            <div className="rounded-[24px] border border-white/10 bg-[#0a0d18] p-4 text-sm text-white/70">
-              <p>{copy.brand.tagline}</p>
-            </div>
-          </Surface>
+              <div className="rounded-[24px] border border-white/10 bg-[#0a0d18] p-4 text-sm text-white/70">
+                <p>{copy.brand.tagline}</p>
+              </div>
+            </Surface>
 
-          <ProfileSelectGroup
-            label={copy.auth.ageRange}
-            values={ageRangeOptions}
-            activeValue={profile.ageRange}
-            getLabel={(value) => localizeAgeRange(language, value)}
-            onSelect={(value) => updateProfile({ ageRange: value })}
-          />
-          <ProfileSelectGroup
-            label={copy.auth.gender}
-            values={genderOptions}
-            activeValue={profile.gender}
-            getLabel={(value) => localizeGender(language, value)}
-            onSelect={(value) => updateProfile({ gender: value })}
-          />
-          <ProfileSelectGroup
-            label={copy.auth.lookingFor}
-            values={preferenceOptions}
-            activeValue={profile.preference}
-            getLabel={(value) => localizePreference(language, value)}
-            onSelect={(value) => updateProfile({ preference: value })}
-          />
-          <ProfileSelectGroup
-            label={copy.auth.language}
-            values={languageOptions}
-            activeValue={profile.language}
-            getLabel={(value) => localizeLanguagePreference(language, value)}
-            onSelect={(value) => updateProfile({ language: value })}
-          />
+            <ProfileSelectGroup
+              label={copy.auth.ageRange}
+              values={ageRangeOptions}
+              activeValue={profile.ageRange}
+              getLabel={(value) => localizeAgeRange(language, value)}
+              onSelect={(value) => updateProfile({ ageRange: value })}
+            />
+            <ProfileSelectGroup
+              label={copy.auth.gender}
+              values={genderOptions}
+              activeValue={profile.gender}
+              getLabel={(value) => localizeGender(language, value)}
+              onSelect={(value) => updateProfile({ gender: value })}
+            />
+            <ProfileSelectGroup
+              label={copy.auth.lookingFor}
+              values={preferenceOptions}
+              activeValue={profile.preference}
+              getLabel={(value) => localizePreference(language, value)}
+              onSelect={(value) => updateProfile({ preference: value })}
+            />
+            <ProfileSelectGroup
+              label={copy.auth.language}
+              values={languageOptions}
+              activeValue={profile.language}
+              getLabel={(value) => localizeLanguagePreference(language, value)}
+              onSelect={(value) => updateProfile({ language: value })}
+            />
 
-          <Surface className="space-y-4 bg-black/20 p-5">
-            <p className="text-sm text-white/55">{copy.auth.interests}</p>
-            <div className="flex flex-wrap gap-2">
-              {interestTags.map((tag) => {
-                const active = profile.interests.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={active ? activeTagClass : tagClass}
-                    onClick={() => {
-                      const nextInterests = active
-                        ? profile.interests.filter((item) => item !== tag)
-                        : [...profile.interests, tag].slice(-6);
-                      updateProfile({ interests: nextInterests });
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
+            <Surface className="space-y-4 bg-black/20 p-5">
+              <p className="text-sm text-white/55">{copy.auth.interests}</p>
+              <div className="flex flex-wrap gap-2">
+                {interestTags.map((tag) => {
+                  const active = profile.interests.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={active ? activeTagClass : tagClass}
+                      onClick={() => {
+                        const nextInterests = active
+                          ? profile.interests.filter((item) => item !== tag)
+                          : [...profile.interests, tag].slice(-6);
+                        updateProfile({ interests: nextInterests });
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </Surface>
+          </div>
+        ) : (
+          <Surface className="space-y-4 bg-black/20 p-6 text-white/75">
+            <p className="text-sm uppercase tracking-[0.2em] text-white/45">{copy.auth.profileTitle}</p>
+            <h2 className="text-2xl font-semibold text-white">{copy.brand.name}</h2>
+            <p className="text-sm leading-7 text-white/65">
+              {language === "en"
+                ? "Sign in or sign up to unlock your personal profile, queue settings, and room history."
+                : "Συνδέσου ή κάνε εγγραφή για να ξεκλειδώσεις το προσωπικό προφίλ, τις ρυθμίσεις ουράς και το ιστορικό των rooms."}
+            </p>
           </Surface>
-        </div>
+        )}
       </Surface>
     </PageShell>
   );

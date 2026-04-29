@@ -18,8 +18,18 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { authenticated, profile, copy, language, adminMetrics, startQueue, online } = usePresence();
 
-  if (!authenticated || !profile) {
+  if (!authenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (!profile) {
+    return (
+      <PageShell className="space-y-6">
+        <Surface className="space-y-3 p-6 sm:p-8">
+          <SectionTitle title={copy.dashboard.title} body={language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."} />
+        </Surface>
+      </PageShell>
+    );
   }
 
   return (

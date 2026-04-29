@@ -104,11 +104,13 @@ export const adminChartData = [
 export const copy = {
   en: {
     brand: {
-      name: "Presence",
+      name: "Echoo",
       tagline: "First words. Then voice. No photos. No swipes. Just connection.",
       waitlist: "Launch-ready MVP for Greece",
     },
     nav: {
+
+      home: "Home",
       startNow: "Start now",
       dashboard: "Dashboard",
       safety: "Safety",
@@ -123,25 +125,25 @@ export const copy = {
       heroEyebrow: "Anonymous real-time conversations",
       heroTitle: "Meet a stranger through words before anything else.",
       heroBody:
-        "Presence is a mobile-first anonymous conversation app for instant 1-to-1 sessions. Start with text, unlock voice after time, and keep the focus on emotional chemistry instead of appearances.",
+        "Echoo is a mobile-first anonymous conversation app for instant 1-to-1 sessions. Start with text, unlock voice after time, and keep the focus on emotional chemistry instead of appearances.",
       heroPrimary: "Start now",
       heroSecondary: "See how it works",
       statUsers: "online now",
       statWait: "avg wait",
       statSafety: "moderated layers",
-      whatIsTitle: "What is Presence",
+      whatIsTitle: "What is Echoo",
       whatIsBody:
         "A premium-feeling space for honest, anonymous one-to-one conversations. No profile photos. No public feed. No swiping loop.",
       stepsTitle: "How it works",
       whyPhotosTitle: "Why no photos",
       whyPhotosBody:
-        "By removing photos, Presence moves attention to tone, curiosity, timing, and emotional safety. The first impression becomes language, not looks.",
+        "By removing photos, Echoo moves attention to tone, curiosity, timing, and emotional safety. The first impression becomes language, not looks.",
       safetyTitle: "Safety first",
       safetyBody:
         "Block, report, respectful behavior reminders, and fast exits are built into every session. Abuse gets disconnected quickly.",
       faqTitle: "FAQ",
       contactTitle: "Contact",
-      contactBody: "Questions, partnerships, or early pilot interest? Reach the Presence team.",
+      contactBody: "Questions, partnerships, or early pilot interest? Reach the Echoo team.",
       ctaTitle: "Ready for a different kind of conversation?",
       ctaBody: "Open the app, create an anonymous profile, and get matched in seconds.",
       stickyMenu: "Menu",
@@ -149,7 +151,7 @@ export const copy = {
     },
     auth: {
       title: "Create your anonymous account",
-      body: "Use Google or a magic link. Presence keeps the profile anonymous by default.",
+      body: "Use Google or a magic link. Echoo keeps the profile anonymous by default.",
       google: "Continue with Google",
       magic: "Email magic link",
       reroll: "Reroll username",
@@ -163,7 +165,7 @@ export const copy = {
     },
     dashboard: {
       title: "You are ready to connect",
-      body: "Your profile is anonymous, your filters are saved, and Presence is ready when you are.",
+      body: "Your profile is anonymous, your filters are saved, and Echoo is ready when you are.",
       startSession: "Start session",
       profile: "Profile",
       safety: "Safety",
@@ -209,7 +211,6 @@ export const copy = {
     safety: {
       title: "Safety comes before chemistry",
       body: "Echoo keeps every room lightweight, anonymous, and easy to leave. Respect is the default rule.",
-
       rules: [
         "No harassment, hate speech, sexual coercion, or threats.",
         "Leave instantly if a conversation feels wrong.",
@@ -236,10 +237,10 @@ export const copy = {
     legal: {
       privacyTitle: "Privacy",
       privacyBody:
-        "Presence is built around minimal identity, private rooms, and clear user controls. Personal data should stay limited to what is necessary to run the service.",
+        "Echoo is built around minimal identity, private rooms, and clear user controls. Personal data should stay limited to what is necessary to run the service.",
       termsTitle: "Terms",
       termsBody:
-        "Use Presence respectfully, do not abuse others, and understand that anonymous rooms may be moderated through reports and safety systems.",
+        "Use Echoo respectfully, do not abuse others, and understand that anonymous rooms may be moderated through reports and safety systems.",
     },
     misc: {
       both: "Both",
@@ -265,7 +266,7 @@ export const copy = {
     faq: [
       {
         question: "Is this a dating app?",
-        answer: "No. Presence is designed around anonymous conversation and human connection, not profile browsing or swiping.",
+        answer: "No. Echoo is designed around anonymous conversation and human connection, not profile browsing or swiping.",
       },
       {
         question: "When does voice become available?",
@@ -273,34 +274,33 @@ export const copy = {
       },
       {
         question: "Do I need to upload photos?",
-        answer: "No. Presence intentionally removes photos to reduce superficial matching.",
+        answer: "No. Echoo intentionally removes photos to reduce superficial matching.",
       },
     ],
   },
   el: {
     brand: {
       name: "Echoo",
-      tagline: "Πρώτα λόγια. Μετά φωνή. Χωρίς φωτογραφίες. Χωρίς swipes. Μόνο σύνδεση.",
-      waitlist: "MVP έτοιμο για γρήγορο λανσάρισμα στην Ελλάδα",
+      tagline: "Πρώτες λέξεις. Μετά φωνή. Χωρίς φωτογραφίες. Χωρίς swipes. Μόνο σύνδεση.",
+      waitlist: "MVP έτοιμο για launch στην Ελλάδα",
     },
     nav: {
-
+      home: "Αρχική",
       startNow: "Ξεκίνα τώρα",
-      dashboard: "Αρχική",
+      dashboard: "Πίνακας",
       safety: "Ασφάλεια",
       settings: "Ρυθμίσεις",
       contact: "Επικοινωνία",
       privacy: "Απόρρητο",
       terms: "Όροι",
       menu: "Μενού",
-      admin: "Admin",
+      admin: "Διαχείριση",
     },
     landing: {
       heroEyebrow: "Ανώνυμες συνομιλίες σε πραγματικό χρόνο",
       heroTitle: "Γνώρισε έναν άγνωστο μέσα από λέξεις πριν από οτιδήποτε άλλο.",
       heroBody:
         "Το Echoo είναι μια mobile-first ανώνυμη εφαρμογή για άμεσες 1-to-1 συνομιλίες. Ξεκινάς με κείμενο, ξεκλειδώνεις φωνή μετά από χρόνο και η χημεία χτίζεται χωρίς εικόνες.",
-
       heroPrimary: "Ξεκίνα τώρα",
       heroSecondary: "Δες πώς δουλεύει",
       statUsers: "online τώρα",
@@ -309,7 +309,6 @@ export const copy = {
       whatIsTitle: "Τι είναι το Echoo",
       whatIsBody:
         "Ένας premium χώρος για ειλικρινείς, ανώνυμες one-to-one συνομιλίες. Χωρίς φωτογραφίες προφίλ. Χωρίς δημόσιο feed. Χωρίς ατελείωτα swipes.",
-
       stepsTitle: "Πώς λειτουργεί",
       whyPhotosTitle: "Γιατί χωρίς φωτογραφίες",
       whyPhotosBody:
@@ -414,11 +413,9 @@ export const copy = {
       privacyTitle: "Απόρρητο",
       privacyBody:
         "Το Echoo σχεδιάζεται γύρω από την ελάχιστη ταυτότητα, τα ιδιωτικά δωμάτια και τον σαφή έλεγχο του χρήστη. Τα προσωπικά δεδομένα πρέπει να περιορίζονται μόνο σε όσα χρειάζονται για τη λειτουργία της υπηρεσίας.",
-
       termsTitle: "Όροι",
       termsBody:
         "Χρησιμοποίησε το Echoo με σεβασμό, μην κακομεταχειρίζεσαι άλλους χρήστες και να γνωρίζεις ότι τα ανώνυμα δωμάτια μπορούν να εποπτεύονται μέσω reports και μηχανισμών ασφάλειας.",
-
     },
     misc: {
       both: "Και τα δύο",
