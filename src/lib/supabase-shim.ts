@@ -219,20 +219,20 @@ class QueryBuilder {
   insert(payload: unknown) {
     this.method = "insert";
     this.payload = payload;
-    return this.execute();
+    return this;
   }
 
   upsert(payload: unknown) {
     this.method = "upsert";
     this.payload = payload;
     this.useMerge = true;
-    return this.execute();
+    return this;
   }
 
   update(payload: unknown) {
     this.method = "update";
     this.payload = payload;
-    return this.execute();
+    return this;
   }
 
   eq(column: string, value: string | number | boolean | null) {

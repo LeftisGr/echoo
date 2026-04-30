@@ -20,19 +20,19 @@ const QueuePage = () => {
       return;
     }
 
+    setCountdown(3);
     const interval = window.setInterval(() => {
-      setCountdown((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          navigate("/session", { replace: true });
-          return 0;
-        }
-        return current - 1;
-      });
+      setCountdown((current) => Math.max(0, current - 1));
     }, 900);
 
     return () => window.clearInterval(interval);
-  }, [navigate, room]);
+  }, [room]);
+
+  useEffect(() => {
+    if (room && countdown === 0) {
+      navigate("/session", { replace: true });
+    }
+  }, [countdown, navigate, room]);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
