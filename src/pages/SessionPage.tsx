@@ -20,6 +20,7 @@ const SessionPage = () => {
   const {
     authenticated,
     sessionReady,
+    queue,
     room,
     profile,
     copy,
@@ -91,7 +92,7 @@ const SessionPage = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!sessionReady) {
+  if (!sessionReady || (queue.active && !room)) {
     return (
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">

@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, Settings, Shield } from "lucide-react";
+import { ArrowRight, Clock3, Settings, Shield, UserRound } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -7,16 +7,45 @@ import { usePresence } from "@/components/presence/presence-provider";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { authenticated, copy, language, adminMetrics, startQueue, online } = usePresence();
+  const { authenticated, profile, copy, language, adminMetrics, startQueue, online } = usePresence();
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (!profile) {
+    return (
+      <PageShell className="space-y-6">
+        <Surface className="space-y-3 p-6 sm:p-8">
+          <SectionTitle
+            title={copy.dashboard.title}
+            body={language === "en" ? "Loading your nickname..." : "Φορτώνουμε το ψευδώνυμό σου..."}
+          />
+        </Surface>
+      </PageShell>
+    );
   }
 
   return (
     <PageShell className="space-y-6">
       <Surface className="space-y-6 p-6 sm:p-8">
         <SectionTitle title={copy.dashboard.title} body={copy.dashboard.body} />
+        <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5">
+          <p className="text-xs uppercase tracking-[0.24em] text-violet-100/70">
+            {language === "en" ? "You are ready to connect as" : "Είσαι έτοιμος/η να συνδεθείς ως"}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="text-3xl font-semibold text-white">{profile.username}</p>
+            <Button
+              variant="outline"
+              className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => navigate("/settings")}
+            >
+              <UserRound className="mr-2 h-4 w-4" />
+              {copy.dashboard.profile}
+            </Button>
+          </div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
             <p className="text-sm text-white/50">{copy.dashboard.online}</p>
