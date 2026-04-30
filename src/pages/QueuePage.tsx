@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { LoaderCircle, TimerReset, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,27 @@ const QueuePage = () => {
   const navigate = useNavigate();
   const { authenticated, queue, room, cancelQueue, copy, language, online } = usePresence();
   const [countdown, setCountdown] = useState(3);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authenticated) {
+      setRedirectTo("/auth");
+      return;
+    }
+
+    if (!queue.active && !room) {
+      setRedirectTo("/dashboard");
+      return;
+    }
+
+    setRedirectTo(null);
+  }, [authenticated, queue.active, room]);
+
+  useEffect(() => {
+    if (redirectTo) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [navigate, redirectTo]);
 
   useEffect(() => {
     if (!room) {
@@ -34,12 +55,8 @@ const QueuePage = () => {
     }
   }, [countdown, navigate, room]);
 
-  if (!authenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  if (!queue.active && !room) {
-    return <Navigate to="/dashboard" replace />;
+  if (redirectTo) {
+    return null;
   }
 
   const currentMessage = queueMessages[language][queue.messageIndex] ?? queueMessages[language][0];

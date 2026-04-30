@@ -321,7 +321,20 @@ class QueryBuilder {
   private async performRequest(headers: Record<string, string>) {
     if (this.method === "insert" || this.method === "upsert" || this.method === "update") {
       const method = this.method === "update" ? "PATCH" : "POST";
-      return fetch(`${this.url}/rest/v1/${this.table}`, {
+      const requestUrl = new URL(`${this.url}/rest/v1/${this.table}`);
+      this.filters.forEach((filter) => {
+        const [key, value] = filter.split("=");
+        requestUrl.searchParams.append(key, value);
+      });
+      if (this.inClause) {
+        const [key, value] = this.inClause.split("=");
+        requestUrl.searchParams.append(key, value);
+      }
+      if (this.orClause) {
+        requestUrl.searchParams.append("or", `(${this.orClause})`);
+      }
+
+      return fetch(requestUrl.toString(), {
         method,
         headers: {
           ...headers,
