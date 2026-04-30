@@ -240,13 +240,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      const sessionUser = data.session?.user;
-      if (sessionUser) {
-        await hydrateAuthenticatedUser(sessionUser.id);
+      try {
+        const { data } = await supabase.auth.getSession();
+        const sessionUser = data.session?.user;
+        if (sessionUser) {
+          await hydrateAuthenticatedUser(sessionUser.id);
+        }
+        setAuthenticated(Boolean(sessionUser));
+        setUserId(sessionUser?.id ?? null);
+      } catch {
+        void supabase.auth.signOut();
+        setAuthenticated(false);
+        setUserId(null);
+        setProfile(null);
+        setRoom(null);
+        setQueue(createInitialQueue(null));
       }
-      setAuthenticated(Boolean(sessionUser));
-      setUserId(sessionUser?.id ?? null);
     };
 
     void syncAuth();
@@ -256,7 +265,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
       if (sessionUser) {
-        void hydrateAuthenticatedUser(sessionUser.id);
+        void hydrateAuthenticatedUser(sessionUser.id).catch(() => {
+          void supabase.auth.signOut();
+          setAuthenticated(false);
+          setUserId(null);
+          setProfile(null);
+          setRoom(null);
+          setQueue(createInitialQueue(null));
+        });
       } else {
         stopRoomSubscriptions();
         setRoom(null);
@@ -308,7 +324,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refreshAdminMetrics();
+    void refreshAdminMetrics().catch(() => undefined);
   }, [authenticated, queue.active, reportsCount, room]);
 
   useEffect(() => {
@@ -572,7 +588,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     subscribeToQueueChanges(userId);
-    void attemptRealtimeMatch(userId);
+    void attemptRealtimeMatch(userId).catch(() => undefined);
 
     return () => {
       stopQueueSubscriptions();
@@ -757,7 +773,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       language: profile.language,
     });
 
-    void attemptRealtimeMatch(profile.id);
+    void attemptRealtimeMatch(profile.id).catch(() => undefined);
 
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);

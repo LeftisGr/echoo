@@ -69,6 +69,49 @@ function emit(event: string, session: StoredSession | null) {
   listeners.forEach((listener) => listener(event, session));
 }
 
+function isSessionExpired(session: StoredSession | null) {
+  return Boolean(session && session.expires_at * 1000 <= Date.now());
+}
+
+async function refreshSession(baseUrl: string, key: string, session: StoredSession) {
+  const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refresh_token: session.refresh_token }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const refreshed = (await response.json()) as StoredSession;
+  writeSession(refreshed);
+  emit("TOKEN_REFRESHED", refreshed);
+  return refreshed;
+}
+
+async function ensureValidSession(baseUrl: string, key: string, session: StoredSession | null) {
+  if (!session) {
+    return null;
+  }
+
+  if (!isSessionExpired(session)) {
+    return session;
+  }
+
+  const refreshed = await refreshSession(baseUrl, key, session);
+  if (refreshed) {
+    return refreshed;
+  }
+
+  writeSession(null);
+  emit("SIGNED_OUT", null);
+  return null;
+}
+
 async function exchangeCodeForSession(baseUrl: string, key: string, code: string) {
   const verifier = window.localStorage.getItem(PKCE_VERIFIER_KEY);
   if (!verifier) {
@@ -243,18 +286,42 @@ class QueryBuilder {
   }
 
   private async execute(single = false, strictSingle = false): Promise<any> {
+    const session = await ensureValidSession(this.url, this.key, this.session ?? readSession());
     const headers: Record<string, string> = {
       apikey: this.key,
       "Content-Type": "application/json",
     };
 
-    if (this.session?.access_token) {
-      headers.Authorization = `Bearer ${this.session.access_token}`;
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
     }
 
+    const response = await this.performRequest(headers);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 && errorText.includes("JWT expired") && session?.refresh_token) {
+        const refreshed = await refreshSession(this.url, this.key, session);
+        if (refreshed?.access_token) {
+          headers.Authorization = `Bearer ${refreshed.access_token}`;
+          const retry = await this.performRequest(headers);
+          if (!retry.ok) {
+            throw new Error(await retry.text());
+          }
+          return this.readResponse(retry, single, strictSingle);
+        }
+      }
+
+      throw new Error(errorText);
+    }
+
+    return this.readResponse(response, single, strictSingle);
+  }
+
+  private async performRequest(headers: Record<string, string>) {
     if (this.method === "insert" || this.method === "upsert" || this.method === "update") {
       const method = this.method === "update" ? "PATCH" : "POST";
-      const response = await fetch(`${this.url}/rest/v1/${this.table}`, {
+      return fetch(`${this.url}/rest/v1/${this.table}`, {
         method,
         headers: {
           ...headers,
@@ -262,13 +329,6 @@ class QueryBuilder {
         },
         body: JSON.stringify(this.payload),
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const data = await response.json();
-      return { data, error: null };
     }
 
     const requestUrl = new URL(`${this.url}/rest/v1/${this.table}`);
@@ -292,13 +352,16 @@ class QueryBuilder {
       requestUrl.searchParams.append("limit", String(this.limitValue));
     }
 
-    const response = await fetch(requestUrl.toString(), {
+    return fetch(requestUrl.toString(), {
       method: "GET",
       headers,
     });
+  }
 
-    if (!response.ok) {
-      throw new Error(await response.text());
+  private async readResponse(response: Response, single: boolean, strictSingle: boolean) {
+    if (this.method === "insert" || this.method === "upsert" || this.method === "update") {
+      const data = await response.json();
+      return { data, error: null };
     }
 
     const raw = (await response.json()) as any[];
@@ -330,6 +393,7 @@ export function createClient(url: string, key: string) {
   const auth = {
     async getSession() {
       currentSession = currentSession ?? (await getInitialSession(url, key));
+      currentSession = await ensureValidSession(url, key, currentSession);
       return { data: { session: currentSession }, error: null };
     },
     onAuthStateChange(callback: AuthChangeHandler) {
@@ -398,6 +462,37 @@ export function createClient(url: string, key: string) {
     auth,
     from(table: string) {
       return new QueryBuilder(url, key, table, currentSession);
+    },
+    rpc(fnName: string, params?: Record<string, unknown>) {
+      return {
+        then<TResult1 = any, TResult2 = never>(
+          onfulfilled?: ((value: any) => TResult1 | PromiseLike<TResult1>) | null,
+          onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+        ) {
+          const run = async () => {
+            const session = await ensureValidSession(url, key, currentSession ?? readSession());
+            const headers: Record<string, string> = {
+              apikey: key,
+              "Content-Type": "application/json",
+            };
+            if (session?.access_token) {
+              headers.Authorization = `Bearer ${session.access_token}`;
+            }
+            const response = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(params ?? {}),
+            });
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(errorText);
+            }
+            const data = await response.json();
+            return { data, error: null };
+          };
+          return run().then(onfulfilled, onrejected);
+        },
+      };
     },
     channel() {
       return new ChannelShim();
