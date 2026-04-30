@@ -19,6 +19,7 @@ const SessionPage = () => {
   const navigate = useNavigate();
   const {
     authenticated,
+    sessionReady,
     room,
     profile,
     copy,
@@ -90,7 +91,7 @@ const SessionPage = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!profile) {
+  if (!sessionReady) {
     return (
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
@@ -105,6 +106,19 @@ const SessionPage = () => {
 
   if (!room) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!profile) {
+    return (
+      <PageShell className="flex items-center">
+        <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
+          <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">
+            {language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."}
+          </h1>
+        </Surface>
+      </PageShell>
+    );
   }
 
   const isActive = room.status === "active";

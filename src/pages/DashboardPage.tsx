@@ -1,35 +1,16 @@
-import { ArrowRight, Clock3, Settings, Shield, UserRound } from "lucide-react";
+import { ArrowRight, Clock3, Settings, Shield } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import {
-  PageShell,
-  SectionTitle,
-  Surface,
-} from "@/components/presence/presence-shell";
+import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import {
-  localizeAgeRange,
-  localizeLanguagePreference,
-  localizePreference,
-} from "@/lib/presence-content";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { authenticated, profile, copy, language, adminMetrics, startQueue, online } = usePresence();
+  const { authenticated, copy, language, adminMetrics, startQueue, online } = usePresence();
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
-  }
-
-  if (!profile) {
-    return (
-      <PageShell className="space-y-6">
-        <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title={copy.dashboard.title} body={language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."} />
-        </Surface>
-      </PageShell>
-    );
   }
 
   return (
@@ -62,58 +43,30 @@ const DashboardPage = () => {
         </Button>
       </Surface>
 
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-        <Surface className="space-y-4 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm text-white/50">{copy.dashboard.identity}</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">{profile.username}</h2>
-              <p className="mt-2 text-sm text-white/60">{copy.dashboard.note}</p>
-            </div>
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
-              {copy.misc.online}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <StatLine label={copy.auth.ageRange} value={localizeAgeRange(language, profile.ageRange)} />
-            <StatLine label={copy.dashboard.filters} value={localizePreference(language, profile.preference)} />
-            <StatLine label={copy.auth.language} value={localizeLanguagePreference(language, profile.language)} />
-            <StatLine label={copy.auth.interests} value={profile.interests.join(" · ")} />
-          </div>
-        </Surface>
-
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-          <QuickActionCard
-            icon={UserRound}
-            title={copy.dashboard.profile}
-            body={copy.auth.helper}
-            to="/auth"
-          />
-          <QuickActionCard
-            icon={Shield}
-            title={copy.dashboard.safety}
-            body={copy.landing.safetyBody}
-            to="/safety"
-          />
-          <QuickActionCard
-            icon={Settings}
-            title={copy.dashboard.settings}
-            body={copy.settings.body}
-            to="/settings"
-          />
-        </div>
+      <section className="grid gap-6 lg:grid-cols-3">
+        <QuickActionCard
+          icon={Shield}
+          title={copy.dashboard.safety}
+          body={copy.landing.safetyBody}
+          to="/safety"
+        />
+        <QuickActionCard
+          icon={Settings}
+          title={copy.dashboard.settings}
+          body={copy.settings.body}
+          to="/settings"
+        />
+        <QuickActionCard
+          icon={Clock3}
+          title={language === "en" ? "Matching" : "Matchmaking"}
+          body={
+            language === "en"
+              ? "You can start a new conversation whenever you're ready."
+              : "Μπορείς να ξεκινήσεις νέα συνομιλία όποτε είσαι έτοιμος/η."
+          }
+          to="/queue"
+        />
       </section>
-
-      <Surface className="p-5">
-        <div className="flex items-center gap-3 text-white/70">
-          <Clock3 className="h-4 w-4 text-violet-200" />
-          <p className="text-sm">
-            {language === "en"
-              ? "Matching uses preference, language compatibility, and queue priority."
-              : "Το matching χρησιμοποιεί προτίμηση, συμβατότητα γλώσσας και προτεραιότητα ουράς."}
-          </p>
-        </div>
-      </Surface>
     </PageShell>
   );
 };
@@ -139,15 +92,6 @@ function QuickActionCard({
         <p className="mt-2 text-sm leading-6 text-white/60">{body}</p>
       </Surface>
     </Link>
-  );
-}
-
-function StatLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-white/40">{label}</p>
-      <p className="mt-2 text-sm text-white/80">{value}</p>
-    </div>
   );
 }
 

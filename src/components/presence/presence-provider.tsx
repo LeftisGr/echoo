@@ -56,6 +56,7 @@ interface PresenceContextValue {
   online: boolean;
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
+  sessionReady: boolean;
   adminMetrics: AdminMetrics;
   login: (method: AuthMethod, email?: string) => Promise<void>;
   logout: () => void;
@@ -173,6 +174,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
     activeUsers: 0,
@@ -256,23 +258,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user ?? null;
+      setSessionReady(false);
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
       if (sessionUser) {
-        void hydrateAuthenticatedUser(sessionUser.id).catch(() => {
-          void supabase.auth.signOut();
-          setAuthenticated(false);
-          setUserId(null);
-          setProfile(null);
-          setRoom(null);
-          setQueue(createInitialQueue(null));
-        });
+        void hydrateAuthenticatedUser(sessionUser.id)
+          .catch(() => {
+            void supabase.auth.signOut();
+            setAuthenticated(false);
+            setUserId(null);
+            setProfile(null);
+            setRoom(null);
+            setQueue(createInitialQueue(null));
+          })
+          .finally(() => {
+            setSessionReady(true);
+          });
       } else {
         stopRoomSubscriptions();
         setRoom(null);
         setProfile(null);
         setQueue(createInitialQueue(null));
         setVoiceState("idle");
+        setSessionReady(true);
       }
     });
 
@@ -949,6 +957,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       online,
       hapticsEnabled,
       reconnectEnabled,
+      sessionReady,
       adminMetrics,
       login,
       logout,
