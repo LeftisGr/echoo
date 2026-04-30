@@ -464,6 +464,34 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const activeRoom = await loadRoomById(match.roomId);
       if (!activeRoom) {
+        const partnerProfile = match.partnerId ? await loadProfile(match.partnerId) : null;
+        const fallbackRoom: RoomSession = {
+          id: match.roomId,
+          userA: currentUserId,
+          userB: match.partnerId ?? currentUserId,
+          startedAt: new Date().toISOString(),
+          voiceEnabled: false,
+          status: "active",
+          partner: partnerProfile ?? createPartner(profile, match.partnerId ?? undefined),
+          messages: [
+            createSystemMessage(
+              match.roomId,
+              language === "en"
+                ? "Connection opened. Stay curious and respectful."
+                : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.",
+            ),
+          ],
+        };
+
+        matchedRoomIdsRef.current.add(fallbackRoom.id);
+        await persistRoom(fallbackRoom);
+        await openRoom(fallbackRoom.id, currentUserId, fallbackRoom);
+        setQueue(createInitialQueue(profile));
+        stopQueueSubscriptions();
+        toast.success(copy.misc.sessionReady);
+        if (hapticsEnabled) {
+          vibrate([60, 40, 80]);
+        }
         return;
       }
 
@@ -590,7 +618,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     subscribeToQueueChanges(userId);
     void attemptRealtimeMatch(userId).catch(() => undefined);
 
+    const interval = window.setInterval(() => {
+      void attemptRealtimeMatch(userId).catch(() => undefined);
+    }, 1200);
+
     return () => {
+      window.clearInterval(interval);
       stopQueueSubscriptions();
     };
   }, [authenticated, profile, queue.active, room?.id, userId]);

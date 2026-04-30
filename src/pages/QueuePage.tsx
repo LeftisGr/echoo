@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { LoaderCircle, TimerReset, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,30 +9,19 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { queueMessages } from "@/lib/presence-content";
 
 const QueuePage = () => {
-  const navigate = useNavigate();
   const { authenticated, queue, room, cancelQueue, copy, language, online } = usePresence();
   const [countdown, setCountdown] = useState(3);
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authenticated) {
-      setRedirectTo("/auth");
+      window.location.replace("/auth");
       return;
     }
 
     if (!queue.active && !room) {
-      setRedirectTo("/dashboard");
-      return;
+      window.location.replace("/dashboard");
     }
-
-    setRedirectTo(null);
   }, [authenticated, queue.active, room]);
-
-  useEffect(() => {
-    if (redirectTo) {
-      navigate(redirectTo, { replace: true });
-    }
-  }, [navigate, redirectTo]);
 
   useEffect(() => {
     if (!room) {
@@ -51,11 +39,11 @@ const QueuePage = () => {
 
   useEffect(() => {
     if (room && countdown === 0) {
-      navigate("/session", { replace: true });
+      window.location.replace("/session");
     }
-  }, [countdown, navigate, room]);
+  }, [countdown, room]);
 
-  if (redirectTo) {
+  if (!authenticated || (!queue.active && !room)) {
     return null;
   }
 
@@ -104,7 +92,7 @@ const QueuePage = () => {
                 className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
                 onClick={async () => {
                   await cancelQueue();
-                  navigate("/dashboard", { replace: true });
+                  window.location.replace("/dashboard");
                 }}
               >
                 {copy.queue.cancel}
@@ -112,7 +100,7 @@ const QueuePage = () => {
               <Button
                 variant="outline"
                 className="h-12 rounded-full border-violet-400/20 bg-violet-400/10 text-violet-50 hover:bg-violet-400/15"
-                onClick={() => navigate("/settings")}
+                onClick={() => window.location.replace("/settings")}
               >
                 {copy.queue.changeFilters}
               </Button>
