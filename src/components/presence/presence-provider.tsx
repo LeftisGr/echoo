@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getCopy, interestTags, partnerReplies, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
+import { getCopy, interestTags, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
   endRoom,
 
@@ -195,7 +195,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   });
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
-  const replyTimeoutRef = useRef<number | null>(null);
   const queueTimersRef = useRef<number[]>([]);
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -314,9 +313,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return () => {
-      if (replyTimeoutRef.current) {
-        window.clearTimeout(replyTimeoutRef.current);
-      }
       stopQueueSubscriptions();
       stopRoomSubscriptions();
       voiceControllerRef.current?.stop();
@@ -863,35 +859,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : current,
       );
       await persistMessage(userMessage);
-
-      if (replyTimeoutRef.current) {
-        window.clearTimeout(replyTimeoutRef.current);
-      }
-
-      replyTimeoutRef.current = window.setTimeout(() => {
-        setRoom((current) => {
-          if (!current) {
-            return current;
-          }
-
-          const reply: ChatMessage = {
-            id: createId(),
-            roomId: current.id,
-            senderId: current.partner.id,
-            content: randomFrom(partnerReplies[language]),
-            createdAt: new Date().toISOString(),
-            type: "text",
-          };
-
-          void persistMessage(reply);
-          return {
-            ...current,
-            messages: [...current.messages, reply],
-          };
-        });
-      }, 1400 + Math.floor(Math.random() * 1500));
     },
-    [language, profile, room],
+    [profile, room],
   );
 
   const stopVoiceChat = useCallback(() => {

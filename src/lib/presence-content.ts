@@ -188,7 +188,7 @@ export const copy = {
     session: {
       title: "Private room",
       textNote: "Voice unlocks after the timer ends.",
-      demoTimer: "Prototype timer is accelerated for testing.",
+      demoTimer: "The text phase lasts 10 minutes before voice unlocks.",
       leave: "Leave",
       send: "Send",
       placeholder: "Write your first message...",
@@ -363,7 +363,7 @@ export const copy = {
     session: {
       title: "Ιδιωτικό δωμάτιο",
       textNote: "Η φωνή ξεκλειδώνει όταν τελειώσει ο χρονοδιακόπτης.",
-      demoTimer: "Ο χρονοδιακόπτης του πρωτοτύπου είναι επιταχυνόμενος για δοκιμή.",
+      demoTimer: "Η φάση κειμένου κρατά 10 λεπτά πριν ξεκλειδώσει η φωνή.",
       leave: "Αποχώρηση",
       send: "Αποστολή",
       placeholder: "Γράψε το πρώτο σου μήνυμα...",
