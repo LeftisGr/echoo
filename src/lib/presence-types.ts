@@ -86,7 +86,6 @@ export interface AdminMetrics {
 
 export interface PresenceStoredState {
   language: AppLanguage;
-  profile: PresenceProfile | null;
   authenticated: boolean;
   reportsCount: number;
   ratings: RatingScore[];

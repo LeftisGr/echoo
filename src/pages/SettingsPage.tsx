@@ -19,6 +19,7 @@ const SettingsPage = () => {
     language,
     setLanguage,
     updateProfile,
+    rerollUsername,
     hapticsEnabled,
     reconnectEnabled,
     setHapticsEnabled,
@@ -46,7 +47,24 @@ const SettingsPage = () => {
         <SectionTitle title={copy.settings.title} body={copy.settings.body} />
       </Surface>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
+      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <Surface className="space-y-4 p-5">
+          <p className="text-xs uppercase tracking-[0.24em] text-white/40">{copy.auth.profileTitle}</p>
+          <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+            <p className="text-sm text-white/50">{language === "en" ? "Nickname" : "Ψευδώνυμο"}</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{profile.username}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+              onClick={rerollUsername}
+            >
+              {copy.auth.reroll}
+            </Button>
+          </div>
+          <p className="text-sm leading-6 text-white/60">{copy.auth.helper}</p>
+        </Surface>
+
         <div className="space-y-4">
           <SettingPills
             label={copy.settings.appLanguage}
@@ -69,9 +87,7 @@ const SettingsPage = () => {
             getLabel={(value) => localizePreference(language, value)}
             onSelect={(value) => updateProfile({ preference: value })}
           />
-        </div>
 
-        <div className="space-y-4">
           <Surface className="space-y-5 p-5">
             <SwitchRow
               label={copy.settings.haptics}
@@ -84,26 +100,25 @@ const SettingsPage = () => {
               onCheckedChange={setReconnectEnabled}
             />
           </Surface>
-          <Surface className="space-y-4 p-5">
-            <p className="text-sm text-white/60">{copy.auth.helper}</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Link to="/dashboard">
-                <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
-                  {copy.nav.dashboard}
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={logout}
-              >
-                {language === "en" ? "Sign out" : "Αποσύνδεση"}
-              </Button>
-
-            </div>
-          </Surface>
         </div>
       </div>
+
+      <Surface className="space-y-4 p-5 sm:p-6">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link to="/dashboard">
+            <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
+              {copy.nav.dashboard}
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            onClick={logout}
+          >
+            {language === "en" ? "Sign out" : "Αποσύνδεση"}
+          </Button>
+        </div>
+      </Surface>
     </PageShell>
   );
 };

@@ -138,18 +138,24 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   try {
-    return JSON.parse(raw) as PresenceStoredState;
+    const parsed = JSON.parse(raw) as Partial<PresenceStoredState>;
+    return {
+      language: parsed.language ?? "en",
+      authenticated: parsed.authenticated ?? false,
+      reportsCount: parsed.reportsCount ?? 0,
+      ratings: parsed.ratings ?? [],
+    };
   } catch {
-    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
   }
 }
 
@@ -157,9 +163,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const stored = useMemo(() => readStoredState(), []);
   const [language, setLanguageState] = useState<AppLanguage>(stored.language);
   const [authenticated, setAuthenticated] = useState(stored.authenticated);
-  const [profile, setProfile] = useState<PresenceProfile | null>(stored.profile ?? createDefaultProfile());
-  const [userId, setUserId] = useState<string | null>(stored.profile?.id ?? null);
-  const [queue, setQueue] = useState<QueueState>(createInitialQueue(stored.profile));
+  const [profile, setProfile] = useState<PresenceProfile | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<QueueState>(createInitialQueue(null));
   const [room, setRoom] = useState<RoomSession | null>(null);
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
@@ -199,14 +205,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const storedState: PresenceStoredState = {
       language,
-      profile,
       authenticated,
       reportsCount,
       ratings,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(storedState));
-  }, [authenticated, language, profile, ratings, reportsCount]);
+  }, [authenticated, language, ratings, reportsCount]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -228,6 +233,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         const sessionUser = data.session?.user;
         if (sessionUser) {
           await hydrateAuthenticatedUser(sessionUser.id);
+        } else {
+          setAuthenticated(false);
+          setUserId(null);
+          setProfile(null);
+          setRoom(null);
+          setQueue(createInitialQueue(null));
         }
         setAuthenticated(Boolean(sessionUser));
         setUserId(sessionUser?.id ?? null);
@@ -678,10 +689,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setVoiceState("idle");
     void supabase.auth.signOut();
     setAuthenticated(false);
+    setUserId(null);
+    setProfile(null);
     setRoom(null);
-    setQueue(createInitialQueue(profile));
+    setQueue(createInitialQueue(null));
     toast(copy.misc.signedOut);
-  }, [copy.misc.signedOut, profile]);
+  }, [copy.misc.signedOut]);
 
   const rerollUsername = useCallback(() => {
     setProfile((current) => {
@@ -732,8 +745,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startQueue = useCallback(async () => {
-    if (!authenticated || !profile) {
+    if (!authenticated) {
       return;
+    }
+
+    const activeProfile =
+      profile ??
+      (userId
+        ? {
+            ...(createDefaultProfile(userId)),
+          }
+        : null);
+
+    if (!activeProfile) {
+      return;
+    }
+
+    if (!profile) {
+      setProfile(activeProfile);
+      await syncProfile(activeProfile);
     }
 
     stopQueueSubscriptions();
@@ -744,24 +774,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       joinedAt: new Date().toISOString(),
       estimatedWaitSeconds: 18,
       filters: {
-        preference: profile.preference,
-        language: profile.language,
+        preference: activeProfile.preference,
+        language: activeProfile.language,
       },
       messageIndex: 0,
       softRelaxed: false,
     });
 
-    await joinQueue(profile.id, {
-      preference: profile.preference,
-      language: profile.language,
+    await joinQueue(activeProfile.id, {
+      preference: activeProfile.preference,
+      language: activeProfile.language,
     });
 
-    void attemptRealtimeMatch(profile.id).catch(() => undefined);
+    void attemptRealtimeMatch(activeProfile.id).catch(() => undefined);
 
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, hapticsEnabled, profile]);
+  }, [authenticated, hapticsEnabled, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();

@@ -173,7 +173,7 @@ export const copy = {
       online: "Users online now",
       wait: "Avg wait time",
       filters: "Current filters",
-      identity: "Your identity tonight",
+      identity: "Your nickname tonight",
       note: "Text first, voice later. No pressure, no swipes.",
     },
     queue: {
@@ -348,7 +348,7 @@ export const copy = {
       online: "Χρήστες online τώρα",
       wait: "Μέσος χρόνος αναμονής",
       filters: "Τρέχοντα φίλτρα",
-      identity: "Η ταυτότητά σου απόψε",
+      identity: "Το ψευδώνυμό σου απόψε",
       note: "Πρώτα κείμενο, μετά φωνή. Χωρίς πίεση, χωρίς swipes.",
     },
     queue: {
