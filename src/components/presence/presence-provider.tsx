@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getCopy, interestTags, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
+import { getCopy, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
   endRoom,
 
@@ -124,21 +124,6 @@ function createInitialQueue(profile: PresenceProfile | null): QueueState {
   };
 }
 
-function createPartner(profile: PresenceProfile | null, fallbackId?: string): RoomSession["partner"] {
-  const language =
-    profile?.language === "both"
-      ? randomFrom(["greek", "english", "both"] as const)
-      : profile?.language ?? "both";
-
-  return {
-    id: fallbackId ?? createId(),
-    username: generateUsername(),
-    ageRange: randomFrom(["18-24", "25-34", "35-44", "45+"] as const),
-    gender: randomFrom(["male", "female", "nonbinary", "prefer-not"] as const),
-    language,
-    interests: [...interestTags].sort(() => Math.random() - 0.5).slice(0, 3),
-  };
-}
 
 function createSystemMessage(roomId: string, content: string): ChatMessage {
   return {
@@ -153,18 +138,18 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
+    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
+    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   try {
     return JSON.parse(raw) as PresenceStoredState;
   } catch {
-    return { language: "en", profile: null, authenticated: false, room: null, reportsCount: 0, ratings: [] };
+    return { language: "en", profile: null, authenticated: false, reportsCount: 0, ratings: [] };
   }
 }
 
@@ -175,7 +160,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<PresenceProfile | null>(stored.profile ?? createDefaultProfile());
   const [userId, setUserId] = useState<string | null>(stored.profile?.id ?? null);
   const [queue, setQueue] = useState<QueueState>(createInitialQueue(stored.profile));
-  const [room, setRoom] = useState<RoomSession | null>(stored.room);
+  const [room, setRoom] = useState<RoomSession | null>(null);
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -216,13 +201,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       language,
       profile,
       authenticated,
-      room,
       reportsCount,
       ratings,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(storedState));
-  }, [authenticated, language, profile, ratings, reportsCount, room]);
+  }, [authenticated, language, profile, ratings, reportsCount]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -401,18 +385,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
     const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
     const partnerProfile = await loadProfile(partnerId);
-    const partner = partnerProfile ?? createPartner(profile, partnerId);
     const messages = await loadRoomMessages(nextRoom.id);
 
-  setRoom({
-    ...nextRoom,
-    partner,
-    messages: messages.length
-      ? messages
-      : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],
-    status: nextRoom.endedAt ? "ended" : "active",
-  });
-
+    setRoom({
+      ...nextRoom,
+      partner: partnerProfile,
+      messages: messages.length
+        ? messages
+        : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],
+      status: nextRoom.endedAt ? "ended" : "active",
+    });
   }
 
   function stopRoomSubscriptions() {
@@ -460,34 +442,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const activeRoom = await loadRoomById(match.roomId);
       if (!activeRoom) {
-        const partnerProfile = match.partnerId ? await loadProfile(match.partnerId) : null;
-        const fallbackRoom: RoomSession = {
-          id: match.roomId,
-          userA: currentUserId,
-          userB: match.partnerId ?? currentUserId,
-          startedAt: new Date().toISOString(),
-          voiceEnabled: false,
-          status: "active",
-          partner: partnerProfile ?? createPartner(profile, match.partnerId ?? undefined),
-          messages: [
-            createSystemMessage(
-              match.roomId,
-              language === "en"
-                ? "Connection opened. Stay curious and respectful."
-                : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.",
-            ),
-          ],
-        };
-
-        matchedRoomIdsRef.current.add(fallbackRoom.id);
-        await persistRoom(fallbackRoom);
-        await openRoom(fallbackRoom.id, currentUserId, fallbackRoom);
-        setQueue(createInitialQueue(profile));
-        stopQueueSubscriptions();
-        toast.success(copy.misc.sessionReady);
-        if (hapticsEnabled) {
-          vibrate([60, 40, 80]);
-        }
         return;
       }
 
@@ -596,7 +550,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       endedAt: roomBase.endedAt,
       voiceEnabled: roomBase.voiceEnabled,
       status: roomBase.endedAt ? "ended" : "active",
-      partner: createPartner(profile),
+      partner: null,
       messages: [],
     };
 
@@ -933,8 +887,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const partnerId = room.userA === userId ? room.userB : room.userA;
       setReportsCount((current) => current + 1);
-      await persistReport(room.id, userId, room.partner.id, reason);
+      await persistReport(room.id, userId, partnerId, reason);
       toast.success(copy.misc.reported);
       leaveRoom(language === "en" ? "Conversation ended after a report." : "Η συνομιλία ολοκληρώθηκε μετά από αναφορά.");
     },

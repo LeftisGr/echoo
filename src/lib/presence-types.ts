@@ -58,7 +58,7 @@ export interface RoomSession {
   endedAt?: string;
   voiceEnabled: boolean;
   status: RoomStatus;
-  partner: PartnerProfile;
+  partner: PartnerProfile | null;
   messages: ChatMessage[];
   rating?: RatingScore;
 }
@@ -88,7 +88,6 @@ export interface PresenceStoredState {
   language: AppLanguage;
   profile: PresenceProfile | null;
   authenticated: boolean;
-  room: RoomSession | null;
   reportsCount: number;
   ratings: RatingScore[];
 }
