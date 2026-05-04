@@ -1,16 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowRight,
-  Flag,
-  MessageCircle,
-  Mic,
-  PhoneOff,
-  ShieldAlert,
-  Timer,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
-
+import { ArrowRight, Flag, MessageCircle, Mic, MicOff, PhoneOff, ShieldAlert, Timer, Volume2, VolumeX } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 import { localizeRating, ratingOptions } from "@/lib/presence-content";
@@ -172,9 +160,7 @@ const SessionPage = () => {
   }
 
   const isActive = room.status === "active";
-  const formattedTimer = `${String(Math.floor(liveRemaining / 60)).padStart(2, "0")}:${String(
-    liveRemaining % 60,
-  ).padStart(2, "0")}`;
+  const formattedTimer = `${String(Math.floor(liveRemaining / 60)).padStart(2, "0")}:${String(liveRemaining % 60).padStart(2, "0")}`;
   const timerProgress = ((sessionDurationSeconds - liveRemaining) / sessionDurationSeconds) * 100;
   const roomTitle = pickById(room.id, roomTitles);
   const roomTagline = pickById(room.id, roomTaglines);
@@ -215,25 +201,37 @@ const SessionPage = () => {
           <Progress value={timerProgress} className="mt-4 h-2 rounded-full bg-white/10 [&>div]:bg-violet-400" />
         </div>
 
-        <div className="grid min-h-[calc(100vh-8rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="flex min-h-0 flex-col border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">{partnerLabel}</p>
-                <p className="text-xs text-white/45">
-                  {isActive
-                    ? room.voiceEnabled
-                      ? copy.session.voiceUnlocked
-                      : `${copy.session.countdownLabel}: ${formattedTimer}`
-                    : copy.session.ended}
-                </p>
+            <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
+              <div className="flex min-w-[150px] items-center gap-3 rounded-[20px] border border-white/10 bg-white/5 px-3 py-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-100">
+                  {profile.username.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "You" : "Εσύ"}</p>
+                  <p className="text-sm font-medium text-white">{profile.username}</p>
+                </div>
               </div>
-              <Badge className="rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
+
+              <div className="flex min-w-[150px] items-center gap-3 rounded-[20px] border border-white/10 bg-white/5 px-3 py-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+                  {partnerInitial}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">
+                    {language === "en" ? "Partner" : "Συνομιλητής"}
+                  </p>
+                  <p className="text-sm font-medium text-white">{partnerLabel}</p>
+                </div>
+              </div>
+
+              <Badge className="ml-auto rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
                 {voiceState === "connected"
                   ? copy.session.connected
                   : room.voiceEnabled
                     ? copy.session.startVoice
-                    : copy.session.keepText}
+                    : `${copy.session.countdownLabel}: ${formattedTimer}`}
               </Badge>
             </div>
 
@@ -247,7 +245,7 @@ const SessionPage = () => {
                     return (
                       <div
                         key={message.id}
-                        className="mx-auto max-w-[92%] rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-xs text-white/55"
+                        className="mx-auto max-w-[90%] rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-xs text-white/55"
                       >
                         {message.content}
                       </div>
@@ -258,10 +256,8 @@ const SessionPage = () => {
                     <div key={message.id} className={cn("flex", isSelf ? "justify-end" : "justify-start")}>
                       <div
                         className={cn(
-                          "max-w-[84%] rounded-[26px] px-4 py-3 text-sm leading-6 shadow-sm",
-                          isSelf
-                            ? "rounded-br-md bg-white text-slate-950"
-                            : "rounded-bl-md bg-[#151b30] text-white ring-1 ring-white/10",
+                          "max-w-[80%] rounded-[24px] px-4 py-3 text-sm leading-6 shadow-sm",
+                          isSelf ? "rounded-br-md bg-white text-slate-950" : "rounded-bl-md bg-[#151b30] text-white ring-1 ring-white/10",
                         )}
                       >
                         {message.content}
@@ -311,31 +307,20 @@ const SessionPage = () => {
           </div>
 
           <div className="space-y-4 p-4 sm:p-5">
-            <div className="rounded-[28px] border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">
-                    {language === "en" ? "You" : "Εσύ"}
-                  </p>
-                  <p className="mt-1 font-medium text-white">{profile.username}</p>
-                </div>
-                <Badge className="rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
-                  {language === "en" ? "Online" : "Σύνδεση"}
-                </Badge>
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-white/80">
+                <ShieldAlert className="h-4 w-4 text-violet-200" />
+                <p className="text-sm font-medium">{copy.safety.title}</p>
               </div>
+              <p className="mt-3 text-sm leading-6 text-white/60">{copy.landing.safetyBody}</p>
+            </div>
 
-              <Separator className="my-4 bg-white/10" />
-
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">
-                    {language === "en" ? "Partner" : "Συνομιλητής"}
-                  </p>
-                  <p className="mt-1 font-medium text-white">{partnerLabel}</p>
-                </div>
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Controls" : "Έλεγχοι"}</p>
+              <div className="mt-4 grid gap-3">
                 <Button
                   variant="outline"
-                  className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
                   onClick={() =>
                     reportCurrentRoom(
                       language === "en"
@@ -346,24 +331,6 @@ const SessionPage = () => {
                 >
                   <Flag className="mr-2 h-4 w-4" />
                   {copy.session.report}
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center gap-2 text-white/80">
-                <ShieldAlert className="h-4 w-4 text-violet-200" />
-                <p className="text-sm font-medium">{copy.safety.title}</p>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-white/60">{copy.landing.safetyBody}</p>
-              <div className="mt-4 grid gap-3">
-                <Button
-                  variant="outline"
-                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={blockCurrentPartner}
-                >
-                  <PhoneOff className="mr-2 h-4 w-4" />
-                  {copy.session.block}
                 </Button>
                 <Button
                   variant="outline"
@@ -381,25 +348,17 @@ const SessionPage = () => {
                   {muted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
                   {muted ? (language === "en" ? "Unmute" : "Έναρξη ήχου") : (language === "en" ? "Mute" : "Σίγαση")}
                 </Button>
-              </div>
-            </div>
-
-            {room.voiceEnabled ? (
-              <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-4">
-                <div className="flex items-center gap-2 text-violet-50">
-                  <Mic className="h-4 w-4" />
-                  <p className="text-sm font-medium">{copy.session.voiceUnlocked}</p>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-violet-50/70">
-                  {voiceState === "connected"
-                    ? copy.session.connected
-                    : voiceState === "connecting"
-                      ? copy.session.voiceStarting
-                      : copy.session.startVoice}
-                </p>
-                <div className="mt-4 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                  onClick={blockCurrentPartner}
+                >
+                  <PhoneOff className="mr-2 h-4 w-4" />
+                  {copy.session.block}
+                </Button>
+                {room.voiceEnabled ? (
                   <Button
-                    className="h-12 flex-1 rounded-full bg-white text-slate-950 hover:bg-white/90"
+                    className="h-12 rounded-full bg-white text-slate-950 hover:bg-white/90"
                     onClick={async () => {
                       if (voiceState === "connected") {
                         stopVoiceChat();
@@ -411,39 +370,25 @@ const SessionPage = () => {
                       }
                     }}
                   >
-                    {voiceState === "connected" ? (
-                      <PhoneOff className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Mic className="mr-2 h-4 w-4" />
-                    )}
+                    {voiceState === "connected" ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
                     {voiceState === "connected"
                       ? language === "en"
                         ? "Disconnect voice"
                         : "Αποσύνδεση φωνής"
                       : copy.session.startVoice}
                   </Button>
-                </div>
-
+                ) : (
+                  <div className="rounded-[20px] border border-violet-400/15 bg-violet-400/10 px-4 py-3 text-sm text-violet-50/80">
+                    {language === "en"
+                      ? "Voice will appear after the timer reaches zero."
+                      : "Η φωνή θα εμφανιστεί όταν ο χρόνος μηδενιστεί."}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-4 text-center">
-                <div className="flex items-center justify-center gap-2 text-violet-50">
-                  <Mic className="h-4 w-4" />
-                  <p className="text-sm font-medium">{copy.session.textNote}</p>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-violet-50/70">
-                  {`${copy.session.countdownLabel}: ${formattedTimer}`}
-                </p>
-                <p className="mt-3 text-xs text-violet-50/45">
-                  {language === "en"
-                    ? "The voice button will appear when the timer reaches zero."
-                    : "Το κουμπί της φωνής θα εμφανιστεί όταν ο χρόνος μηδενιστεί."}
-                </p>
-              </div>
-            )}
+            </div>
 
             {!isActive && (
-              <div className="rounded-[28px] border border-white/10 bg-white/5 p-4">
+              <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
                 <p className="text-lg font-medium text-white">{copy.session.ended}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {ratingOptions.map((score) => (
