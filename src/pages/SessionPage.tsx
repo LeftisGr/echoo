@@ -297,41 +297,52 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-4">
-              <div className="flex items-center gap-2 text-violet-50">
-                <Mic className="h-4 w-4" />
-                <p className="text-sm font-medium">
-                  {room.voiceEnabled ? copy.session.voiceUnlocked : copy.session.textNote}
+            {room.voiceEnabled ? (
+              <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-4">
+                <div className="flex items-center gap-2 text-violet-50">
+                  <Mic className="h-4 w-4" />
+                  <p className="text-sm font-medium">{copy.session.voiceUnlocked}</p>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-violet-50/70">
+                  {voiceState === "connected" ? copy.session.connected : copy.session.startVoice}
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Button
+                    className="h-12 flex-1 rounded-full bg-white text-slate-950 hover:bg-white/90"
+                    onClick={async () => {
+                      if (audioRef.current) {
+                        await startVoiceChat(audioRef.current);
+                      }
+                    }}
+                  >
+                    <Mic className="mr-2 h-4 w-4" />
+                    {copy.session.startVoice}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                    onClick={() => navigate("/settings")}
+                  >
+                    {copy.nav.settings}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-4 text-center">
+                <div className="flex items-center justify-center gap-2 text-violet-50">
+                  <Mic className="h-4 w-4" />
+                  <p className="text-sm font-medium">{copy.session.textNote}</p>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-violet-50/70">
+                  {`${copy.session.countdownLabel}: ${formattedTimer}`}
+                </p>
+                <p className="mt-3 text-xs text-violet-50/45">
+                  {language === "en"
+                    ? "The voice button will appear when the timer reaches zero."
+                    : "Το κουμπί της φωνής θα εμφανιστεί όταν ο χρόνος μηδενιστεί."}
                 </p>
               </div>
-              <p className="mt-2 text-sm leading-6 text-violet-50/70">
-                {room.voiceEnabled
-                  ? voiceState === "connected"
-                    ? copy.session.connected
-                    : copy.session.startVoice
-                  : `${copy.session.countdownLabel}: ${formattedTimer}`}
-              </p>
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={!room.voiceEnabled}
-                  className="h-12 flex-1 rounded-full bg-white text-slate-950 hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/35 disabled:text-slate-700"
-                  onClick={async () => {
-                    if (room.voiceEnabled && audioRef.current) {
-                      await startVoiceChat(audioRef.current);
-                    }
-                  }}
-                >
-                  {room.voiceEnabled ? copy.session.startVoice : formattedTimer}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={() => navigate("/settings")}
-                >
-                  {copy.nav.settings}
-                </Button>
-              </div>
-            </div>
+            )}
 
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-white/80">
