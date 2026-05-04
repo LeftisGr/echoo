@@ -14,7 +14,17 @@ import {
 } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -28,23 +38,8 @@ import { cn } from "@/lib/utils";
 
 const sessionDurationSeconds = 600;
 
-const roomTitles = [
-  "Signal Lounge",
-  "Velvet Circuit",
-  "Moonlit Relay",
-  "Echo Deck",
-  "Pulse Room",
-  "Late Night Channel",
-  "Afterglow Room",
-  "Soft Static",
-];
-
-const roomTaglines = [
-  "One room. Two voices. No pressure.",
-  "Text first, voice later.",
-  "A quiet place to meet someone new.",
-  "Simple conversation, shared time.",
-];
+const roomTitles = ["Signal Lounge", "Velvet Circuit", "Moonlit Relay", "Echo Deck", "Pulse Room", "Late Night Channel", "Afterglow Room", "Soft Static"];
+const roomTaglines = ["One room. Two voices. No pressure.", "Text first, voice later.", "A quiet place to meet someone new.", "Simple conversation, shared time."];
 
 function pickById(id: string, items: string[]) {
   const score = id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -110,7 +105,7 @@ const SessionPage = () => {
       return;
     }
 
-    const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1600);
+    const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1400);
     return () => window.clearTimeout(timeout);
   }, [voiceUnlockedFlash]);
 
@@ -296,9 +291,7 @@ const SessionPage = () => {
                   <DialogHeader>
                     <DialogTitle>{language === "en" ? "Echoers in this room" : "Echoers σε αυτό το room"}</DialogTitle>
                     <DialogDescription className="text-white/55">
-                      {language === "en"
-                        ? "This room is always 1-to-1."
-                        : "Αυτό το room είναι πάντα 1-προς-1."}
+                      {language === "en" ? "This room is always 1-to-1." : "Αυτό το room είναι πάντα 1-προς-1."}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
@@ -337,7 +330,6 @@ const SessionPage = () => {
                       </div>
                     </div>
                   </div>
-
                 </DialogContent>
               </Dialog>
             </div>
@@ -385,8 +377,8 @@ const SessionPage = () => {
           <Progress value={timerProgress} className="mt-4 h-2 rounded-full bg-white/10 [&>div]:bg-violet-400" />
         </div>
 
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="flex min-h-[70vh] flex-col border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="flex min-h-[72vh] flex-col border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
             <ScrollArea className="flex-1 px-4 py-4 sm:px-5">
               <div ref={messagesRef} className="space-y-3 pb-4">
                 {room.messages.map((message) => {
@@ -465,13 +457,7 @@ const SessionPage = () => {
                 className="mt-3 h-12 w-full rounded-full bg-white text-slate-950 hover:bg-white/90"
                 onClick={handleVoiceButton}
               >
-                {voiceState === "connected" ? (
-                  muted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />
-                ) : voiceReady ? (
-                  <Mic className="mr-2 h-4 w-4" />
-                ) : (
-                  <Mic className="mr-2 h-4 w-4" />
-                )}
+                {voiceState === "connected" ? (muted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />) : <Mic className="mr-2 h-4 w-4" />}
                 {voiceButtonLabel}
               </Button>
               <p className="mt-3 text-xs leading-5 text-white/45">
@@ -489,35 +475,13 @@ const SessionPage = () => {
               </p>
             </div>
 
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center gap-2 text-white/80">
-                <ShieldAlert className="h-4 w-4 text-violet-200" />
-                <p className="text-sm font-medium">{copy.safety.title}</p>
+            {room.voiceEnabled && voiceReady && voiceState !== "connected" && (
+              <div className="rounded-[24px] border border-violet-400/15 bg-violet-400/10 p-4 text-sm leading-6 text-violet-50/80">
+                {language === "en"
+                  ? "Voice is ready. Tap the button above to start."
+                  : "Η φωνή είναι έτοιμη. Πάτησε το κουμπί πάνω για να ξεκινήσεις."}
               </div>
-              <p className="mt-3 text-sm leading-6 text-white/60">{copy.landing.safetyBody}</p>
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Quick actions" : "Γρήγορες ενέργειες"}</p>
-              <div className="mt-4 grid gap-3">
-                <Button
-                  variant="outline"
-                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={blockCurrentPartner}
-                >
-                  <PhoneOff className="mr-2 h-4 w-4" />
-                  {copy.session.block}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={() => setMuted((current) => !current)}
-                >
-                  {muted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
-                  {muted ? (language === "en" ? "Unmute" : "Ήχος") : (language === "en" ? "Mute" : "Σίγαση")}
-                </Button>
-              </div>
-            </div>
+            )}
 
             {!isActive && (
               <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">

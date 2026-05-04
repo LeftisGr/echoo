@@ -193,6 +193,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const matchmakingInFlightRef = useRef(false);
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
+  const hydratedSessionUserIdRef = useRef<string | null>(null);
 
   const copy = useMemo(() => getCopy(language), [language]);
 
@@ -229,32 +230,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const syncAuth = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const sessionUser = data.session?.user;
-        if (sessionUser) {
-          await hydrateAuthenticatedUser(sessionUser.id);
-        } else {
-          setAuthenticated(false);
-          setUserId(null);
-          setProfile(null);
-          setRoom(null);
-          setQueue(createInitialQueue(null));
-        }
-        setAuthenticated(Boolean(sessionUser));
-        setUserId(sessionUser?.id ?? null);
-      } catch {
-        void supabase.auth.signOut();
-        setAuthenticated(false);
-        setUserId(null);
-        setProfile(null);
-        setRoom(null);
-        setQueue(createInitialQueue(null));
+    const hydrateSessionUser = async (sessionUserId: string) => {
+      if (hydratedSessionUserIdRef.current === sessionUserId) {
+        return;
       }
-    };
 
-    void syncAuth();
+      hydratedSessionUserIdRef.current = sessionUserId;
+      await hydrateAuthenticatedUser(sessionUserId);
+    };
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user ?? null;
@@ -262,8 +245,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
       if (sessionUser) {
-        void hydrateAuthenticatedUser(sessionUser.id)
+        void hydrateSessionUser(sessionUser.id)
           .catch(() => {
+            hydratedSessionUserIdRef.current = null;
             void supabase.auth.signOut();
             setAuthenticated(false);
             setUserId(null);
@@ -275,6 +259,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             setSessionReady(true);
           });
       } else {
+        hydratedSessionUserIdRef.current = null;
         stopRoomSubscriptions();
         setRoom(null);
         setProfile(null);
@@ -282,6 +267,45 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setVoiceState("idle");
         setSessionReady(true);
       }
+    });
+
+    void supabase.auth.getSession().then(({ data }) => {
+      const sessionUser = data.session?.user ?? null;
+      setAuthenticated(Boolean(sessionUser));
+      setUserId(sessionUser?.id ?? null);
+      if (sessionUser) {
+        void hydrateSessionUser(sessionUser.id)
+          .catch(() => {
+            hydratedSessionUserIdRef.current = null;
+            void supabase.auth.signOut();
+            setAuthenticated(false);
+            setUserId(null);
+            setProfile(null);
+            setRoom(null);
+            setQueue(createInitialQueue(null));
+          })
+          .finally(() => {
+            setSessionReady(true);
+          });
+      } else {
+        hydratedSessionUserIdRef.current = null;
+        setAuthenticated(false);
+        setUserId(null);
+        setProfile(null);
+        setRoom(null);
+        setQueue(createInitialQueue(null));
+        setVoiceState("idle");
+        setSessionReady(true);
+      }
+    }).catch(() => {
+      hydratedSessionUserIdRef.current = null;
+      setAuthenticated(false);
+      setUserId(null);
+      setProfile(null);
+      setRoom(null);
+      setQueue(createInitialQueue(null));
+      setVoiceState("idle");
+      setSessionReady(true);
     });
 
     return () => data.subscription.unsubscribe();
@@ -695,8 +719,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     voiceControllerRef.current?.stop();
     voiceControllerRef.current = null;
+    hydratedSessionUserIdRef.current = null;
     matchmakingInFlightRef.current = false;
     stopQueueSubscriptions();
+
     stopRoomSubscriptions();
     setVoiceState("idle");
     void supabase.auth.signOut();

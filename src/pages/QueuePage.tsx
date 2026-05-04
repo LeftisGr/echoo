@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Sparkles, WifiOff } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,17 +22,17 @@ const QueuePage = () => {
   const [openingSecondsLeft, setOpeningSecondsLeft] = useState(roomOpeningSeconds);
   const [timedOut, setTimedOut] = useState(false);
   const [openingRoomId, setOpeningRoomId] = useState<string | null>(null);
+  const [readyToEnter, setReadyToEnter] = useState(false);
 
   useEffect(() => {
     if (!authenticated) {
-      navigate("/auth", { replace: true });
       return;
     }
 
     if (!queue.active && !room && !timedOut) {
-      navigate("/dashboard", { replace: true });
+      setReadyToEnter(false);
     }
-  }, [authenticated, navigate, queue.active, room, timedOut]);
+  }, [authenticated, queue.active, room, timedOut]);
 
   useEffect(() => {
     if (!queue.active || room || timedOut) {
@@ -58,6 +58,7 @@ const QueuePage = () => {
     if (!room) {
       setOpeningRoomId(null);
       setOpeningSecondsLeft(roomOpeningSeconds);
+      setReadyToEnter(false);
       return;
     }
 
@@ -79,7 +80,7 @@ const QueuePage = () => {
       setOpeningSecondsLeft((current) => {
         if (current <= 1) {
           window.clearInterval(interval);
-          navigate("/session", { replace: true });
+          setReadyToEnter(true);
           return 0;
         }
 
@@ -88,7 +89,7 @@ const QueuePage = () => {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [navigate, openingRoomId, room]);
+  }, [openingRoomId, room]);
 
   const phase: QueuePhase = room
     ? "opening"
@@ -119,8 +120,16 @@ const QueuePage = () => {
           ? totalQueueSeconds - elapsedSeconds
           : 0;
 
-  if (!authenticated || (!queue.active && !room && !timedOut)) {
-    return null;
+  if (!authenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (readyToEnter && room) {
+    return <Navigate to="/session" replace />;
+  }
+
+  if (!queue.active && !room && !timedOut) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   const statusText =
