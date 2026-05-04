@@ -139,24 +139,24 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<PresenceStoredState>;
     return {
-      language: parsed.language ?? "en",
+      language: parsed.language ?? "el",
       authenticated: parsed.authenticated ?? false,
       reportsCount: parsed.reportsCount ?? 0,
       ratings: parsed.ratings ?? [],
     };
   } catch {
-    return { language: "en", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
   }
 }
 
