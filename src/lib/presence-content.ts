@@ -178,7 +178,8 @@ export const copy = {
     },
     queue: {
       title: "Finding your next conversation",
-      body: "We first try strict filters, then gently widen the pool to reduce waiting.",
+      body: "We match you with the next available Echoer. Simple, fast, and anonymous.",
+
       cancel: "Cancel",
       changeFilters: "Change filters",
       found: "Connection found",
@@ -254,7 +255,8 @@ export const copy = {
       online: "Online",
       reconnecting: "Reconnecting",
       stable: "Realtime stable",
-      noUsers: "No users found yet, keep waiting?",
+      noUsers: "No one is free right now. Please try again in a few minutes.",
+
       sessionReady: "Your room is ready.",
       profileSaved: "Profile updated.",
       blocked: "User blocked.",
@@ -353,7 +355,8 @@ export const copy = {
     },
     queue: {
       title: "Βρίσκουμε την επόμενη συνομιλία σου",
-      body: "Πρώτα δοκιμάζουμε αυστηρά φίλτρα και μετά ανοίγουμε απαλά το pool για λιγότερη αναμονή.",
+      body: "Σε συνδέουμε με τον επόμενο διαθέσιμο Echoer. Απλό, γρήγορο και ανώνυμο.",
+
       cancel: "Ακύρωση",
       changeFilters: "Αλλαγή φίλτρων",
       found: "Βρέθηκε σύνδεση",
@@ -429,7 +432,8 @@ export const copy = {
       online: "Online",
       reconnecting: "Επανασύνδεση",
       stable: "Realtime σταθερό",
-      noUsers: "Δεν βρέθηκαν χρήστες ακόμη, να συνεχίσουμε;",
+      noUsers: "Κανείς δεν είναι διαθέσιμος τώρα. Δοκίμασε ξανά σε λίγα λεπτά.",
+
       sessionReady: "Το δωμάτιό σου είναι έτοιμο.",
       profileSaved: "Το προφίλ ενημερώθηκε.",
       blocked: "Ο χρήστης μπλοκαρίστηκε.",

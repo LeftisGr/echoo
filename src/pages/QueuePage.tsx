@@ -8,15 +8,15 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 import { queueMessages } from "@/lib/presence-content";
 
-const loadingDurationSeconds = 20;
-
-type QueuePhase = "loading" | "waiting";
+const loadingWindowSeconds = 20;
+const searchingWindowSeconds = 20;
+const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
   const { authenticated, queue, room, cancelQueue, copy, language, online } = usePresence();
-  const [phase, setPhase] = useState<QueuePhase>("loading");
-  const [secondsLeft, setSecondsLeft] = useState(loadingDurationSeconds);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     if (!authenticated) {
@@ -24,35 +24,10 @@ const QueuePage = () => {
       return;
     }
 
-    if (!queue.active && !room) {
+    if (!queue.active && !room && !timedOut) {
       navigate("/dashboard", { replace: true });
     }
-  }, [authenticated, navigate, queue.active, room]);
-
-  useEffect(() => {
-    if (!queue.active) {
-      setPhase("loading");
-      setSecondsLeft(loadingDurationSeconds);
-      return;
-    }
-
-    setPhase("loading");
-    setSecondsLeft(loadingDurationSeconds);
-
-    const interval = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          setPhase("waiting");
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [queue.active]);
+  }, [authenticated, navigate, queue.active, room, timedOut]);
 
   useEffect(() => {
     if (room) {
@@ -60,12 +35,50 @@ const QueuePage = () => {
     }
   }, [navigate, room]);
 
-  const loadingProgress = useMemo(
-    () => ((loadingDurationSeconds - secondsLeft) / loadingDurationSeconds) * 100,
-    [secondsLeft],
+  useEffect(() => {
+    if (!queue.active) {
+      if (!timedOut) {
+        setElapsedSeconds(0);
+      }
+      return;
+    }
+
+    setTimedOut(false);
+    setElapsedSeconds(0);
+
+    const interval = window.setInterval(() => {
+      setElapsedSeconds((current) => Math.min(current + 1, totalQueueSeconds));
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [queue.active, timedOut]);
+
+  useEffect(() => {
+    if (queue.active && elapsedSeconds >= totalQueueSeconds && !timedOut) {
+      setTimedOut(true);
+      void cancelQueue();
+    }
+  }, [cancelQueue, elapsedSeconds, queue.active, timedOut]);
+
+  const phase = timedOut
+    ? "timed-out"
+    : elapsedSeconds < loadingWindowSeconds
+      ? "loading"
+      : "searching";
+
+  const progress = useMemo(
+    () => Math.min((elapsedSeconds / totalQueueSeconds) * 100, 100),
+    [elapsedSeconds],
   );
 
-  if (!authenticated || (!queue.active && !room)) {
+  const secondsLeft =
+    phase === "loading"
+      ? loadingWindowSeconds - elapsedSeconds
+      : phase === "searching"
+        ? totalQueueSeconds - elapsedSeconds
+        : 0;
+
+  if (!authenticated || (!queue.active && !room && !timedOut)) {
     return null;
   }
 
@@ -94,37 +107,60 @@ const QueuePage = () => {
 
           <p className="text-sm leading-6 text-white/60">{copy.queue.body}</p>
 
-          <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-left">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white">{language === "en" ? "Matching now" : "Γίνεται match τώρα"}</p>
-                <p className="mt-1 text-sm text-white/50">
-                  {queue.softRelaxed ? copy.queue.relaxed : queueMessages[language][queue.messageIndex]}
-                </p>
+          {timedOut ? (
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-left">
+              <p className="text-sm font-medium text-white">
+                {language === "en"
+                  ? "Please try again in a couple minutes... every Echoer is busy at the moment!"
+                  : "Προσπάθησε ξανά σε λίγα λεπτά... όλοι οι Echoers είναι απασχολημένοι αυτή τη στιγμή!"}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/50">
+                {language === "en"
+                  ? "We kept searching, but no one was free right now."
+                  : "Συνεχίσαμε να ψάχνουμε, αλλά κανείς δεν ήταν διαθέσιμος τώρα."}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-left">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {phase === "loading"
+                      ? language === "en"
+                        ? "Preparing your room"
+                        : "Προετοιμάζουμε το room σου"
+                      : language === "en"
+                        ? "Searching for another Echoer"
+                        : "Ψάχνουμε άλλον Echoer"}
+                  </p>
+                  <p className="mt-1 text-sm text-white/50">
+                    {queue.softRelaxed ? copy.queue.relaxed : queueMessages[language][queue.messageIndex]}
+                  </p>
+                </div>
+                <Badge className="rounded-full bg-violet-500/15 text-violet-100 hover:bg-violet-500/15">
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                  {secondsLeft}s
+                </Badge>
               </div>
-              <Badge className="rounded-full bg-violet-500/15 text-violet-100 hover:bg-violet-500/15">
-                <Sparkles className="mr-1 h-3.5 w-3.5" />
-                {phase === "loading" ? `${secondsLeft}s` : "..."}
-              </Badge>
-            </div>
 
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-violet-400 transition-[width] duration-1000 ease-linear"
-                style={{ width: phase === "loading" ? `${loadingProgress}%` : "100%" }}
-              />
-            </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-violet-400 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
 
-            <p className="mt-3 text-xs text-white/45">
-              {phase === "loading"
-                ? language === "en"
-                  ? "Preparing your room"
-                  : "Προετοιμάζουμε το room σου"
-                : language === "en"
-                  ? "It may take a little longer... please wait!"
-                  : "Μπορεί να πάρει λίγο περισσότερο... περίμενε λίγο παρακαλώ!"}
-            </p>
-          </div>
+              <p className="mt-3 text-xs text-white/45">
+                {phase === "loading"
+                  ? language === "en"
+                    ? "Preparing your room"
+                    : "Προετοιμάζουμε το room σου"
+                  : language === "en"
+                    ? "It may take a little longer... please wait!"
+                    : "Μπορεί να πάρει λίγο περισσότερο... περίμενε λίγο παρακαλώ!"}
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <Button
@@ -135,7 +171,7 @@ const QueuePage = () => {
                 navigate("/dashboard", { replace: true });
               }}
             >
-              {copy.queue.cancel}
+              {timedOut ? (language === "en" ? "Back home" : "Πίσω") : copy.queue.cancel}
             </Button>
             <Button
               variant="outline"
