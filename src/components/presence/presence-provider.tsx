@@ -288,7 +288,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!queue.active) {
+    if (!queue.active || room) {
       queueTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       queueTimersRef.current = [];
       return;

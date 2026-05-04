@@ -34,6 +34,7 @@ const SessionPage = () => {
     startNewSessionFromEndedRoom,
     startVoiceChat,
     stopVoiceChat,
+    cancelQueue,
     voiceState,
   } = usePresence();
 
@@ -87,6 +88,12 @@ const SessionPage = () => {
   }, [room?.messages.length]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
+
+  useEffect(() => {
+    if (room && queue.active) {
+      void cancelQueue();
+    }
+  }, [cancelQueue, queue.active, room]);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
