@@ -194,6 +194,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const matchmakingInFlightRef = useRef(false);
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
   const hydratedSessionUserIdRef = useRef<string | null>(null);
+  const matchingEnabledRef = useRef(false);
+  const matchingStartTimeoutRef = useRef<number | null>(null);
+  const matchingIntervalRef = useRef<number | null>(null);
 
   const copy = useMemo(() => getCopy(language), [language]);
 
@@ -454,9 +457,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const channel = supabase
       .channel(`presence-queue-${currentUserId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "queue" }, () => {
+        if (!matchingEnabledRef.current) {
+          return;
+        }
         void attemptRealtimeMatch(currentUserId);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "queue" }, () => {
+        if (!matchingEnabledRef.current) {
+          return;
+        }
         void attemptRealtimeMatch(currentUserId);
       })
       .subscribe();
@@ -472,7 +481,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     matchmakingInFlightRef.current = true;
 
     try {
-      const match = await matchQueueUser(currentUserId);
+      let match;
+      try {
+        match = await matchQueueUser(currentUserId);
+      } catch (error) {
+        const maybeStatus = (error as { status?: number; code?: string } | null)?.status;
+        if (maybeStatus === 409 || (error as { code?: string } | null)?.code === "409") {
+          return;
+        }
+        throw error;
+      }
+
       if (!match.roomId) {
         return;
       }
@@ -608,20 +627,48 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!authenticated || !profile || !userId || !queue.active || room) {
+      matchingEnabledRef.current = false;
       stopQueueSubscriptions();
+      if (matchingStartTimeoutRef.current) {
+        window.clearTimeout(matchingStartTimeoutRef.current);
+        matchingStartTimeoutRef.current = null;
+      }
+      if (matchingIntervalRef.current) {
+        window.clearInterval(matchingIntervalRef.current);
+        matchingIntervalRef.current = null;
+      }
       return;
     }
 
     subscribeToQueueChanges(userId);
-    void attemptRealtimeMatch(userId).catch(() => undefined);
 
-    const interval = window.setInterval(() => {
+    if (matchingStartTimeoutRef.current) {
+      window.clearTimeout(matchingStartTimeoutRef.current);
+    }
+    if (matchingIntervalRef.current) {
+      window.clearInterval(matchingIntervalRef.current);
+    }
+
+    matchingStartTimeoutRef.current = window.setTimeout(() => {
+      matchingEnabledRef.current = true;
       void attemptRealtimeMatch(userId).catch(() => undefined);
-    }, 1200);
+      matchingIntervalRef.current = window.setInterval(() => {
+        void attemptRealtimeMatch(userId).catch(() => undefined);
+      }, 4000);
+    }, 20000);
 
     return () => {
-      window.clearInterval(interval);
+      if (matchingStartTimeoutRef.current) {
+        window.clearTimeout(matchingStartTimeoutRef.current);
+        matchingStartTimeoutRef.current = null;
+      }
+      if (matchingIntervalRef.current) {
+        window.clearInterval(matchingIntervalRef.current);
+        matchingIntervalRef.current = null;
+      }
+      matchingEnabledRef.current = false;
       stopQueueSubscriptions();
+  
     };
   }, [authenticated, profile, queue.active, room?.id, userId]);
 
@@ -670,15 +717,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (method: AuthMethod, email?: string) => {
-      const completeLocalLogin = async () => {
-        const localProfile = profile ?? createDefaultProfile(userId ?? undefined);
-        setProfile(localProfile);
-        setUserId(localProfile.id);
-        setAuthenticated(true);
-        await syncProfile(localProfile);
-        toast.success(copy.misc.signedIn);
-      };
-
       if (method === "google") {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
@@ -688,7 +726,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
         if (error) {
           toast.error(error.message);
-          await completeLocalLogin();
         }
         return;
       }
@@ -707,13 +744,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         toast.error(error.message);
-        await completeLocalLogin();
         return;
       }
 
       toast.success(language === "en" ? "Magic link sent." : "Το magic link στάλθηκε.");
     },
-    [copy.misc.signedIn, language, profile, userId],
+    [language],
   );
 
   const logout = useCallback(() => {
@@ -721,8 +757,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     voiceControllerRef.current = null;
     hydratedSessionUserIdRef.current = null;
     matchmakingInFlightRef.current = false;
-    stopQueueSubscriptions();
+    if (matchingStartTimeoutRef.current) {
+      window.clearTimeout(matchingStartTimeoutRef.current);
+      matchingStartTimeoutRef.current = null;
+    }
+    if (matchingIntervalRef.current) {
+      window.clearInterval(matchingIntervalRef.current);
+      matchingIntervalRef.current = null;
+    }
+    matchingEnabledRef.current = false;
 
+    stopQueueSubscriptions();
     stopRoomSubscriptions();
     setVoiceState("idle");
     void supabase.auth.signOut();
@@ -806,8 +851,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     stopQueueSubscriptions();
     stopRoomSubscriptions();
+    matchingEnabledRef.current = false;
     setRoom(null);
     setQueue({
+
       active: true,
       joinedAt: new Date().toISOString(),
       estimatedWaitSeconds: 18,
@@ -824,8 +871,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       language: activeProfile.language,
     });
 
-    void attemptRealtimeMatch(activeProfile.id).catch(() => undefined);
-
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
@@ -833,10 +878,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
+    matchingEnabledRef.current = false;
     if (profile) {
       await leaveQueue(profile.id);
     }
     setQueue(createInitialQueue(profile));
+
   }, [profile]);
 
   const unlockVoice = useCallback(() => {
