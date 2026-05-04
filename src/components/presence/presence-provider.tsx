@@ -402,13 +402,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
-    const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
-    const partnerProfile = await loadProfile(partnerId);
     const messages = await loadRoomMessages(nextRoom.id);
 
     setRoom({
       ...nextRoom,
-      partner: partnerProfile,
+      partner: null,
       messages: messages.length
         ? messages
         : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],
