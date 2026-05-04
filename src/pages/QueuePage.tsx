@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { LoaderCircle, Sparkles, WifiOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,23 +9,24 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { queueMessages } from "@/lib/presence-content";
 
 const QueuePage = () => {
+  const navigate = useNavigate();
   const { authenticated, queue, room, cancelQueue, copy, language, online } = usePresence();
 
   useEffect(() => {
     if (!authenticated) {
-      window.location.replace("/auth");
+      navigate("/auth", { replace: true });
       return;
     }
 
     if (!queue.active && !room) {
-      window.location.replace("/dashboard");
+      navigate("/dashboard", { replace: true });
       return;
     }
 
     if (room) {
-      window.location.replace("/session");
+      navigate("/session", { replace: true });
     }
-  }, [authenticated, queue.active, room]);
+  }, [authenticated, navigate, queue.active, room]);
 
   if (!authenticated || (!queue.active && !room)) {
     return null;
@@ -76,7 +78,7 @@ const QueuePage = () => {
               className="h-12 flex-1 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={async () => {
                 await cancelQueue();
-                window.location.replace("/dashboard");
+                navigate("/dashboard", { replace: true });
               }}
             >
               {copy.queue.cancel}
@@ -84,7 +86,7 @@ const QueuePage = () => {
             <Button
               variant="outline"
               className="h-12 flex-1 rounded-full border-violet-400/20 bg-violet-400/10 text-violet-50 hover:bg-violet-400/15"
-              onClick={() => window.location.replace("/settings")}
+              onClick={() => navigate("/settings")}
             >
               {copy.queue.changeFilters}
             </Button>

@@ -460,13 +460,19 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       const activeRoom = await loadRoomById(match.roomId);
-      if (!activeRoom) {
-        return;
-      }
+      const roomToOpen =
+        activeRoom ??
+        {
+          id: match.roomId,
+          userA: currentUserId,
+          userB: match.partnerId ?? currentUserId,
+          startedAt: new Date().toISOString(),
+          endedAt: undefined,
+          voiceEnabled: false,
+        };
 
-      matchedRoomIdsRef.current.add(activeRoom.id);
-      await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profile));
+      matchedRoomIdsRef.current.add(roomToOpen.id);
+      await openRoom(roomToOpen.id, currentUserId, roomToOpen);
       stopQueueSubscriptions();
       toast.success(copy.misc.sessionReady);
       if (hapticsEnabled) {
