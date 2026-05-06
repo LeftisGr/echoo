@@ -89,4 +89,5 @@ export interface PresenceStoredState {
   authenticated: boolean;
   reportsCount: number;
   ratings: RatingScore[];
+  matchSoundEnabled: boolean;
 }

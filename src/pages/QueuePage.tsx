@@ -10,17 +10,22 @@ import { queueMessages } from "@/lib/presence-content";
 
 const loadingWindowSeconds = 20;
 const searchingWindowSeconds = 20;
-const roomOpeningSeconds = 20;
 const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { authenticated, queue, room, cancelQueue, copy, language, online, adminMetrics } = usePresence();
+  const {
+    authenticated,
+    queue,
+    room,
+    matchTransition,
+    cancelQueue,
+    copy,
+    language,
+    online,
+    adminMetrics,
+  } = usePresence();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [openingSecondsLeft, setOpeningSecondsLeft] = useState(roomOpeningSeconds);
-  const [timedOut, setTimedOut] = useState(false);
-  const [openingRoomId, setOpeningRoomId] = useState<string | null>(null);
-  const [readyToEnter, setReadyToEnter] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
 
@@ -29,16 +34,15 @@ const QueuePage = () => {
       return;
     }
 
-    if (!queue.active && !room && !timedOut) {
-      setReadyToEnter(false);
+    if (!queue.active && !room && !matchTransition) {
       setElapsedSeconds(0);
       setMessageIndex(0);
       setMessageFading(false);
     }
-  }, [authenticated, queue.active, room, timedOut]);
+  }, [authenticated, queue.active, room, matchTransition]);
 
   useEffect(() => {
-    if (!queue.active || room || timedOut) {
+    if (!queue.active || room || matchTransition) {
       return;
     }
 
@@ -48,10 +52,10 @@ const QueuePage = () => {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [queue.active, room, timedOut]);
+  }, [queue.active, room, matchTransition]);
 
   useEffect(() => {
-    if (!queue.active || room || timedOut) {
+    if (!queue.active || room || matchTransition) {
       return;
     }
 
@@ -64,75 +68,28 @@ const QueuePage = () => {
     }, 2600);
 
     return () => window.clearInterval(interval);
-  }, [language, queue.active, room, timedOut]);
+  }, [language, queue.active, room, matchTransition]);
 
-  useEffect(() => {
-    if (queue.active && elapsedSeconds >= totalQueueSeconds && !timedOut && !room) {
-      setTimedOut(true);
-      void cancelQueue();
-    }
-  }, [cancelQueue, elapsedSeconds, queue.active, room, timedOut]);
-
-  useEffect(() => {
-    if (!room) {
-      setOpeningRoomId(null);
-      setOpeningSecondsLeft(roomOpeningSeconds);
-      setReadyToEnter(false);
-      return;
-    }
-
-    if (openingRoomId === room.id) {
-      return;
-    }
-
-    setTimedOut(false);
-    setOpeningRoomId(room.id);
-    setOpeningSecondsLeft(roomOpeningSeconds);
-  }, [openingRoomId, room]);
-
-  useEffect(() => {
-    if (!room || openingRoomId !== room.id) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setOpeningSecondsLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          setReadyToEnter(true);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [openingRoomId, room]);
-
-  const phase = room
-    ? "opening"
-    : timedOut
-      ? "timed-out"
+  const phase = matchTransition
+    ? "match-found"
+    : room
+      ? "opening"
       : elapsedSeconds < loadingWindowSeconds
         ? "loading"
         : "searching";
 
   const progress = useMemo(() => {
-    if (phase === "opening") {
-      return ((roomOpeningSeconds - openingSecondsLeft) / roomOpeningSeconds) * 100;
-    }
+    if (phase === "match-found") {
+      return Math.min(((4 - matchTransition!.secondsLeft) / 3) * 100, 100);
 
-    if (phase === "timed-out") {
-      return 100;
     }
 
     return Math.min((elapsedSeconds / totalQueueSeconds) * 100, 100);
-  }, [elapsedSeconds, openingSecondsLeft, phase]);
+  }, [elapsedSeconds, matchTransition, phase]);
 
   const secondsLeft =
-    phase === "opening"
-      ? openingSecondsLeft
+    phase === "match-found"
+      ? matchTransition!.secondsLeft
       : phase === "loading"
         ? loadingWindowSeconds - elapsedSeconds
         : phase === "searching"
@@ -151,18 +108,18 @@ const QueuePage = () => {
           ? copy.queue.relaxed
           : queueMessages[language][messageIndex]
         : language === "en"
-          ? "Match found. Opening your room..."
-          : "Βρέθηκε match. Ανοίγουμε το room σου...";
+          ? "Connection found"
+          : "Βρέθηκε σύνδεση";
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (readyToEnter && room) {
+  if (room && !matchTransition) {
     return <Navigate to="/session" replace />;
   }
 
-  if (!queue.active && !room && !timedOut) {
+  if (!queue.active && !room && !matchTransition) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -211,13 +168,23 @@ const QueuePage = () => {
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Σε σύνδεση τώρα"}</p>
               <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
-              <p className="mt-1 text-sm text-white/50">
-                {language === "en" ? "people online now" : "άτομα online τώρα"}
-              </p>
+              <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Status" : "Κατάσταση"}</p>
-              <p className="mt-2 text-sm font-medium text-violet-100">{phase === "opening" ? (language === "en" ? "Opening room" : "Ανοίγει το room") : phase === "searching" ? (language === "en" ? "Searching" : "Γίνεται αναζήτηση") : language === "en" ? "Preparing" : "Προετοιμασία"}</p>
+              <p className="mt-2 text-sm font-medium text-violet-100">
+                {phase === "loading"
+                  ? language === "en"
+                    ? "Searching"
+                    : "Αναζήτηση"
+                  : phase === "searching"
+                    ? language === "en"
+                      ? "Searching"
+                      : "Γίνεται αναζήτηση"
+                    : language === "en"
+                      ? "Connection found"
+                      : "Βρέθηκε σύνδεση"}
+              </p>
               <p className="mt-1 text-sm text-white/50">{secondsLeft}s</p>
             </div>
           </div>
@@ -229,17 +196,17 @@ const QueuePage = () => {
                   {currentMessage}
                 </p>
                 <p className="mt-2 text-sm text-white/50">
-                  {phase === "opening"
+                  {phase === "searching"
                     ? language === "en"
-                      ? "Hold on while we bring you into the room."
-                      : "Περίμενε όσο σε βάζουμε στο room."
-                    : language === "en"
                       ? "It updates every few seconds so the queue feels alive."
-                      : "Η κατάσταση αλλάζει κάθε λίγα δευτερόλεπτα για να νιώθεις τη ροή."}
+                      : "Η κατάσταση αλλάζει κάθε λίγα δευτερόλεπτα για να νιώθεις τη ροή."
+                    : language === "en"
+                      ? "A connection is ready to open."
+                      : "Η σύνδεση είναι έτοιμη να ανοίξει."}
                 </p>
               </div>
               <Badge className="rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
-                {secondsLeft}s
+                {phase === "match-found" ? `${matchTransition?.secondsLeft ?? 0}...` : `${secondsLeft}s`}
               </Badge>
             </div>
 
@@ -250,17 +217,6 @@ const QueuePage = () => {
               />
             </div>
           </div>
-
-          {phase === "timed-out" ? (
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-left">
-              <p className="text-sm font-medium text-white">{language === "en" ? "Still searching..." : "Συνεχίζουμε την αναζήτηση..."}</p>
-              <p className="mt-2 text-sm leading-6 text-white/50">
-                {language === "en"
-                  ? "We kept searching, but no one was free right now."
-                  : "Συνεχίσαμε να ψάχνουμε, αλλά κανείς δεν ήταν διαθέσιμος τώρα."}
-              </p>
-            </div>
-          ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
@@ -284,6 +240,34 @@ const QueuePage = () => {
             </Button>
           </div>
         </div>
+
+        {matchTransition && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#050814]/90 backdrop-blur-xl transition-opacity duration-500">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.24),transparent_55%)] opacity-90" />
+            <div className="relative mx-auto w-full max-w-md px-6 text-center">
+              <div className="mb-6 flex justify-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.25)]">
+                  <LoaderCircle className="h-9 w-9 animate-spin text-violet-100" />
+                </div>
+              </div>
+              <p className="text-xs uppercase tracking-[0.32em] text-white/45">Connection Found</p>
+              <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-white/65">
+                {language === "en"
+                  ? "A room is opening just for you."
+                  : "Ένα room ανοίγει ειδικά για εσένα."}
+              </p>
+              <div className="mt-8 h-1 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-violet-400 transition-[width] duration-1000 ease-out"
+                  style={{ width: `${((3 - matchTransition.secondsLeft + 1) / 3) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </Surface>
     </PageShell>
   );

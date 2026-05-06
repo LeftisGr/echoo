@@ -22,9 +22,12 @@ const SettingsPage = () => {
     rerollUsername,
     hapticsEnabled,
     reconnectEnabled,
+    matchSoundEnabled,
     setHapticsEnabled,
     setReconnectEnabled,
+    setMatchSoundEnabled,
     logout,
+
   } = usePresence();
 
   if (!authenticated) {
@@ -95,11 +98,17 @@ const SettingsPage = () => {
               onCheckedChange={setHapticsEnabled}
             />
             <SwitchRow
+              label={language === "en" ? "Match found sound" : "Ήχος match"}
+              checked={matchSoundEnabled}
+              onCheckedChange={setMatchSoundEnabled}
+            />
+            <SwitchRow
               label={copy.settings.reconnect}
               checked={reconnectEnabled}
               onCheckedChange={setReconnectEnabled}
             />
           </Surface>
+
         </div>
       </div>
 

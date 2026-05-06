@@ -44,6 +44,11 @@ import type {
   VoiceState,
 } from "@/lib/presence-types";
 
+interface MatchTransitionState {
+  roomId: string;
+  secondsLeft: number;
+}
+
 interface PresenceContextValue {
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
@@ -52,10 +57,12 @@ interface PresenceContextValue {
   profile: PresenceProfile | null;
   queue: QueueState;
   room: RoomSession | null;
+  matchTransition: MatchTransitionState | null;
   voiceState: VoiceState;
   online: boolean;
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
+  matchSoundEnabled: boolean;
   sessionReady: boolean;
   adminMetrics: AdminMetrics;
   login: (method: AuthMethod, email?: string) => Promise<void>;
@@ -73,6 +80,7 @@ interface PresenceContextValue {
   setQueueFilters: (filters: Partial<QueueFilters>) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setReconnectEnabled: (enabled: boolean) => void;
+  setMatchSoundEnabled: (enabled: boolean) => void;
   startVoiceChat: (audioElement: HTMLAudioElement) => Promise<void>;
   stopVoiceChat: () => void;
   startNewSessionFromEndedRoom: () => Promise<void>;
@@ -80,49 +88,51 @@ interface PresenceContextValue {
 
 const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
-const roomStorageKey = "presence-room-state";
 
 function createId() {
   return crypto.randomUUID();
 }
 
-function readStoredRoom(): RoomSession | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(roomStorageKey);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as RoomSession;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredRoom(room: RoomSession | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!room) {
-    window.localStorage.removeItem(roomStorageKey);
-    return;
-  }
-
-  window.localStorage.setItem(roomStorageKey, JSON.stringify(room));
-}
-
 function vibrate(pattern: number | number[]) {
+
   if (typeof window !== "undefined" && "vibrate" in navigator) {
     navigator.vibrate(pattern);
   }
 }
 
+function playMatchFoundSound() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const context = new AudioContextClass();
+  const gain = context.createGain();
+  gain.gain.value = 0.0001;
+  gain.connect(context.destination);
+
+  const oscillator = context.createOscillator();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(784, context.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(987, context.currentTime + 0.12);
+  oscillator.connect(gain);
+  oscillator.start();
+
+  gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
+  oscillator.stop(context.currentTime + 0.24);
+
+  oscillator.onended = () => {
+    void context.close();
+  };
+}
+
 function randomFrom<T>(items: readonly T[]) {
+
   return items[Math.floor(Math.random() * items.length)];
 }
 
@@ -170,12 +180,12 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 
   try {
@@ -185,9 +195,10 @@ function readStoredState(): PresenceStoredState {
       authenticated: parsed.authenticated ?? false,
       reportsCount: parsed.reportsCount ?? 0,
       ratings: parsed.ratings ?? [],
+      matchSoundEnabled: parsed.matchSoundEnabled ?? true,
     };
   } catch {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [] };
+    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 }
 
@@ -198,7 +209,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<PresenceProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueState>(createInitialQueue(null));
-  const [room, setRoom] = useState<RoomSession | null>(() => readStoredRoom());
+  const [room, setRoom] = useState<RoomSession | null>(null);
+  const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
 
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
@@ -206,7 +218,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
+  const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
   const [sessionReady, setSessionReady] = useState(false);
+
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
     activeUsers: 0,
@@ -246,14 +260,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       authenticated,
       reportsCount,
       ratings,
+      matchSoundEnabled,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(storedState));
-  }, [authenticated, language, ratings, reportsCount]);
-
-  useEffect(() => {
-    writeStoredRoom(room);
-  }, [room]);
+  }, [authenticated, language, matchSoundEnabled, ratings, reportsCount]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -552,12 +563,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         };
 
       matchedRoomIdsRef.current.add(roomToOpen.id);
-      await openRoom(roomToOpen.id, currentUserId, roomToOpen);
       stopQueueSubscriptions();
+      setMatchTransition({
+        roomId: roomToOpen.id,
+        secondsLeft: 3,
+      });
+
+      if (matchSoundEnabled) {
+        playMatchFoundSound();
+      }
+      await openRoom(roomToOpen.id, currentUserId, roomToOpen);
       toast.success(copy.misc.sessionReady);
       if (hapticsEnabled) {
         vibrate([60, 40, 80]);
       }
+
     } finally {
       matchmakingInFlightRef.current = false;
     }
@@ -665,6 +685,37 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!matchTransition) {
+      return;
+    }
+
+    if (matchTransition.secondsLeft <= 0) {
+      setMatchTransition(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setMatchTransition((current) => {
+        if (!current) {
+          return current;
+        }
+
+        if (current.secondsLeft <= 1) {
+          return null;
+        }
+
+        return {
+          ...current,
+          secondsLeft: current.secondsLeft - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [matchTransition]);
+
+  useEffect(() => {
+
     if (!authenticated || !profile || !userId || !queue.active || room) {
       matchingEnabledRef.current = false;
       stopQueueSubscriptions();
@@ -809,6 +860,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopQueueSubscriptions();
     stopRoomSubscriptions();
     matchedRoomIdsRef.current.clear();
+    setMatchTransition(null);
     setVoiceState("idle");
 
     void supabase.auth.signOut();
@@ -893,7 +945,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopQueueSubscriptions();
     stopRoomSubscriptions();
     matchingEnabledRef.current = false;
+    matchedRoomIdsRef.current.clear();
+    setMatchTransition(null);
     setRoom(null);
+
     setQueue({
 
       active: true,
@@ -920,6 +975,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
     matchingEnabledRef.current = false;
+    matchedRoomIdsRef.current.clear();
+    setMatchTransition(null);
     if (profile) {
       await leaveQueue(profile.id);
     }
@@ -1019,6 +1076,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       void endRoom(nextRoom);
       void persistRoom(nextRoom);
       matchedRoomIdsRef.current.clear();
+      setMatchTransition(null);
       setRoom(nextRoom);
 
     },
@@ -1071,9 +1129,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     matchedRoomIdsRef.current.clear();
+    setMatchTransition(null);
     setRoom(null);
 
     await startQueue();
+
   }, [room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
@@ -1085,12 +1145,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       profile,
       queue,
       room,
+      matchTransition,
       voiceState,
       online,
       hapticsEnabled,
       reconnectEnabled,
+      matchSoundEnabled,
       sessionReady,
       adminMetrics,
+
       login,
       logout,
       rerollUsername,
@@ -1106,7 +1169,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setQueueFilters,
       setHapticsEnabled,
       setReconnectEnabled,
+      setMatchSoundEnabled: setMatchSoundEnabledState,
       startVoiceChat,
+
       stopVoiceChat,
       startNewSessionFromEndedRoom,
     }),
@@ -1127,6 +1192,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reconnectEnabled,
       rerollUsername,
       room,
+      matchTransition,
+      matchSoundEnabled,
+
       sendMessage,
       setLanguage,
       setQueueFilters,
