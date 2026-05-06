@@ -510,21 +510,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         if (!matchingEnabledRef.current) {
           return;
         }
-        void attemptRealtimeMatch(currentUserId);
+        const relaxed = queue.joinedAt ? Date.now() - new Date(queue.joinedAt).getTime() >= 12000 : false;
+        void attemptRealtimeMatch(currentUserId, relaxed);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "queue" }, () => {
         if (!matchingEnabledRef.current) {
           return;
         }
-        void attemptRealtimeMatch(currentUserId);
+        const relaxed = queue.joinedAt ? Date.now() - new Date(queue.joinedAt).getTime() >= 12000 : false;
+        void attemptRealtimeMatch(currentUserId, relaxed);
       })
       .subscribe();
 
     queueChannelRef.current = channel;
   }
 
-  async function attemptRealtimeMatch(currentUserId: string) {
-    if (!authenticated || !profile || room || !queue.active || matchmakingInFlightRef.current) {
+  async function attemptRealtimeMatch(currentUserId: string, relaxed = false, force = false) {
+    if (!authenticated || !profile || room || (!queue.active && !force) || matchmakingInFlightRef.current) {
       return;
     }
 
@@ -533,7 +535,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     try {
       let match;
       try {
-        match = await matchQueueUser(currentUserId);
+        match = await matchQueueUser(currentUserId, relaxed);
       } catch (error) {
         const maybeStatus = (error as { status?: number; code?: string } | null)?.status;
         if (maybeStatus === 409 || (error as { code?: string } | null)?.code === "409") {
@@ -572,7 +574,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (matchSoundEnabled) {
         playMatchFoundSound();
       }
+
       await openRoom(roomToOpen.id, currentUserId, roomToOpen);
+      setQueue(createInitialQueue(profile));
       toast.success(copy.misc.sessionReady);
       if (hapticsEnabled) {
         vibrate([60, 40, 80]);
@@ -730,6 +734,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    matchingEnabledRef.current = true;
     subscribeToQueueChanges(userId);
 
     if (matchingStartTimeoutRef.current) {
@@ -740,12 +745,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     matchingStartTimeoutRef.current = window.setTimeout(() => {
-      matchingEnabledRef.current = true;
-      void attemptRealtimeMatch(userId).catch(() => undefined);
-      matchingIntervalRef.current = window.setInterval(() => {
-        void attemptRealtimeMatch(userId).catch(() => undefined);
-      }, 4000);
-    }, 20000);
+      const relaxed = queue.joinedAt ? Date.now() - new Date(queue.joinedAt).getTime() >= 12000 : false;
+      void attemptRealtimeMatch(userId, relaxed, true).catch(() => undefined);
+    }, 100);
+
+    matchingIntervalRef.current = window.setInterval(() => {
+      const relaxed = queue.joinedAt ? Date.now() - new Date(queue.joinedAt).getTime() >= 12000 : false;
+      void attemptRealtimeMatch(userId, relaxed).catch(() => undefined);
+    }, 3000);
 
     return () => {
       if (matchingStartTimeoutRef.current) {
@@ -760,7 +767,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       stopQueueSubscriptions();
   
     };
-  }, [authenticated, profile, queue.active, room?.id, userId]);
+  }, [authenticated, profile, queue.active, queue.joinedAt, room?.id, userId]);
 
   async function refreshAdminMetrics() {
     if (!hasSupabaseConfig) {
@@ -967,9 +974,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       language: activeProfile.language,
     });
 
+    matchingEnabledRef.current = true;
+    void attemptRealtimeMatch(activeProfile.id, false, true).catch(() => undefined);
+
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
+
   }, [authenticated, hapticsEnabled, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
@@ -977,6 +988,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     matchingEnabledRef.current = false;
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
+    if (matchingStartTimeoutRef.current) {
+      window.clearTimeout(matchingStartTimeoutRef.current);
+      matchingStartTimeoutRef.current = null;
+    }
+    if (matchingIntervalRef.current) {
+      window.clearInterval(matchingIntervalRef.current);
+      matchingIntervalRef.current = null;
+    }
     if (profile) {
       await leaveQueue(profile.id);
     }

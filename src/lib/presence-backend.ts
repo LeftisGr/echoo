@@ -24,7 +24,11 @@ create table if not exists public.profiles (
 
 create table if not exists public.queue (
   user_id uuid primary key references auth.users(id) on delete cascade,
+  preferred_gender text,
+  language text,
   joined_at timestamptz not null default now(),
+  matched_at timestamptz,
+  room_id uuid references public.rooms(id) on delete set null,
   filters jsonb not null,
   active boolean not null default true
 );
@@ -213,8 +217,12 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
 
   const { error } = await supabase.from("queue").upsert({
     user_id: userId,
+    preferred_gender: filters.preference,
+    language: filters.language,
     filters: normalizeFilters(filters),
     active: true,
+    room_id: null,
+    matched_at: null,
     joined_at: new Date().toISOString(),
   });
 
@@ -232,8 +240,12 @@ export async function leaveQueue(userId: string) {
 
   const { error } = await supabase.from("queue").upsert({
     user_id: userId,
+    preferred_gender: "anyone",
+    language: "both",
     filters: { preference: "anyone", language: "both" },
     active: false,
+    room_id: null,
+    matched_at: new Date().toISOString(),
     joined_at: new Date().toISOString(),
   });
 
@@ -244,13 +256,14 @@ export async function leaveQueue(userId: string) {
   return { ok: true, userId };
 }
 
-export async function matchQueueUser(userId: string) {
+export async function matchQueueUser(userId: string, relaxed = false) {
   if (!hasSupabaseConfig) {
     return createOfflineResult({ roomId: null as string | null, partnerId: null as string | null, createdRoom: false, alreadyMatched: false });
   }
 
   const { data, error } = await supabase.rpc("match_queue_user", {
     target_user_id: userId,
+    allow_relaxed: relaxed,
   });
 
   if (error) {
