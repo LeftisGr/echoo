@@ -62,14 +62,14 @@ export const ratingOptions: RatingScore[] = ["good", "neutral", "bad"];
 export const queueMessages = {
   en: [
     "Searching for someone...",
-    "Looking for your vibe...",
-    "Matching now...",
+    "Matching your vibe...",
+    "Someone just joined...",
     "Almost ready...",
   ],
   el: [
     "Ψάχνουμε κάποιον...",
-    "Βρίσκουμε το σωστό vibe...",
-    "Γίνεται αντιστοίχιση...",
+    "Ταιριάζουμε το vibe σου...",
+    "Κάποιος μόλις μπήκε...",
     "Σχεδόν έτοιμο...",
   ],
 } as const;
@@ -178,10 +178,9 @@ export const copy = {
     },
     queue: {
       title: "Finding your next conversation",
-      body: "We match you with the next available Echoer. Simple, fast, and anonymous.",
-
+      body: "We match you with the next available Echoer. Simple, fast, and vibe-first.",
       cancel: "Cancel",
-      changeFilters: "Change filters",
+      changeFilters: "Change preferences",
       found: "Connection found",
       relaxed: "No exact match yet, we are widening the search a little.",
       offline: "You are offline. Matching will resume when the connection returns.",
@@ -206,7 +205,7 @@ export const copy = {
       block: "Block user",
       partnerDisconnected: "Partner disconnected.",
       you: "You",
-      partner: "Partner",
+      partner: "Echoer",
       countdownLabel: "Voice unlock",
     },
     safety: {
@@ -355,10 +354,9 @@ export const copy = {
     },
     queue: {
       title: "Βρίσκουμε την επόμενη συνομιλία σου",
-      body: "Σε συνδέουμε με τον επόμενο διαθέσιμο Echoer. Απλό, γρήγορο και ανώνυμο.",
-
+      body: "Σε συνδέουμε με τον επόμενο διαθέσιμο Echoer. Απλό, γρήγορο και με vibe.",
       cancel: "Ακύρωση",
-      changeFilters: "Αλλαγή φίλτρων",
+      changeFilters: "Αλλαγή προτιμήσεων",
       found: "Βρέθηκε σύνδεση",
       relaxed: "Δεν βρέθηκε ακριβές match ακόμα, ανοίγουμε λίγο περισσότερο την αναζήτηση.",
       offline: "Είσαι offline. Το matching θα συνεχιστεί μόλις επανέλθει η σύνδεση.",
@@ -383,7 +381,7 @@ export const copy = {
       block: "Αποκλεισμός χρήστη",
       partnerDisconnected: "Ο συνομιλητής αποσυνδέθηκε.",
       you: "Εσύ",
-      partner: "Συνομιλητής",
+      partner: "Echoer",
       countdownLabel: "Ξεκλείδωμα φωνής",
     },
     safety: {

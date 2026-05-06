@@ -80,9 +80,40 @@ interface PresenceContextValue {
 
 const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
+const roomStorageKey = "presence-room-state";
 
 function createId() {
   return crypto.randomUUID();
+}
+
+function readStoredRoom(): RoomSession | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(roomStorageKey);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as RoomSession;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredRoom(room: RoomSession | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!room) {
+    window.localStorage.removeItem(roomStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(roomStorageKey, JSON.stringify(room));
 }
 
 function vibrate(pattern: number | number[]) {
@@ -167,7 +198,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<PresenceProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueState>(createInitialQueue(null));
-  const [room, setRoom] = useState<RoomSession | null>(null);
+  const [room, setRoom] = useState<RoomSession | null>(() => readStoredRoom());
+
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -218,6 +250,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     window.localStorage.setItem(storageKey, JSON.stringify(storedState));
   }, [authenticated, language, ratings, reportsCount]);
+
+  useEffect(() => {
+    writeStoredRoom(room);
+  }, [room]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -422,10 +458,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (activeRoom) {
       await openRoom(activeRoom.id, currentUserId, activeRoom);
       setQueue(createInitialQueue(profileToUse));
-    } else {
-      stopRoomSubscriptions();
-      setRoom(null);
+      return;
     }
+
+    stopRoomSubscriptions();
+
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {

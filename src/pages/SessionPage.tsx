@@ -166,7 +166,8 @@ const SessionPage = () => {
   const isActive = room.status === "active";
   const roomTitle = pickById(room.id, roomTitles);
   const roomTagline = pickById(room.id, roomTaglines);
-  const partnerLabel = room.partner?.username ?? (language === "en" ? "Anonymous Echoer" : "Ανώνυμος Echoer");
+  const partnerLabel = room.partner?.username ?? (language === "en" ? "Echoer" : "Echoer");
+
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
   const voiceReady = room.voiceEnabled && sessionRemaining === 0;
@@ -175,7 +176,7 @@ const SessionPage = () => {
     ? muted
       ? language === "en"
         ? "Unmute"
-        : "Ήχος"
+        : "Άναψε ήχο"
       : language === "en"
         ? "Mute"
         : "Σίγαση"
