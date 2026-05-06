@@ -462,10 +462,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     stopRoomSubscriptions();
+    setRoom(null);
 
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
+
     const messages = await loadRoomMessages(nextRoom.id);
 
     setRoom({
@@ -806,7 +808,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     stopQueueSubscriptions();
     stopRoomSubscriptions();
+    matchedRoomIdsRef.current.clear();
     setVoiceState("idle");
+
     void supabase.auth.signOut();
     setAuthenticated(false);
     setUserId(null);
@@ -1014,7 +1018,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       void endRoom(nextRoom);
       void persistRoom(nextRoom);
+      matchedRoomIdsRef.current.clear();
       setRoom(nextRoom);
+
     },
     [room, stopVoiceChat],
   );
@@ -1054,9 +1060,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [copy.misc.blocked, language, leaveRoom]);
 
   const startNewSessionFromEndedRoom = useCallback(async () => {
+    if (room) {
+      const endedRoom = {
+        ...room,
+        status: "ended" as const,
+        endedAt: room.endedAt ?? new Date().toISOString(),
+      };
+      void endRoom(endedRoom);
+      void persistRoom(endedRoom);
+    }
+
+    matchedRoomIdsRef.current.clear();
     setRoom(null);
+
     await startQueue();
-  }, [startQueue]);
+  }, [room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
     () => ({
