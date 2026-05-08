@@ -97,7 +97,7 @@ const QueuePage = () => {
           : 0;
 
   const estimatedWait = Math.max(queue.estimatedWaitSeconds, phase === "searching" ? secondsLeft : queue.estimatedWaitSeconds);
-  const liveUsers = Math.max(adminMetrics.usersOnlineNow, 12);
+  const liveUsers = Math.max(adminMetrics.usersOnlineNow, 14);
   const currentMessage =
     phase === "loading"
       ? language === "en"

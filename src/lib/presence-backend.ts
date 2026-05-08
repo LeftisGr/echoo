@@ -238,12 +238,21 @@ export async function cleanupUserSession(userId: string) {
     return createOfflineResult({ ok: true, userId });
   }
 
-  const { error } = await supabase.rpc("cleanup_user_session", {
-    target_user_id: userId,
-  });
+  const [roomsResult, queueResult] = await Promise.all([
+    supabase
+      .from("rooms")
+      .update({ ended_at: new Date().toISOString() })
+      .eq("ended_at", null)
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`),
+    supabase.from("queue").delete().eq("user_id", userId),
+  ]);
 
-  if (error) {
-    throw error;
+  if (roomsResult.error) {
+    throw roomsResult.error;
+  }
+
+  if (queueResult.error) {
+    throw queueResult.error;
   }
 
   return { ok: true, userId };

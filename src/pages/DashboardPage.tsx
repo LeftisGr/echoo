@@ -56,8 +56,8 @@ const DashboardPage = () => {
             <p className="mt-2 text-3xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
           </div>
           <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
-            <p className="text-sm text-white/50">Realtime</p>
-            <p className="mt-2 text-xl font-semibold text-white">{online ? copy.misc.stable : copy.misc.reconnecting}</p>
+            <p className="text-sm text-white/50">{language === "en" ? "Live sync" : "Live sync"}</p>
+            <p className="mt-2 text-xl font-semibold text-white">{online ? copy.misc.online : copy.misc.reconnecting}</p>
           </div>
         </div>
         <Button
