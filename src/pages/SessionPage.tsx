@@ -335,82 +335,72 @@ const SessionPage = () => {
   }
 
   return (
-
-    <PageShell className="min-h-[calc(100vh-2rem)]">
-      <Surface className="overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30">
-        <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
-          <AlertDialog>
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="group justify-start gap-3 rounded-2xl px-2 py-1 text-left transition-transform duration-150 active:scale-95 hover:bg-white/5 hover:text-white"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-violet-100 ring-1 ring-white/5 transition group-hover:bg-white/10">
-                    <span className="text-sm font-semibold tracking-[0.18em]">E</span>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.28em] text-white/35">Echoo</p>
-                    <h1 className="text-xl font-semibold tracking-tight text-white">Private Session</h1>
-                  </div>
-                </Button>
-              </AlertDialogTrigger>
-
-              <div className="order-first flex flex-col items-center lg:order-none">
-                <div className={cn("w-full max-w-[320px] rounded-[32px] border border-white/8 bg-white/5 px-6 py-5 text-center shadow-[0_0_50px_rgba(129,140,248,0.12)] transition-transform duration-300", timerGlowClass, timerPulseClass)}>
-                  <p className="text-[10px] uppercase tracking-[0.4em] text-white/35">
-                    {language === "en" ? "Session timer" : "Χρονομετρητής"}
-                  </p>
-                  <div className={cn("mt-2 text-5xl font-semibold tracking-tight sm:text-6xl", timerToneClass, voiceUnlockedFlash && "animate-pulse")}>
-                    {timerLabel}
-                  </div>
-                  <p className={cn("mt-2 text-sm font-medium transition-colors", timerUrgent ? "text-rose-200/90" : "text-white/55")}>
-                    {language === "en" ? "Voice unlocks when timer ends" : "Η φωνή ξεκλειδώνει όταν τελειώσει ο χρονομετρητής"}
-                  </p>
-                </div>
-                <Progress value={timerProgress} className={cn("mt-3 h-1.5 w-full max-w-[320px] rounded-full bg-white/10 [&>div]:transition-colors [&>div]:duration-300", timerUrgent ? "[&>div]:bg-rose-400" : "[&>div]:bg-violet-400")} />
+    <PageShell className="h-screen overflow-hidden">
+      <Surface className="flex h-full flex-col overflow-hidden border-0 bg-[#08101b] p-0 shadow-2xl shadow-black/30">
+        <header className="flex-none border-b border-white/5 bg-[#0f1627]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur sm:px-6">
+          <div className="grid grid-cols-[auto,1fr,auto] items-start gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
+                <span className="text-sm font-semibold tracking-[0.18em]">E</span>
               </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
+                <h1 className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">Private Session</h1>
+              </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-3">
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">{language === "en" ? "Session timer" : "Χρονομετρητής"}</p>
+              <div className={cn("mt-1 text-4xl font-semibold tracking-tight text-white sm:text-5xl", timerToneClass, voiceUnlockedFlash && "animate-pulse", timerPulseClass)}>
+                {timerLabel}
+              </div>
+              <div className="mx-auto mt-2 h-1.5 w-full max-w-[180px] overflow-hidden rounded-full bg-white/10">
+                <div
+                  className={cn("h-full rounded-full transition-[width] duration-300", timerUrgent ? "bg-rose-400" : "bg-violet-400")}
+                  style={{ width: `${timerProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
                     className="h-11 rounded-full border-white/10 bg-white/5 px-4 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
                   >
-
                     <PhoneOff className="mr-2 h-4 w-4" />
                     {language === "en" ? "Leave" : "Έξοδος"}
                   </Button>
                 </AlertDialogTrigger>
-              </div>
+                <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{language === "en" ? "Leave this session?" : "Να φύγεις από το session;"}</AlertDialogTitle>
+                    <AlertDialogDescription className="text-white/55">
+                      {language === "en"
+                        ? "The connection will end for both users."
+                        : "Η σύνδεση θα τερματιστεί και για τους δύο χρήστες."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                      {language === "en" ? "Cancel" : "Ακύρωση"}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                      onClick={() => leaveRoom(copy.session.partnerDisconnected)}
+                    >
+                      {language === "en" ? "Yes, leave" : "Ναι, έξοδος"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-
-            <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
-              <AlertDialogHeader>
-                <AlertDialogTitle>{language === "en" ? "Leave this session?" : "Να φύγεις από το session;"}</AlertDialogTitle>
-                <AlertDialogDescription className="text-white/55">
-                  {language === "en"
-                    ? "The connection will end for both users."
-                    : "Η σύνδεση θα τερματιστεί και για τους δύο χρήστες."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                  {language === "en" ? "Cancel" : "Ακύρωση"}
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
-                  onClick={() => leaveRoom(copy.session.partnerDisconnected)}
-                >
-                  {language === "en" ? "Yes, leave" : "Ναι, έξοδος"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+          </div>
+        </header>
 
         {sessionBanner && (
-          <div className={cn("mx-4 mt-4 rounded-[24px] border px-4 py-3 text-sm sm:mx-6", !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80")}>
+          <div className={cn("flex-none border-b px-4 py-3 text-sm sm:px-6", !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80")}>
             <div className="flex items-start gap-3">
               <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", !online ? "bg-amber-400/15 text-amber-100" : "bg-white/10 text-white") }>
                 <ShieldAlert className="h-4 w-4" />
@@ -423,164 +413,128 @@ const SessionPage = () => {
           </div>
         )}
 
-        <div className="flex min-h-[calc(100vh-14rem)] flex-col">
-          <ScrollArea className="flex-1 scroll-smooth px-4 py-4 sm:px-6">
-            <div ref={messagesRef} className="space-y-4 pb-6">
-              {room.messages.map((message) => {
-                const isSelf = message.senderId === profile.id;
-                const isSystem = message.type === "system";
-                const timestamp = new Date(message.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
+        <ScrollArea className="flex-1 min-h-0 px-4 py-4 sm:px-6">
+          <div ref={messagesRef} className="space-y-4 pb-4">
+            {room.messages.map((message) => {
+              const isSelf = message.senderId === profile.id;
+              const isSystem = message.type === "system";
+              const timestamp = new Date(message.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
 
-                if (isSystem) {
-                  return (
-                    <div key={message.id} className="mx-auto max-w-[88%] rounded-full bg-white/5 px-4 py-2 text-center text-xs text-white/45">
-                      {message.content}
-                    </div>
-                  );
-                }
-
+              if (isSystem) {
                 return (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex animate-in fade-in slide-in-from-bottom-1 duration-300",
-                      isSelf ? "justify-end" : "justify-start",
-                    )}
-                  >
-                    <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
-                      <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                        <span className="font-medium uppercase tracking-[0.22em] text-white/45">
-                          {isSelf ? (language === "en" ? "You" : "You") : (language === "en" ? "Stranger" : "Stranger")}
-                        </span>
-                        <span>•</span>
-                        <span>{timestamp}</span>
-                      </div>
-                      <div
-                        className={cn(
-                          "rounded-[20px] px-4 py-3 text-[15px] leading-7 shadow-sm",
-                          isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
-                        )}
-                      >
-                        {message.content}
-                      </div>
-                    </div>
+                  <div key={message.id} className="mx-auto max-w-[88%] rounded-full bg-white/5 px-4 py-2 text-center text-xs text-white/45">
+                    {message.content}
                   </div>
                 );
-              })}
-            </div>
-          </ScrollArea>
+              }
 
-          <div className="border-t border-white/5 bg-[#0c1120]/95 p-4 backdrop-blur">
-            {isActive ? (
-              <form
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const nextDraft = draft.trim();
-                  if (!nextDraft) {
-                    return;
-                  }
-                  await sendMessage(nextDraft);
-                  stopTyping();
-                  setDraft("");
-                }}
-              >
-
-                <div className="flex items-center gap-3">
-                  <Input
-                    value={draft}
-                    onChange={(event) => handleDraftChange(event.target.value)}
-                    onBlur={stopTyping}
-                    placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
-                    className="h-14 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
-                      micGlowClass,
-                      !voiceReady && "cursor-not-allowed opacity-45",
-                    )}
-                    disabled={!voiceReady}
-                    onClick={handleVoiceButton}
-                  >
-                    {voiceState === "connected" ? (
-                      muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <Mic className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
-                    {copy.session.send}
-                  </Button>
-                </div>
-                {partnerTyping && isActive && (
-                  <div className="mt-3 flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
-                    <span className="h-2.5 w-2.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.45)]" />
-                    <span className="font-medium">{partnerLabel}</span>
-                    <span className="text-violet-100/70">{language === "en" ? "is typing..." : "γράφει..."}</span>
-                    <span className="ml-auto flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
-                    </span>
-                  </div>
-                )}
-                <p className="mt-2 text-xs text-white/35">
-                  {voiceReady
-                    ? language === "en"
-                      ? "Voice is ready — the microphone button unlocks now."
-                      : "Η φωνή είναι έτοιμη — το μικρόφωνο ξεκλειδώνει τώρα."
-                    : language === "en"
-                      ? "Microphone unlocks when the timer reaches zero."
-                      : "Το μικρόφωνο ξεκλειδώνει όταν ο χρόνος μηδενιστεί."}
-                </p>
-              </form>
-            ) : (
-              <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">
-                {copy.session.howWasIt}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {!isActive && (
-          <div className="border-t border-white/5 bg-[#0c1120]/95 p-4 backdrop-blur">
-            <p className="text-lg font-medium text-white">{copy.session.ended}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {ratingOptions.map((score) => (
-                <Button
-                  key={score}
-                  variant="outline"
-                  className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={() => rateRoom(score)}
+              return (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex animate-in fade-in slide-in-from-bottom-1 duration-300",
+                    isSelf ? "justify-end" : "justify-start",
+                  )}
                 >
-                  {localizeRating(language, score)}
-                </Button>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-3">
-              <Button
-                className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
-                onClick={async () => {
-                  await startNewSessionFromEndedRoom();
-                  navigate("/queue");
-                }}
-              >
-                {copy.session.findNew}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Link to="/dashboard" className="flex-1">
-                <Button variant="outline" className="h-12 w-full rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white">
-                  {copy.session.backHome}
-                </Button>
-              </Link>
-            </div>
+                  <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
+                    <div className="flex items-center gap-2 px-1 text-xs text-white/35">
+                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">
+                        {isSelf ? (language === "en" ? "You" : "You") : (language === "en" ? "Stranger" : "Stranger")}
+                      </span>
+                      <span>•</span>
+                      <span>{timestamp}</span>
+                    </div>
+                    <div
+                      className={cn(
+                        "rounded-[20px] px-4 py-3 text-[15px] leading-7 shadow-sm",
+                        isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
+                      )}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </ScrollArea>
+
+        <footer className="flex-none border-t border-white/5 bg-[#0b1220]/96 px-4 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] backdrop-blur sm:px-6">
+          {isActive ? (
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const nextDraft = draft.trim();
+                if (!nextDraft) {
+                  return;
+                }
+                await sendMessage(nextDraft);
+                stopTyping();
+                setDraft("");
+              }}
+            >
+              <div className="flex items-end gap-3">
+                <Input
+                  value={draft}
+                  onChange={(event) => handleDraftChange(event.target.value)}
+                  onBlur={stopTyping}
+                  placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
+                  className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
+                    micGlowClass,
+                    !voiceReady && "cursor-not-allowed opacity-45",
+                  )}
+                  disabled={!voiceReady}
+                  onClick={handleVoiceButton}
+                >
+                  {voiceState === "connected" ? (
+                    muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
+                  {copy.session.send}
+                </Button>
+              </div>
+              {partnerTyping && (
+                <div className="mt-3 flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
+                  <span className="h-2.5 w-2.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.45)]" />
+                  <span className="font-medium">{partnerLabel}</span>
+                  <span className="text-violet-100/70">{language === "en" ? "is typing..." : "γράφει..."}</span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
+                  </span>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-white/35">
+                {voiceReady
+                  ? language === "en"
+                    ? "Voice is ready — the microphone button unlocks now."
+                    : "Η φωνή είναι έτοιμη — το μικρόφωνο ξεκλειδώνει τώρα."
+                  : language === "en"
+                    ? "Microphone unlocks when the timer reaches zero."
+                    : "Το μικρόφωνο ξεκλειδώνει όταν ο χρόνος μηδενιστεί."}
+              </p>
+            </form>
+          ) : (
+            <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">
+              {copy.session.howWasIt}
+            </div>
+          )}
+        </footer>
+
+        <audio ref={audioRef} className="hidden" />
       </Surface>
       <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
         <DialogContent className="border-white/10 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
@@ -622,7 +576,6 @@ const SessionPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <audio ref={audioRef} className="hidden" />
     </PageShell>
   );
 };
