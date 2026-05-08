@@ -89,6 +89,7 @@ interface PresenceContextValue {
 
 const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
+const roomStorageKey = "presence-mvp-room";
 
 function createId() {
   return crypto.randomUUID();
@@ -203,6 +204,40 @@ function readStoredState(): PresenceStoredState {
   }
 }
 
+function readStoredRoom() {
+  if (typeof window === "undefined") {
+    return null as RoomSession | null;
+  }
+
+  const raw = window.localStorage.getItem(roomStorageKey);
+  if (!raw) {
+    return null as RoomSession | null;
+  }
+
+  try {
+    return JSON.parse(raw) as RoomSession;
+  } catch {
+    return null as RoomSession | null;
+  }
+}
+
+function writeStoredRoom(room: RoomSession | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (room) {
+    window.localStorage.setItem(roomStorageKey, JSON.stringify(room));
+    return;
+  }
+
+  window.localStorage.removeItem(roomStorageKey);
+}
+
+function roomMatchesUser(room: RoomSession, userId: string) {
+  return room.userA === userId || room.userB === userId;
+}
+
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const stored = useMemo(() => readStoredState(), []);
   const [language, setLanguageState] = useState<AppLanguage>(stored.language);
@@ -266,6 +301,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     window.localStorage.setItem(storageKey, JSON.stringify(storedState));
   }, [authenticated, language, matchSoundEnabled, ratings, reportsCount]);
+
+  useEffect(() => {
+    if (room) {
+      writeStoredRoom(room);
+      return;
+    }
+
+    if (!authenticated) {
+      writeStoredRoom(null);
+    }
+  }, [authenticated, room]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -499,10 +545,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await syncProfile(profileToUse);
     }
 
+    const storedRoom = readStoredRoom();
+    if (storedRoom && roomMatchesUser(storedRoom, currentUserId)) {
+      setRoom(storedRoom);
+    }
+
     const activeRoom = await loadActiveRoomForUser(currentUserId);
     if (activeRoom) {
       await openRoom(activeRoom.id, currentUserId, activeRoom);
       setQueue(createInitialQueue(profileToUse));
+      return;
+    }
+
+    if (storedRoom && roomMatchesUser(storedRoom, currentUserId)) {
+      setRoom(storedRoom);
       return;
     }
 
@@ -883,29 +939,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [language],
   );
 
-  const logout = useCallback(() => {
-    voiceControllerRef.current?.stop();
-    voiceControllerRef.current = null;
-    hydratedSessionUserIdRef.current = null;
-    matchmakingInFlightRef.current = false;
-    if (matchingStartTimeoutRef.current) {
-      window.clearTimeout(matchingStartTimeoutRef.current);
-      matchingStartTimeoutRef.current = null;
-    }
-    if (matchingIntervalRef.current) {
-      window.clearInterval(matchingIntervalRef.current);
-      matchingIntervalRef.current = null;
-    }
-    matchingEnabledRef.current = false;
-
-    if (profile) {
-      void cleanupUserSession(profile.id);
-    }
-
-    stopQueueSubscriptions();
-    stopRoomSubscriptions();
+  const logout = useCallback(async () => {
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
+    stopQueueSubscriptions();
+    stopRoomSubscriptions();
+    writeStoredRoom(null);
+    setQueue(createInitialQueue(profile));
+    setRoom(null);
     setVoiceState("idle");
 
     void supabase.auth.signOut();
@@ -913,8 +954,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setAuthenticated(false);
     setUserId(null);
     setProfile(null);
-    setRoom(null);
-    setQueue(createInitialQueue(null));
     toast(copy.misc.signedOut);
   }, [copy.misc.signedOut]);
 
@@ -1141,6 +1180,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
       setRoom(nextRoom);
+      writeStoredRoom(null);
 
     },
     [profile, room, stopVoiceChat],
@@ -1194,6 +1234,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
     setRoom(null);
+    writeStoredRoom(null);
 
     await startQueue();
 
