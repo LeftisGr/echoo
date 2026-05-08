@@ -135,6 +135,15 @@ const SessionPage = () => {
   }, [profile?.id, room?.id]);
 
   useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+      typingChannelRef.current?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const node = messagesRef.current;
     if (node) {
       node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
@@ -148,12 +157,6 @@ const SessionPage = () => {
   }, [muted]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
-
-  useEffect(() => {
-    if (room && queue.active) {
-      void cancelQueue();
-    }
-  }, [cancelQueue, queue.active, room]);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
