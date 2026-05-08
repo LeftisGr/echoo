@@ -797,7 +797,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       averageSessionDuration: 7,
       reportsCount: reportsTotal ?? 0,
       dailySignups: 73,
-      usersOnlineNow: Math.max(14, 14 + (activeUsers ?? 0) + (queueCount ?? 0)),
+      usersOnlineNow: Math.max(14, 14 + (activeUsers ?? 0) + (queueCount ?? 0) + (authenticated ? 1 : 0)),
       avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
     });
   }
