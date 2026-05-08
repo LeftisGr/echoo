@@ -16,12 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 import { persistRoomTyping } from "@/lib/presence-backend";
-import { localizeRating, ratingOptions } from "@/lib/presence-content";
 import { cn } from "@/lib/utils";
 
 const sessionDurationSeconds = 600;
@@ -44,7 +42,6 @@ const SessionPage = () => {
     startNewSessionFromEndedRoom,
     startVoiceChat,
     stopVoiceChat,
-    cancelQueue,
     voiceState,
   } = usePresence();
 
@@ -54,12 +51,28 @@ const SessionPage = () => {
   const [voiceUnlockedFlash, setVoiceUnlockedFlash] = useState(false);
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
-  const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const typingClearTimeoutRef = useRef<number | null>(null);
+  const typingPublishTimeoutRef = useRef<number | null>(null);
+  const typingHeartbeatRef = useRef<number | null>(null);
+  const typingActiveRef = useRef(false);
   const shouldForceScrollRef = useRef(true);
   const isNearBottomRef = useRef(true);
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     if (!room) {
@@ -69,7 +82,6 @@ const SessionPage = () => {
     setSessionRemaining(sessionDurationSeconds);
     setVoiceUnlockedFlash(false);
     setVoiceUnlockPromptOpen(false);
-    setMessagePulse((current) => current + 1);
     shouldForceScrollRef.current = true;
     isNearBottomRef.current = true;
 
@@ -101,15 +113,20 @@ const SessionPage = () => {
 
   useEffect(() => {
     return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
+      if (typingPublishTimeoutRef.current) {
+        window.clearTimeout(typingPublishTimeoutRef.current);
       }
-
+      if (typingClearTimeoutRef.current) {
+        window.clearTimeout(typingClearTimeoutRef.current);
+      }
+      if (typingHeartbeatRef.current) {
+        window.clearInterval(typingHeartbeatRef.current);
+      }
       if (room && profile?.id) {
         void persistRoomTyping(room, null);
       }
     };
-  }, [profile?.id, room?.id]);
+  }, [profile?.id, room]);
 
   useEffect(() => {
     if (!room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
@@ -129,7 +146,7 @@ const SessionPage = () => {
   }, [profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
 
   useEffect(() => {
-    const node = chatScrollRef.current;
+    const node = chatEndRef.current;
     if (!node) {
       return;
     }
@@ -139,14 +156,14 @@ const SessionPage = () => {
     }
 
     window.requestAnimationFrame(() => {
-      node.scrollTo({
-        top: node.scrollHeight,
-        behavior: shouldForceScrollRef.current || messagePulse > 0 ? "smooth" : "auto",
+      node.scrollIntoView({
+        behavior: shouldForceScrollRef.current ? "smooth" : "auto",
+        block: "end",
       });
     });
 
     shouldForceScrollRef.current = false;
-  }, [room?.messages.length, messagePulse]);
+  }, [room?.messages.length]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -155,6 +172,67 @@ const SessionPage = () => {
   }, [muted]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
+
+  const publishTypingState = (isTyping: boolean) => {
+    if (!room || !profile?.id) {
+      return;
+    }
+
+    typingActiveRef.current = isTyping;
+    void persistRoomTyping(room, isTyping ? profile.id : null);
+  };
+
+  const clearTypingTimers = () => {
+    if (typingPublishTimeoutRef.current) {
+      window.clearTimeout(typingPublishTimeoutRef.current);
+      typingPublishTimeoutRef.current = null;
+    }
+
+    if (typingClearTimeoutRef.current) {
+      window.clearTimeout(typingClearTimeoutRef.current);
+      typingClearTimeoutRef.current = null;
+    }
+
+    if (typingHeartbeatRef.current) {
+      window.clearInterval(typingHeartbeatRef.current);
+      typingHeartbeatRef.current = null;
+    }
+  };
+
+  const stopTyping = () => {
+    clearTypingTimers();
+    publishTypingState(false);
+  };
+
+  const scheduleTypingState = (value: string) => {
+    clearTypingTimers();
+
+    if (!value.trim()) {
+      publishTypingState(false);
+      return;
+    }
+
+    const currentValue = value;
+    typingPublishTimeoutRef.current = window.setTimeout(() => {
+      if (!typingActiveRef.current) {
+        publishTypingState(true);
+      }
+
+      if (typingHeartbeatRef.current) {
+        window.clearInterval(typingHeartbeatRef.current);
+      }
+
+      typingHeartbeatRef.current = window.setInterval(() => {
+        if (currentValue.trim()) {
+          publishTypingState(true);
+        }
+      }, 900);
+    }, 120);
+
+    typingClearTimeoutRef.current = window.setTimeout(() => {
+      stopTyping();
+    }, 1200);
+  };
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -192,29 +270,19 @@ const SessionPage = () => {
 
   const isActive = room.status === "active";
   const isEnded = room.status === "ended";
-  const partnerLabel = room.partner?.username ?? (language === "en" ? "Stranger" : "Stranger");
+  const partnerLabel = room.partner?.username ?? "Stranger";
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
   const voiceReady = room.voiceEnabled && sessionRemaining === 0;
   const timerUrgent = sessionRemaining <= 60;
   const timerPulseClass = sessionRemaining % 2 === 0 ? "scale-[1.01]" : "scale-100";
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
-  const timerGlowClass = timerUrgent ? "shadow-[0_0_60px_rgba(244,63,94,0.18)]" : "shadow-[0_0_50px_rgba(129,140,248,0.12)]";
-  const micGlowClass = voiceReady ? "ring-2 ring-violet-300/60 shadow-[0_0_24px_rgba(167,139,250,0.28)] animate-pulse" : "";
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
   const sessionBanner = !online
     ? copy.session.connectionLost
     : isEnded
       ? latestSystemMessage ?? copy.session.ended
       : null;
-
-  const publishTypingState = (isTyping: boolean) => {
-    if (!room || !profile?.id) {
-      return;
-    }
-
-    void persistRoomTyping(room, isTyping ? profile.id : null);
-  };
 
   const handleChatScroll = () => {
     const node = chatScrollRef.current;
@@ -229,26 +297,27 @@ const SessionPage = () => {
   const handleDraftChange = (value: string) => {
     setDraft(value);
 
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
+    if (typingPublishTimeoutRef.current) {
+      window.clearTimeout(typingPublishTimeoutRef.current);
+      typingPublishTimeoutRef.current = null;
+    }
+
+    if (typingClearTimeoutRef.current) {
+      window.clearTimeout(typingClearTimeoutRef.current);
+      typingClearTimeoutRef.current = null;
+    }
+
+    if (typingHeartbeatRef.current) {
+      window.clearInterval(typingHeartbeatRef.current);
+      typingHeartbeatRef.current = null;
     }
 
     if (!value.trim()) {
-      publishTypingState(false);
+      stopTyping();
       return;
     }
 
-    publishTypingState(true);
-    typingTimeoutRef.current = window.setTimeout(() => publishTypingState(false), 1200);
-  };
-
-  const stopTyping = () => {
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-
-    publishTypingState(false);
+    scheduleTypingState(value);
   };
 
   const handleVoiceButton = async () => {
@@ -352,9 +421,9 @@ const SessionPage = () => {
   }
 
   return (
-    <PageShell className="h-screen overflow-hidden">
-      <Surface className="flex h-full min-h-0 flex-col overflow-hidden border-0 bg-[#08101b] p-0 shadow-2xl shadow-black/30">
-        <header className="flex-none border-b border-white/5 bg-[#0f1627]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur sm:px-6">
+    <div className="h-[100dvh] overflow-hidden bg-[#08101b] text-white">
+      <div className="flex h-full min-h-0 flex-col">
+        <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6">
           <div className="grid grid-cols-[auto,1fr,auto] items-start gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
@@ -417,25 +486,38 @@ const SessionPage = () => {
         </header>
 
         {sessionBanner && (
-          <div className={cn("flex-none border-b px-4 py-3 text-sm sm:px-6", !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80")}>
+          <div
+            className={cn(
+              "flex-none border-b px-4 py-3 text-sm sm:px-6",
+              !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80",
+            )}
+          >
             <div className="flex items-start gap-3">
-              <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", !online ? "bg-amber-400/15 text-amber-100" : "bg-white/10 text-white") }>
+              <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", !online ? "bg-amber-400/15 text-amber-100" : "bg-white/10 text-white")}>
                 <ShieldAlert className="h-4 w-4" />
               </div>
               <div>
                 <p className="font-medium">{sessionBanner}</p>
-                <p className={cn("mt-1 text-xs", !online ? "text-amber-50/70" : "text-white/45")}>{!online ? (language === "en" ? "We are reconnecting in the background." : "Προσπαθούμε να επανασυνδεθούμε στο παρασκήνιο.") : language === "en" ? "You can start a new session when you're ready." : "Μπορείς να ξεκινήσεις νέο session όταν είσαι έτοιμος/η."}</p>
+                <p className={cn("mt-1 text-xs", !online ? "text-amber-50/70" : "text-white/45")}>
+                  {!online
+                    ? language === "en"
+                      ? "We are reconnecting in the background."
+                      : "Προσπαθούμε να επανασυνδεθούμε στο παρασκήνιο."
+                    : language === "en"
+                      ? "You can start a new session when you're ready."
+                      : "Μπορείς να ξεκινήσεις νέο session όταν είσαι έτοιμος/η."}
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        <div
+        <main
           ref={chatScrollRef}
           onScroll={handleChatScroll}
-          className="flex-1 min-h-0 overflow-y-auto scroll-smooth px-4 py-4 sm:px-6"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4 sm:px-6"
         >
-          <div className="space-y-4 pb-4">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-6">
             {room.messages.map((message) => {
               const isSelf = message.senderId === profile.id;
               const isSystem = message.type === "system";
@@ -453,18 +535,10 @@ const SessionPage = () => {
               }
 
               return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex animate-in fade-in slide-in-from-bottom-1 duration-300",
-                    isSelf ? "justify-end" : "justify-start",
-                  )}
-                >
+                <div key={message.id} className={cn("flex animate-in fade-in slide-in-from-bottom-1 duration-300", isSelf ? "justify-end" : "justify-start")}>
                   <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">
-                        {isSelf ? (language === "en" ? "You" : "You") : (language === "en" ? "Stranger" : "Stranger")}
-                      </span>
+                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
                       <span>•</span>
                       <span>{timestamp}</span>
                     </div>
@@ -480,84 +554,85 @@ const SessionPage = () => {
                 </div>
               );
             })}
+            <div ref={chatEndRef} />
           </div>
-        </div>
+        </main>
 
-        <footer className="flex-none border-t border-white/5 bg-[#0b1220]/96 px-4 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] backdrop-blur sm:px-6">
-          {isActive ? (
-            <form
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const nextDraft = draft.trim();
-                if (!nextDraft) {
-                  return;
-                }
-                shouldForceScrollRef.current = true;
-                await sendMessage(nextDraft);
-                stopTyping();
-                setDraft("");
-              }}
-            >
-              <div className="flex items-end gap-3">
-                <Input
-                  value={draft}
-                  onChange={(event) => handleDraftChange(event.target.value)}
-                  onBlur={stopTyping}
-                  placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
-                  className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={cn(
-                    "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
-                    micGlowClass,
-                    !voiceReady && "cursor-not-allowed opacity-45",
-                  )}
-                  disabled={!voiceReady}
-                  onClick={handleVoiceButton}
-                >
-                  {voiceState === "connected" ? (
-                    muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
-                  {copy.session.send}
-                </Button>
-              </div>
-              {partnerTyping && (
-                <div className="mt-3 flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
-                  <span className="h-2.5 w-2.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.45)]" />
-                  <span className="font-medium">{partnerLabel}</span>
-                  <span className="text-violet-100/70">{language === "en" ? "is typing..." : "γράφει..."}</span>
-                  <span className="ml-auto flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
-                  </span>
+        <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/96 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-4 backdrop-blur-xl sm:px-6">
+          <div className="mx-auto w-full max-w-3xl">
+            {isActive ? (
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const nextDraft = draft.trim();
+                  if (!nextDraft) {
+                    return;
+                  }
+
+                  shouldForceScrollRef.current = true;
+                  await sendMessage(nextDraft);
+                  stopTyping();
+                  setDraft("");
+                }}
+              >
+                <div className="flex items-end gap-3">
+                  <Input
+                    value={draft}
+                    onChange={(event) => handleDraftChange(event.target.value)}
+                    onBlur={stopTyping}
+                    placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
+                    className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
+                      voiceReady && voiceState === "connected" && "ring-2 ring-violet-300/40",
+                      !voiceReady && "cursor-not-allowed opacity-45",
+                    )}
+                    disabled={!voiceReady}
+                    onClick={handleVoiceButton}
+                  >
+                    {voiceState === "connected" ? muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </Button>
+                  <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
+                    {copy.session.send}
+                  </Button>
                 </div>
-              )}
-              <p className="mt-2 text-xs text-white/35">
-                {voiceReady
-                  ? language === "en"
-                    ? "Voice is ready — the microphone button unlocks now."
-                    : "Η φωνή είναι έτοιμη — το μικρόφωνο ξεκλειδώνει τώρα."
-                  : language === "en"
-                    ? "Microphone unlocks when the timer reaches zero."
-                    : "Το μικρόφωνο ξεκλειδώνει όταν ο χρόνος μηδενιστεί."}
-              </p>
-            </form>
-          ) : (
-            <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">
-              {copy.session.howWasIt}
-            </div>
-          )}
+
+                <div className="mt-3 flex min-h-[2.5rem] items-center justify-between gap-3">
+                  {partnerTyping ? (
+                    <div className="flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
+                      <span className="font-medium">Stranger is typing...</span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-white/35">
+                      {voiceReady
+                        ? language === "en"
+                          ? "Voice is ready — the microphone button unlocks now."
+                          : "Η φωνή είναι έτοιμη — το μικρόφωνο ξεκλειδώνει τώρα."
+                        : language === "en"
+                          ? "Microphone unlocks when the timer reaches zero."
+                          : "Το μικρόφωνο ξεκλειδώνει όταν ο χρόνος μηδενιστεί."}
+                    </span>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">{copy.session.howWasIt}</div>
+            )}
+          </div>
         </footer>
 
         <audio ref={audioRef} className="hidden" />
-      </Surface>
+      </div>
+
       <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
         <DialogContent className="border-white/10 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
           <DialogHeader>
@@ -597,7 +672,7 @@ const SessionPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageShell>
+    </div>
   );
 };
 
