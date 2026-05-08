@@ -243,8 +243,9 @@ export async function cleanupUserSession(userId: string) {
     supabase
       .from("rooms")
       .update({ ended_at: endedAt })
-      .eq("ended_at", null)
+      .is("ended_at", null)
       .or(`user_a.eq.${userId},user_b.eq.${userId}`),
+
     supabase
       .from("queue")
       .upsert({
