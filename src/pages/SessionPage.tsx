@@ -157,6 +157,10 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
   const voiceReady = room.voiceEnabled && sessionRemaining === 0;
+  const timerUrgent = sessionRemaining <= 60;
+  const timerPulseClass = sessionRemaining % 2 === 0 ? "scale-[1.01]" : "scale-100";
+  const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
+  const timerGlowClass = timerUrgent ? "shadow-[0_0_60px_rgba(244,63,94,0.18)]" : "shadow-[0_0_50px_rgba(129,140,248,0.12)]";
 
   const handleVoiceButton = async () => {
     if (!voiceReady) {
@@ -202,15 +206,18 @@ const SessionPage = () => {
               </AlertDialogTrigger>
 
               <div className="order-first flex flex-col items-center lg:order-none">
-                <div className="rounded-full border border-white/5 bg-white/5 px-5 py-3 shadow-[0_0_50px_rgba(129,140,248,0.12)]">
-                  <p className="text-center text-[10px] uppercase tracking-[0.35em] text-white/35">
+                <div className={cn("w-full max-w-[320px] rounded-[32px] border border-white/8 bg-white/5 px-6 py-5 text-center shadow-[0_0_50px_rgba(129,140,248,0.12)] transition-transform duration-300", timerGlowClass, timerPulseClass)}>
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-white/35">
                     {language === "en" ? "Session timer" : "Χρονομετρητής"}
                   </p>
-                  <div className={cn("mt-1 text-center text-4xl font-semibold tracking-tight text-white sm:text-5xl", voiceUnlockedFlash && "animate-pulse text-violet-200")}>
+                  <div className={cn("mt-2 text-5xl font-semibold tracking-tight sm:text-6xl", timerToneClass, voiceUnlockedFlash && "animate-pulse")}>
                     {timerLabel}
                   </div>
+                  <p className={cn("mt-2 text-sm font-medium transition-colors", timerUrgent ? "text-rose-200/90" : "text-white/55")}>
+                    {language === "en" ? "Voice unlocks when timer ends" : "Η φωνή ξεκλειδώνει όταν τελειώσει ο χρονομετρητής"}
+                  </p>
                 </div>
-                <Progress value={timerProgress} className="mt-3 h-1.5 w-full max-w-[260px] rounded-full bg-white/10 [&>div]:bg-violet-400" />
+                <Progress value={timerProgress} className={cn("mt-3 h-1.5 w-full max-w-[320px] rounded-full bg-white/10 [&>div]:transition-colors [&>div]:duration-300", timerUrgent ? "[&>div]:bg-rose-400" : "[&>div]:bg-violet-400")} />
               </div>
 
               <div className="flex items-center justify-end gap-3">
