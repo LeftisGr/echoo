@@ -233,21 +233,28 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
   return { ok: true, userId, filters };
 }
 
+export async function cleanupUserSession(userId: string) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ ok: true, userId });
+  }
+
+  const { error } = await supabase.rpc("cleanup_user_session", {
+    target_user_id: userId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { ok: true, userId };
+}
+
 export async function leaveQueue(userId: string) {
   if (!hasSupabaseConfig) {
     return createOfflineResult({ ok: true, userId });
   }
 
-  const { error } = await supabase.from("queue").upsert({
-    user_id: userId,
-    preferred_gender: "anyone",
-    language: "both",
-    filters: { preference: "anyone", language: "both" },
-    active: false,
-    room_id: null,
-    matched_at: new Date().toISOString(),
-    joined_at: new Date().toISOString(),
-  });
+  const { error } = await supabase.from("queue").delete().eq("user_id", userId);
 
   if (error) {
     throw error;

@@ -28,6 +28,7 @@ import {
   persistReport,
   persistRoom,
   syncProfile,
+  cleanupUserSession,
 } from "@/lib/presence-backend";
 import { createVoiceLoopback, type VoiceSessionController } from "@/lib/presence-rtc";
 import type {
@@ -553,21 +554,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       const activeRoom = await loadRoomById(match.roomId);
-      const roomToOpen =
-        activeRoom ??
-        {
-          id: match.roomId,
-          userA: currentUserId,
-          userB: match.partnerId ?? currentUserId,
-          startedAt: new Date().toISOString(),
-          endedAt: undefined,
-          voiceEnabled: false,
-        };
+      if (!activeRoom || activeRoom.endedAt || (activeRoom.userA !== currentUserId && activeRoom.userB !== currentUserId)) {
+        return;
+      }
 
-      matchedRoomIdsRef.current.add(roomToOpen.id);
+      matchedRoomIdsRef.current.add(activeRoom.id);
       stopQueueSubscriptions();
       setMatchTransition({
-        roomId: roomToOpen.id,
+        roomId: activeRoom.id,
         secondsLeft: 3,
       });
 
@@ -575,7 +569,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         playMatchFoundSound();
       }
 
-      await openRoom(roomToOpen.id, currentUserId, roomToOpen);
+      await openRoom(activeRoom.id, currentUserId, activeRoom);
       setQueue(createInitialQueue(profile));
       toast.success(copy.misc.sessionReady);
       if (hapticsEnabled) {
@@ -864,6 +858,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
     matchingEnabledRef.current = false;
 
+    if (profile) {
+      void cleanupUserSession(profile.id);
+    }
+
     stopQueueSubscriptions();
     stopRoomSubscriptions();
     matchedRoomIdsRef.current.clear();
@@ -871,6 +869,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setVoiceState("idle");
 
     void supabase.auth.signOut();
+
     setAuthenticated(false);
     setUserId(null);
     setProfile(null);
@@ -955,6 +954,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
     setRoom(null);
+
+    await cleanupUserSession(activeProfile.id);
 
     setQueue({
 
@@ -1094,12 +1095,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       void endRoom(nextRoom);
       void persistRoom(nextRoom);
+      if (profile) {
+        void leaveQueue(profile.id);
+      }
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
       setRoom(nextRoom);
 
     },
-    [room, stopVoiceChat],
+    [profile, room, stopVoiceChat],
   );
 
   const rateRoom = useCallback(
