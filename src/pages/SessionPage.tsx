@@ -184,6 +184,7 @@ const SessionPage = () => {
   }
 
   const isActive = room.status === "active";
+  const isEnded = room.status === "ended";
   const partnerLabel = room.partner?.username ?? (language === "en" ? "Stranger" : "Stranger");
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
@@ -196,7 +197,7 @@ const SessionPage = () => {
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
   const sessionBanner = !online
     ? copy.session.connectionLost
-    : room.status === "ended"
+    : isEnded
       ? latestSystemMessage ?? copy.session.ended
       : null;
 
@@ -254,6 +255,84 @@ const SessionPage = () => {
       setMuted(false);
     }
   };
+
+  if (isEnded) {
+    return (
+      <PageShell className="flex items-center">
+        <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30">
+          <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-white/35">Echoo</p>
+                <h1 className="text-xl font-semibold tracking-tight text-white">{copy.session.ended}</h1>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6 p-5 sm:p-8">
+            <div className="rounded-[30px] border border-white/10 bg-white/5 p-6 text-center sm:p-8">
+              <p className="text-xs uppercase tracking-[0.32em] text-white/40">
+                {language === "en" ? "Post-session" : "Μετά το session"}
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{copy.session.howWasIt}</h2>
+              <p className="mt-3 text-sm leading-6 text-white/55">
+                {language === "en"
+                  ? "A quick rating helps us shape the next conversation."
+                  : "Μια γρήγορη αξιολόγηση μας βοηθά να βελτιώσουμε την επόμενη συνομιλία."}
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {[
+                  { score: "good" as const, icon: "👍", label: language === "en" ? "Good" : "Καλό" },
+                  { score: "neutral" as const, icon: "👌", label: language === "en" ? "Okay" : "Εντάξει" },
+                  { score: "bad" as const, icon: "👎", label: language === "en" ? "Bad" : "Κακό" },
+                ].map((option) => {
+                  const isSelected = room.rating === option.score;
+                  return (
+                    <Button
+                      key={option.score}
+                      variant="outline"
+                      className={cn(
+                        "h-16 rounded-[22px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
+                        isSelected && "border-violet-300/30 bg-violet-500/15 text-violet-50",
+                      )}
+                      onClick={() => rateRoom(option.score)}
+                    >
+                      <span className="mr-2 text-lg">{option.icon}</span>
+                      <span className="font-medium">{option.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                onClick={async () => {
+                  await startNewSessionFromEndedRoom();
+                  navigate("/queue");
+                }}
+              >
+                {copy.session.findNew}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
+                asChild
+              >
+                <Link to="/dashboard">{copy.session.backHome}</Link>
+              </Button>
+            </div>
+          </div>
+        </Surface>
+      </PageShell>
+    );
+  }
 
   return (
 

@@ -380,7 +380,8 @@ export const copy = {
       ended: "Η σύνδεση ολοκληρώθηκε.",
       findNew: "Βρες νέο άτομο",
       backHome: "Πίσω στην αρχική",
-      howWasIt: "Πώς ήταν;",
+      howWasIt: "Πώς ήταν η συζήτηση;",
+
       report: "Αναφορά χρήστη",
       block: "Αποκλεισμός χρήστη",
       connectionLost: "Connection lost. Reconnecting...",
