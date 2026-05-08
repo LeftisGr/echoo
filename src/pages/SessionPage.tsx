@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,6 +60,7 @@ const SessionPage = () => {
   const [muted, setMuted] = useState(false);
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
   const [voiceUnlockedFlash, setVoiceUnlockedFlash] = useState(false);
+  const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -70,6 +72,7 @@ const SessionPage = () => {
 
     setSessionRemaining(sessionDurationSeconds);
     setVoiceUnlockedFlash(false);
+    setVoiceUnlockPromptOpen(false);
     setMessagePulse((current) => current + 1);
 
     const interval = window.setInterval(() => {
@@ -78,6 +81,7 @@ const SessionPage = () => {
           window.clearInterval(interval);
           unlockVoice();
           setVoiceUnlockedFlash(true);
+          setVoiceUnlockPromptOpen(true);
           return 0;
         }
 
@@ -161,6 +165,7 @@ const SessionPage = () => {
   const timerPulseClass = sessionRemaining % 2 === 0 ? "scale-[1.01]" : "scale-100";
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
   const timerGlowClass = timerUrgent ? "shadow-[0_0_60px_rgba(244,63,94,0.18)]" : "shadow-[0_0_50px_rgba(129,140,248,0.12)]";
+  const micGlowClass = voiceReady ? "ring-2 ring-violet-300/60 shadow-[0_0_24px_rgba(167,139,250,0.28)] animate-pulse" : "";
 
   const handleVoiceButton = async () => {
     if (!voiceReady) {
@@ -332,6 +337,7 @@ const SessionPage = () => {
                     variant="outline"
                     className={cn(
                       "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white hover:bg-white/10 hover:text-white",
+                      micGlowClass,
                       !voiceReady && "cursor-not-allowed opacity-45",
                     )}
                     disabled={!voiceReady}
@@ -400,6 +406,45 @@ const SessionPage = () => {
           </div>
         )}
       </Surface>
+      <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
+        <DialogContent className="border-white/10 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
+          <DialogHeader>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/25">
+              <Mic className="h-6 w-6 animate-pulse" />
+            </div>
+            <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
+              {language === "en" ? "Voice is now available" : "Η φωνή είναι τώρα διαθέσιμη"}
+            </DialogTitle>
+            <DialogDescription className="text-center text-white/60">
+              {language === "en"
+                ? "You can switch from text to voice whenever you're ready."
+                : "Μπορείς να περάσεις από το κείμενο στη φωνή όποτε είσαι έτοιμος/η."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
+            <Button
+              className="h-12 flex-1 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+              onClick={async () => {
+                setVoiceUnlockPromptOpen(false);
+                if (audioRef.current) {
+                  await startVoiceChat(audioRef.current);
+                  setMuted(false);
+                }
+              }}
+            >
+              <Mic className="mr-2 h-4 w-4" />
+              {language === "en" ? "Start Voice Chat" : "Έναρξη φωνητικής συνομιλίας"}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => setVoiceUnlockPromptOpen(false)}
+            >
+              {language === "en" ? "Keep Text Only" : "Μόνο κείμενο"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <audio ref={audioRef} className="hidden" />
     </PageShell>
   );
