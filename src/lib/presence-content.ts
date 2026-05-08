@@ -182,8 +182,9 @@ export const copy = {
       cancel: "Cancel",
       changeFilters: "Change preferences",
       found: "Connection found",
-      relaxed: "No exact match yet, we are widening the search a little.",
-      offline: "You are offline. Matching will resume when the connection returns.",
+      relaxed: "No one available right now. Stay in queue?",
+      offline: "Connection lost. Reconnecting...",
+
     },
     session: {
       title: "Private room",
@@ -203,11 +204,13 @@ export const copy = {
       howWasIt: "How was it?",
       report: "Report user",
       block: "Block user",
-      partnerDisconnected: "Partner disconnected.",
+      connectionLost: "Connection lost. Reconnecting...",
+      partnerDisconnected: "The other user left the session.",
       you: "You",
       partner: "Echoer",
       countdownLabel: "Voice unlock",
     },
+
     safety: {
       title: "Safety comes before chemistry",
       body: "Echoo keeps every room lightweight, anonymous, and easy to leave. Respect is the default rule.",
@@ -252,11 +255,12 @@ export const copy = {
       nonbinary: "Non-binary",
       preferNot: "Prefer not to say",
       online: "Online",
-      reconnecting: "Reconnecting",
+      reconnecting: "Reconnecting...",
       stable: "Realtime stable",
-      noUsers: "No one is free right now. Please try again in a few minutes.",
+      noUsers: "No one available right now. Stay in queue?",
 
       sessionReady: "Your room is ready.",
+
       profileSaved: "Profile updated.",
       blocked: "User blocked.",
       reported: "Report submitted.",
@@ -379,8 +383,10 @@ export const copy = {
       howWasIt: "Πώς ήταν;",
       report: "Αναφορά χρήστη",
       block: "Αποκλεισμός χρήστη",
-      partnerDisconnected: "Ο συνομιλητής αποσυνδέθηκε.",
+      connectionLost: "Connection lost. Reconnecting...",
+      partnerDisconnected: "Ο άλλος χρήστης έφυγε από το session.",
       you: "Εσύ",
+
       partner: "Echoer",
       countdownLabel: "Ξεκλείδωμα φωνής",
     },

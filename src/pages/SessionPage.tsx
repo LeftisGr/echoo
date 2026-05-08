@@ -29,7 +29,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import { persistRoom } from "@/lib/presence-backend";
+import { persistRoomTyping } from "@/lib/presence-backend";
 import { localizeRating, ratingOptions } from "@/lib/presence-content";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +45,7 @@ const SessionPage = () => {
     profile,
     copy,
     language,
+    online,
     unlockVoice,
     sendMessage,
     leaveRoom,
@@ -66,6 +67,7 @@ const SessionPage = () => {
   const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!room) {
@@ -102,6 +104,18 @@ const SessionPage = () => {
     const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1400);
     return () => window.clearTimeout(timeout);
   }, [voiceUnlockedFlash]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+
+      if (room && profile?.id) {
+        void persistRoomTyping(room, null);
+      }
+    };
+  }, [profile?.id, room?.id]);
 
   useEffect(() => {
     if (!room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
@@ -179,25 +193,43 @@ const SessionPage = () => {
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
   const timerGlowClass = timerUrgent ? "shadow-[0_0_60px_rgba(244,63,94,0.18)]" : "shadow-[0_0_50px_rgba(129,140,248,0.12)]";
   const micGlowClass = voiceReady ? "ring-2 ring-violet-300/60 shadow-[0_0_24px_rgba(167,139,250,0.28)] animate-pulse" : "";
+  const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
+  const sessionBanner = !online
+    ? copy.session.connectionLost
+    : room.status === "ended"
+      ? latestSystemMessage ?? copy.session.ended
+      : null;
 
   const publishTypingState = (isTyping: boolean) => {
     if (!room || !profile?.id) {
       return;
     }
 
-    void persistRoom({
-      ...room,
-      typingUserId: isTyping ? profile.id : null,
-      typingUpdatedAt: isTyping ? new Date().toISOString() : null,
-    });
+    void persistRoomTyping(room, isTyping ? profile.id : null);
   };
 
   const handleDraftChange = (value: string) => {
     setDraft(value);
-    publishTypingState(Boolean(value.trim()));
+
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+    }
+
+    if (!value.trim()) {
+      publishTypingState(false);
+      return;
+    }
+
+    publishTypingState(true);
+    typingTimeoutRef.current = window.setTimeout(() => publishTypingState(false), 1200);
   };
 
   const stopTyping = () => {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
     publishTypingState(false);
   };
 
@@ -298,6 +330,20 @@ const SessionPage = () => {
           </AlertDialog>
         </div>
 
+        {sessionBanner && (
+          <div className={cn("mx-4 mt-4 rounded-[24px] border px-4 py-3 text-sm sm:mx-6", !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80")}>
+            <div className="flex items-start gap-3">
+              <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", !online ? "bg-amber-400/15 text-amber-100" : "bg-white/10 text-white") }>
+                <ShieldAlert className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="font-medium">{sessionBanner}</p>
+                <p className={cn("mt-1 text-xs", !online ? "text-amber-50/70" : "text-white/45")}>{!online ? (language === "en" ? "We are reconnecting in the background." : "Προσπαθούμε να επανασυνδεθούμε στο παρασκήνιο.") : language === "en" ? "You can start a new session when you're ready." : "Μπορείς να ξεκινήσεις νέο session όταν είσαι έτοιμος/η."}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex min-h-[calc(100vh-14rem)] flex-col">
           <ScrollArea className="flex-1 scroll-smooth px-4 py-4 sm:px-6">
             <div ref={messagesRef} className="space-y-4 pb-6">
@@ -393,14 +439,14 @@ const SessionPage = () => {
                   </Button>
                 </div>
                 {partnerTyping && isActive && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-white/55">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                      <span>typing</span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300 [animation-delay:-0.2s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300 [animation-delay:-0.1s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300" />
-                      </span>
+                  <div className="mt-3 flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
+                    <span className="h-2.5 w-2.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.45)]" />
+                    <span className="font-medium">{partnerLabel}</span>
+                    <span className="text-violet-100/70">{language === "en" ? "is typing..." : "γράφει..."}</span>
+                    <span className="ml-auto flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
                     </span>
                   </div>
                 )}

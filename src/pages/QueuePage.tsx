@@ -110,6 +110,11 @@ const QueuePage = () => {
         : language === "en"
           ? "Connection found"
           : "Βρέθηκε σύνδεση";
+  const queueNotice = !online
+    ? copy.queue.offline
+    : phase === "searching" && queue.softRelaxed
+      ? copy.queue.relaxed
+      : null;
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -209,6 +214,17 @@ const QueuePage = () => {
                 {phase === "match-found" ? `${matchTransition?.secondsLeft ?? 0}...` : `${secondsLeft}s`}
               </Badge>
             </div>
+
+            {queueNotice && phase !== "match-found" && (
+              <div className="mt-4 rounded-[22px] border border-violet-300/10 bg-violet-500/10 px-4 py-3 text-sm text-violet-50">
+                <p className="font-medium">{queueNotice}</p>
+                <p className="mt-1 text-xs text-violet-50/70">
+                  {language === "en"
+                    ? "Keep this tab open and we will keep looking for someone nearby in the queue."
+                    : "Άφησε αυτό το tab ανοιχτό και θα συνεχίσουμε να ψάχνουμε κάποιον διαθέσιμο."}
+                </p>
+              </div>
+            )}
 
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
               <div
