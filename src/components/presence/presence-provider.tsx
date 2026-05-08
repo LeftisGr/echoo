@@ -426,7 +426,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refreshAdminMetrics().catch(() => undefined);
-  }, [authenticated, queue.active, reportsCount, room]);
+
+    const interval = window.setInterval(() => {
+      void refreshAdminMetrics().catch(() => undefined);
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [authenticated, queue.active, reportsCount]);
 
   useEffect(() => {
     if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
@@ -506,7 +512,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
-
     const messages = await loadRoomMessages(nextRoom.id);
 
     setRoom({
@@ -655,6 +660,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           started_at: string;
           ended_at: string | null;
           voice_enabled: boolean;
+          typing_user_id: string | null;
+          typing_updated_at: string | null;
         };
 
         setRoom((current) => {
@@ -666,6 +673,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             ...current,
             endedAt: updated.ended_at ?? undefined,
             voiceEnabled: updated.voice_enabled,
+            typingUserId: updated.typing_user_id,
+            typingUpdatedAt: updated.typing_updated_at,
             status: updated.ended_at ? "ended" : "active",
           };
         });
@@ -682,6 +691,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     startedAt: string;
     endedAt?: string;
     voiceEnabled: boolean;
+    typingUserId?: string | null;
+    typingUpdatedAt?: string | null;
   }) {
     if (!profile) {
       return;
@@ -702,6 +713,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       status: roomBase.endedAt ? "ended" : "active",
       partner: null,
       messages: [],
+      typingUserId: roomBase.typingUserId ?? null,
+      typingUpdatedAt: roomBase.typingUpdatedAt ?? null,
     };
 
     setRoom(roomSession);

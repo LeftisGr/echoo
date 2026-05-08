@@ -26,10 +26,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
+import { persistRoom } from "@/lib/presence-backend";
 import { localizeRating, ratingOptions } from "@/lib/presence-content";
 import { cn } from "@/lib/utils";
 
@@ -66,8 +66,6 @@ const SessionPage = () => {
   const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
-  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!room) {
@@ -106,42 +104,21 @@ const SessionPage = () => {
   }, [voiceUnlockedFlash]);
 
   useEffect(() => {
-    if (!room?.id || !profile?.id) {
+    if (!room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
       setPartnerTyping(false);
-      typingChannelRef.current?.unsubscribe();
-      typingChannelRef.current = null;
       return;
     }
 
-    const channel = supabase
-      .channel(`session-typing-${room.id}`)
-      .on("broadcast", { event: "typing" }, ({ payload }) => {
-        const typingPayload = payload as { userId?: string; isTyping?: boolean } | null;
-        if (!typingPayload || typingPayload.userId === profile.id) {
-          return;
-        }
+    const isRecent = Date.now() - new Date(room.typingUpdatedAt).getTime() < 1600;
+    setPartnerTyping(isRecent);
 
-        setPartnerTyping(Boolean(typingPayload.isTyping));
-      })
-      .subscribe();
+    if (!isRecent) {
+      return;
+    }
 
-    typingChannelRef.current = channel;
-
-    return () => {
-      channel.unsubscribe();
-      typingChannelRef.current = null;
-      setPartnerTyping(false);
-    };
-  }, [profile?.id, room?.id]);
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
-      typingChannelRef.current?.unsubscribe();
-    };
-  }, []);
+    const timeout = window.setTimeout(() => setPartnerTyping(false), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
 
   useEffect(() => {
     const node = messagesRef.current;
@@ -204,44 +181,23 @@ const SessionPage = () => {
   const micGlowClass = voiceReady ? "ring-2 ring-violet-300/60 shadow-[0_0_24px_rgba(167,139,250,0.28)] animate-pulse" : "";
 
   const publishTypingState = (isTyping: boolean) => {
-    if (!room?.id || !profile?.id) {
+    if (!room || !profile?.id) {
       return;
     }
 
-    void typingChannelRef.current?.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
-        userId: profile.id,
-        isTyping,
-      },
+    void persistRoom({
+      ...room,
+      typingUserId: isTyping ? profile.id : null,
+      typingUpdatedAt: isTyping ? new Date().toISOString() : null,
     });
   };
 
   const handleDraftChange = (value: string) => {
     setDraft(value);
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-
-    if (!value.trim()) {
-      publishTypingState(false);
-      return;
-    }
-
-    publishTypingState(true);
-    typingTimeoutRef.current = window.setTimeout(() => {
-      publishTypingState(false);
-    }, 900);
+    publishTypingState(Boolean(value.trim()));
   };
 
   const stopTyping = () => {
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-
     publishTypingState(false);
   };
 
@@ -266,15 +222,6 @@ const SessionPage = () => {
       setMuted(false);
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
-      typingChannelRef.current?.unsubscribe();
-    };
-  }, []);
 
   return (
 

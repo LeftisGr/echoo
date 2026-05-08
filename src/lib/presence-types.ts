@@ -61,6 +61,8 @@ export interface RoomSession {
   partner: PartnerProfile | null;
   messages: ChatMessage[];
   rating?: RatingScore;
+  typingUserId?: string | null;
+  typingUpdatedAt?: string | null;
 }
 
 export interface QueueState {

@@ -39,7 +39,9 @@ create table if not exists public.rooms (
   user_b uuid not null references auth.users(id) on delete cascade,
   started_at timestamptz not null default now(),
   ended_at timestamptz,
-  voice_enabled boolean not null default false
+  voice_enabled boolean not null default false,
+  typing_user_id uuid references auth.users(id) on delete set null,
+  typing_updated_at timestamptz
 );
 
 create table if not exists public.messages (
@@ -84,6 +86,8 @@ interface LiveRoomRow {
   started_at: string;
   ended_at: string | null;
   voice_enabled: boolean;
+  typing_user_id: string | null;
+  typing_updated_at: string | null;
 }
 
 interface LiveMessageRow {
@@ -388,7 +392,7 @@ export async function createRoomRecord(userA: string, userB: string) {
   const { data, error } = await supabase
     .from("rooms")
     .insert({ user_a: userA, user_b: userB, voice_enabled: false })
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled")
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
     .single();
 
   if (error) {
@@ -403,6 +407,8 @@ export async function createRoomRecord(userA: string, userB: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    typingUserId: room.typing_user_id,
+    typingUpdatedAt: room.typing_updated_at,
   };
 }
 
@@ -413,7 +419,7 @@ export async function loadActiveRoomForUser(userId: string) {
 
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled")
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
     .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .is("ended_at", null)
     .order("started_at", { ascending: false })
@@ -436,6 +442,8 @@ export async function loadActiveRoomForUser(userId: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    typingUserId: room.typing_user_id,
+    typingUpdatedAt: room.typing_updated_at,
   };
 }
 
@@ -446,7 +454,7 @@ export async function loadRoomById(roomId: string) {
 
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled")
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
     .eq("id", roomId)
     .maybeSingle();
 
@@ -466,6 +474,8 @@ export async function loadRoomById(roomId: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    typingUserId: room.typing_user_id,
+    typingUpdatedAt: room.typing_updated_at,
   };
 }
 
@@ -509,6 +519,8 @@ export async function persistRoom(room: RoomSession) {
     started_at: room.startedAt,
     ended_at: room.endedAt ?? null,
     voice_enabled: room.voiceEnabled,
+    typing_user_id: room.typingUserId ?? null,
+    typing_updated_at: room.typingUpdatedAt ?? null,
   });
 
   if (error) {
@@ -516,6 +528,26 @@ export async function persistRoom(room: RoomSession) {
   }
 
   return { ok: true, room };
+}
+
+export async function persistRoomTyping(room: RoomSession, typingUserId: string | null) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ ok: true, roomId: room.id, typingUserId });
+  }
+
+  const { error } = await supabase
+    .from("rooms")
+    .update({
+      typing_user_id: typingUserId,
+      typing_updated_at: typingUserId ? new Date().toISOString() : null,
+    })
+    .eq("id", room.id);
+
+  if (error) {
+    throw error;
+  }
+
+  return { ok: true, roomId: room.id, typingUserId };
 }
 
 export async function persistMessage(message: ChatMessage) {
