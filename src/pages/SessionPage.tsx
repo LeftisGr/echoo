@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -61,9 +62,12 @@ const SessionPage = () => {
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
   const [voiceUnlockedFlash, setVoiceUnlockedFlash] = useState(false);
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
+  const [partnerTyping, setPartnerTyping] = useState(false);
   const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!room) {
@@ -100,6 +104,35 @@ const SessionPage = () => {
     const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1400);
     return () => window.clearTimeout(timeout);
   }, [voiceUnlockedFlash]);
+
+  useEffect(() => {
+    if (!room?.id || !profile?.id) {
+      setPartnerTyping(false);
+      typingChannelRef.current?.unsubscribe();
+      typingChannelRef.current = null;
+      return;
+    }
+
+    const channel = supabase
+      .channel(`session-typing-${room.id}`)
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        const typingPayload = payload as { userId?: string; isTyping?: boolean } | null;
+        if (!typingPayload || typingPayload.userId === profile.id) {
+          return;
+        }
+
+        setPartnerTyping(Boolean(typingPayload.isTyping));
+      })
+      .subscribe();
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      channel.unsubscribe();
+      typingChannelRef.current = null;
+      setPartnerTyping(false);
+    };
+  }, [profile?.id, room?.id]);
 
   useEffect(() => {
     const node = messagesRef.current;
@@ -167,6 +200,48 @@ const SessionPage = () => {
   const timerGlowClass = timerUrgent ? "shadow-[0_0_60px_rgba(244,63,94,0.18)]" : "shadow-[0_0_50px_rgba(129,140,248,0.12)]";
   const micGlowClass = voiceReady ? "ring-2 ring-violet-300/60 shadow-[0_0_24px_rgba(167,139,250,0.28)] animate-pulse" : "";
 
+  const publishTypingState = (isTyping: boolean) => {
+    if (!room?.id || !profile?.id) {
+      return;
+    }
+
+    void typingChannelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
+        userId: profile.id,
+        isTyping,
+      },
+    });
+  };
+
+  const handleDraftChange = (value: string) => {
+    setDraft(value);
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    if (!value.trim()) {
+      publishTypingState(false);
+      return;
+    }
+
+    publishTypingState(true);
+    typingTimeoutRef.current = window.setTimeout(() => {
+      publishTypingState(false);
+    }, 900);
+  };
+
+  const stopTyping = () => {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    publishTypingState(false);
+  };
+
   const handleVoiceButton = async () => {
     if (!voiceReady) {
       return;
@@ -189,7 +264,17 @@ const SessionPage = () => {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+      typingChannelRef.current?.unsubscribe();
+    };
+  }, []);
+
   return (
+
     <PageShell className="min-h-[calc(100vh-2rem)]">
       <Surface className="overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30">
         <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
@@ -198,7 +283,7 @@ const SessionPage = () => {
               <AlertDialogTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="group justify-start gap-3 rounded-2xl px-2 py-1 text-left hover:bg-white/5 hover:text-white"
+                  className="group justify-start gap-3 rounded-2xl px-2 py-1 text-left transition-transform duration-150 active:scale-95 hover:bg-white/5 hover:text-white"
                 >
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-violet-100 ring-1 ring-white/5 transition group-hover:bg-white/10">
                     <span className="text-sm font-semibold tracking-[0.18em]">E</span>
@@ -229,8 +314,9 @@ const SessionPage = () => {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-11 rounded-full border-white/10 bg-white/5 px-4 text-white hover:bg-white/10 hover:text-white"
+                    className="h-11 rounded-full border-white/10 bg-white/5 px-4 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
                   >
+
                     <PhoneOff className="mr-2 h-4 w-4" />
                     {language === "en" ? "Leave" : "Έξοδος"}
                   </Button>
@@ -322,13 +408,16 @@ const SessionPage = () => {
                     return;
                   }
                   await sendMessage(nextDraft);
+                  stopTyping();
                   setDraft("");
                 }}
               >
+
                 <div className="flex items-center gap-3">
                   <Input
                     value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
+                    onChange={(event) => handleDraftChange(event.target.value)}
+                    onBlur={stopTyping}
                     placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
                     className="h-14 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                   />
@@ -336,7 +425,7 @@ const SessionPage = () => {
                     type="button"
                     variant="outline"
                     className={cn(
-                      "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white hover:bg-white/10 hover:text-white",
+                      "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
                       micGlowClass,
                       !voiceReady && "cursor-not-allowed opacity-45",
                     )}
@@ -349,10 +438,22 @@ const SessionPage = () => {
                       <Mic className="h-4 w-4" />
                     )}
                   </Button>
-                  <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white hover:bg-violet-400">
+                  <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
                     {copy.session.send}
                   </Button>
                 </div>
+                {partnerTyping && isActive && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-white/55">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                      <span>typing</span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300 [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300 [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-300" />
+                      </span>
+                    </span>
+                  </div>
+                )}
                 <p className="mt-2 text-xs text-white/35">
                   {voiceReady
                     ? language === "en"
@@ -388,7 +489,7 @@ const SessionPage = () => {
             </div>
             <div className="mt-4 flex gap-3">
               <Button
-                className="h-12 flex-1 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+                className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                 onClick={async () => {
                   await startNewSessionFromEndedRoom();
                   navigate("/queue");
@@ -398,7 +499,7 @@ const SessionPage = () => {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Link to="/dashboard" className="flex-1">
-                <Button variant="outline" className="h-12 w-full rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Button variant="outline" className="h-12 w-full rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white">
                   {copy.session.backHome}
                 </Button>
               </Link>
@@ -423,7 +524,8 @@ const SessionPage = () => {
           </DialogHeader>
           <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
             <Button
-              className="h-12 flex-1 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+              className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
                 if (audioRef.current) {

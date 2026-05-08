@@ -80,6 +80,23 @@
     min-height: 100vh;
   }
 
+  button,
+  a,
+  [role="button"] {
+    transition:
+      transform 160ms ease,
+      opacity 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  button:active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.98);
+  }
+
   #root {
     min-height: 100vh;
   }

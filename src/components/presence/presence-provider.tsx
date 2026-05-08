@@ -281,6 +281,33 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !("vibrate" in navigator)) {
+      return;
+    }
+
+    const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const interactiveTarget = event.target instanceof Element ? event.target.closest("button, a, [role='button']") : null;
+      if (!interactiveTarget) {
+        return;
+      }
+
+      navigator.vibrate(8);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
     const hydrateSessionUser = async (sessionUserId: string) => {
       if (hydratedSessionUserIdRef.current === sessionUserId) {
         return;
