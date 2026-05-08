@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowRight,
-  Mic,
-  PhoneOff,
-  ShieldAlert,
-  Timer,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { ArrowRight, Mic, PhoneOff, ShieldAlert, Volume2, VolumeX } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import {
@@ -25,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -52,7 +43,6 @@ const SessionPage = () => {
     rateRoom,
     startNewSessionFromEndedRoom,
     startVoiceChat,
-
     stopVoiceChat,
     cancelQueue,
     voiceState,
@@ -66,8 +56,10 @@ const SessionPage = () => {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [messagePulse, setMessagePulse] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const shouldForceScrollRef = useRef(true);
+  const isNearBottomRef = useRef(true);
 
   useEffect(() => {
     if (!room) {
@@ -78,6 +70,8 @@ const SessionPage = () => {
     setVoiceUnlockedFlash(false);
     setVoiceUnlockPromptOpen(false);
     setMessagePulse((current) => current + 1);
+    shouldForceScrollRef.current = true;
+    isNearBottomRef.current = true;
 
     const interval = window.setInterval(() => {
       setSessionRemaining((current) => {
@@ -135,10 +129,23 @@ const SessionPage = () => {
   }, [profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
 
   useEffect(() => {
-    const node = messagesRef.current;
-    if (node) {
-      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+    const node = chatScrollRef.current;
+    if (!node) {
+      return;
     }
+
+    if (!shouldForceScrollRef.current && !isNearBottomRef.current) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      node.scrollTo({
+        top: node.scrollHeight,
+        behavior: shouldForceScrollRef.current || messagePulse > 0 ? "smooth" : "auto",
+      });
+    });
+
+    shouldForceScrollRef.current = false;
   }, [room?.messages.length, messagePulse]);
 
   useEffect(() => {
@@ -207,6 +214,16 @@ const SessionPage = () => {
     }
 
     void persistRoomTyping(room, isTyping ? profile.id : null);
+  };
+
+  const handleChatScroll = () => {
+    const node = chatScrollRef.current;
+    if (!node) {
+      return;
+    }
+
+    const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    isNearBottomRef.current = distanceFromBottom < 96;
   };
 
   const handleDraftChange = (value: string) => {
@@ -336,7 +353,7 @@ const SessionPage = () => {
 
   return (
     <PageShell className="h-screen overflow-hidden">
-      <Surface className="flex h-full flex-col overflow-hidden border-0 bg-[#08101b] p-0 shadow-2xl shadow-black/30">
+      <Surface className="flex h-full min-h-0 flex-col overflow-hidden border-0 bg-[#08101b] p-0 shadow-2xl shadow-black/30">
         <header className="flex-none border-b border-white/5 bg-[#0f1627]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur sm:px-6">
           <div className="grid grid-cols-[auto,1fr,auto] items-start gap-3">
             <div className="flex items-center gap-3">
@@ -413,8 +430,12 @@ const SessionPage = () => {
           </div>
         )}
 
-        <ScrollArea className="flex-1 min-h-0 px-4 py-4 sm:px-6">
-          <div ref={messagesRef} className="space-y-4 pb-4">
+        <div
+          ref={chatScrollRef}
+          onScroll={handleChatScroll}
+          className="flex-1 min-h-0 overflow-y-auto scroll-smooth px-4 py-4 sm:px-6"
+        >
+          <div className="space-y-4 pb-4">
             {room.messages.map((message) => {
               const isSelf = message.senderId === profile.id;
               const isSystem = message.type === "system";
@@ -460,7 +481,7 @@ const SessionPage = () => {
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
 
         <footer className="flex-none border-t border-white/5 bg-[#0b1220]/96 px-4 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] backdrop-blur sm:px-6">
           {isActive ? (
@@ -471,6 +492,7 @@ const SessionPage = () => {
                 if (!nextDraft) {
                   return;
                 }
+                shouldForceScrollRef.current = true;
                 await sendMessage(nextDraft);
                 stopTyping();
                 setDraft("");
@@ -554,7 +576,6 @@ const SessionPage = () => {
           <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
             <Button
               className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
-
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
                 if (audioRef.current) {
