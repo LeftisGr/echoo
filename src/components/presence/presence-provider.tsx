@@ -50,6 +50,17 @@ interface MatchTransitionState {
   secondsLeft: number;
 }
 
+interface RoomRecord {
+  id: string;
+  userA: string;
+  userB: string;
+  startedAt: string;
+  endedAt?: string;
+  voiceEnabled: boolean;
+  typingUserId?: string | null;
+  typingUpdatedAt?: string | null;
+}
+
 interface PresenceContextValue {
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
@@ -96,7 +107,6 @@ function createId() {
 }
 
 function vibrate(pattern: number | number[]) {
-
   if (typeof window !== "undefined" && "vibrate" in navigator) {
     navigator.vibrate(pattern);
   }
@@ -134,7 +144,6 @@ function playMatchFoundSound() {
 }
 
 function randomFrom<T>(items: readonly T[]) {
-
   return items[Math.floor(Math.random() * items.length)];
 }
 
@@ -167,7 +176,6 @@ function createInitialQueue(profile: PresenceProfile | null): QueueState {
     softRelaxed: false,
   };
 }
-
 
 function createSystemMessage(roomId: string, content: string): ChatMessage {
   return {
@@ -204,37 +212,41 @@ function readStoredState(): PresenceStoredState {
   }
 }
 
-function readStoredRoom() {
+function readStoredRoomId() {
   if (typeof window === "undefined") {
-    return null as RoomSession | null;
+    return null;
   }
 
   const raw = window.localStorage.getItem(roomStorageKey);
   if (!raw) {
-    return null as RoomSession | null;
+    return null;
   }
 
   try {
-    return JSON.parse(raw) as RoomSession;
+    const parsed = JSON.parse(raw) as { roomId?: string } | string;
+    if (typeof parsed === "string") {
+      return parsed;
+    }
+    return parsed.roomId ?? null;
   } catch {
-    return null as RoomSession | null;
+    return null;
   }
 }
 
-function writeStoredRoom(room: RoomSession | null) {
+function writeStoredRoomId(roomId: string | null) {
   if (typeof window === "undefined") {
     return;
   }
 
-  if (room) {
-    window.localStorage.setItem(roomStorageKey, JSON.stringify(room));
+  if (roomId) {
+    window.localStorage.setItem(roomStorageKey, JSON.stringify({ roomId }));
     return;
   }
 
   window.localStorage.removeItem(roomStorageKey);
 }
 
-function roomMatchesUser(room: RoomSession, userId: string) {
+function roomMatchesUser(room: Pick<RoomRecord, "userA" | "userB">, userId: string) {
   return room.userA === userId || room.userB === userId;
 }
 
@@ -303,15 +315,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, language, matchSoundEnabled, ratings, reportsCount]);
 
   useEffect(() => {
-    if (room) {
-      writeStoredRoom(room);
+    if (!sessionReady || !authenticated) {
       return;
     }
 
-    if (!authenticated) {
-      writeStoredRoom(null);
+    if (room?.status === "active") {
+      writeStoredRoomId(room.id);
+      return;
     }
-  }, [authenticated, room]);
+
+    writeStoredRoomId(null);
+  }, [authenticated, room?.id, room?.status, sessionReady]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -509,7 +523,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
 
         const mergedMessages = latestMessages.reduce((acc: ChatMessage[], message) => {
-
           if (acc.some((item) => item.id === message.id)) {
             return acc;
           }
@@ -545,26 +558,27 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await syncProfile(profileToUse);
     }
 
-    const storedRoom = readStoredRoom();
-    if (storedRoom && roomMatchesUser(storedRoom, currentUserId)) {
-      setRoom(storedRoom);
-    }
-
-    const activeRoom = await loadActiveRoomForUser(currentUserId);
+    const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
     if (activeRoom) {
       await openRoom(activeRoom.id, currentUserId, activeRoom);
       setQueue(createInitialQueue(profileToUse));
       return;
     }
 
-    if (storedRoom && roomMatchesUser(storedRoom, currentUserId)) {
-      setRoom(storedRoom);
-      return;
+    const storedRoomId = readStoredRoomId();
+    if (storedRoomId) {
+      const storedRoom = (await loadRoomById(storedRoomId)) as RoomRecord | null;
+      if (storedRoom && !storedRoom.endedAt && roomMatchesUser(storedRoom, currentUserId)) {
+        await openRoom(storedRoom.id, currentUserId, storedRoom);
+        setQueue(createInitialQueue(profileToUse));
+        return;
+      }
+
+      writeStoredRoomId(null);
     }
 
     stopRoomSubscriptions();
     setRoom(null);
-
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
@@ -663,7 +677,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (hapticsEnabled) {
         vibrate([60, 40, 80]);
       }
-
     } finally {
       matchmakingInFlightRef.current = false;
     }
@@ -740,21 +753,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     roomChannelRef.current = channel;
   }
 
-  async function openRoom(roomId: string, currentUserId: string, existingRoom?: {
-    id: string;
-    userA: string;
-    userB: string;
-    startedAt: string;
-    endedAt?: string;
-    voiceEnabled: boolean;
-    typingUserId?: string | null;
-    typingUpdatedAt?: string | null;
-  }) {
+  async function openRoom(roomId: string, currentUserId: string, existingRoom?: RoomRecord) {
     if (!profile) {
       return;
     }
 
-    const roomBase = existingRoom ?? (await loadActiveRoomForUser(currentUserId));
+    const roomBase = existingRoom ?? ((await loadActiveRoomForUser(currentUserId)) as RoomRecord | null);
     if (!roomBase) {
       return;
     }
@@ -809,7 +813,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [matchTransition]);
 
   useEffect(() => {
-
     if (!authenticated || !profile || !userId || !queue.active || room) {
       matchingEnabledRef.current = false;
       stopQueueSubscriptions();
@@ -855,7 +858,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
       matchingEnabledRef.current = false;
       stopQueueSubscriptions();
-  
     };
   }, [authenticated, profile, queue.active, queue.joinedAt, room?.id, userId]);
 
@@ -944,7 +946,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setMatchTransition(null);
     stopQueueSubscriptions();
     stopRoomSubscriptions();
-    writeStoredRoom(null);
+    writeStoredRoomId(null);
     setQueue(createInitialQueue(profile));
     setRoom(null);
     setVoiceState("idle");
@@ -1037,7 +1039,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     await cleanupUserSession(activeProfile.id);
 
     setQueue({
-
       active: true,
       joinedAt: new Date().toISOString(),
       estimatedWaitSeconds: 18,
@@ -1060,7 +1061,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-
   }, [authenticated, hapticsEnabled, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
@@ -1080,7 +1080,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await leaveQueue(profile.id);
     }
     setQueue(createInitialQueue(profile));
-
   }, [profile]);
 
   const unlockVoice = useCallback(() => {
@@ -1180,8 +1179,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
       setRoom(nextRoom);
-      writeStoredRoom(null);
-
+      writeStoredRoomId(null);
     },
     [profile, room, stopVoiceChat],
   );
@@ -1234,10 +1232,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
     setRoom(null);
-    writeStoredRoom(null);
+    writeStoredRoomId(null);
 
     await startQueue();
-
   }, [room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
@@ -1275,13 +1272,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setReconnectEnabled,
       setMatchSoundEnabled: setMatchSoundEnabledState,
       startVoiceChat,
-
       stopVoiceChat,
       startNewSessionFromEndedRoom,
     }),
     [
-      adminMetrics,
       authenticated,
+      adminMetrics,
       blockCurrentPartner,
       cancelQueue,
       copy,
@@ -1289,28 +1285,30 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       language,
       leaveRoom,
       login,
+      logout,
+      matchSoundEnabled,
+      matchTransition,
       online,
       profile,
       queue,
       rateRoom,
       reconnectEnabled,
+      reportCurrentRoom,
       rerollUsername,
       room,
-      matchTransition,
-      matchSoundEnabled,
-
+      sessionReady,
       sendMessage,
       setLanguage,
+      setHapticsEnabled,
+      setMatchSoundEnabledState,
       setQueueFilters,
+      setReconnectEnabled,
       startNewSessionFromEndedRoom,
       startQueue,
       startVoiceChat,
       stopVoiceChat,
       unlockVoice,
-      updateProfile,
       voiceState,
-      reportCurrentRoom,
-      logout,
     ],
   );
 
@@ -1320,7 +1318,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 export function usePresence() {
   const context = useContext(PresenceContext);
   if (!context) {
-    throw new Error("usePresence must be used inside PresenceProvider");
+    throw new Error("usePresence must be used within a PresenceProvider");
   }
   return context;
 }

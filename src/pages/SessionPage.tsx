@@ -79,28 +79,26 @@ const SessionPage = () => {
       return;
     }
 
-    setSessionRemaining(sessionDurationSeconds);
-    setVoiceUnlockedFlash(false);
-    setVoiceUnlockPromptOpen(false);
+    const syncSessionTimer = () => {
+      const elapsedSeconds = Math.floor((Date.now() - new Date(room.startedAt).getTime()) / 1000);
+      const nextRemaining = Math.max(sessionDurationSeconds - elapsedSeconds, 0);
+      setSessionRemaining(nextRemaining);
+
+      if (nextRemaining === 0 && !room.voiceEnabled) {
+        unlockVoice();
+        setVoiceUnlockedFlash(true);
+        setVoiceUnlockPromptOpen(true);
+      }
+    };
+
+    syncSessionTimer();
     shouldForceScrollRef.current = true;
     isNearBottomRef.current = true;
 
-    const interval = window.setInterval(() => {
-      setSessionRemaining((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          unlockVoice();
-          setVoiceUnlockedFlash(true);
-          setVoiceUnlockPromptOpen(true);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
+    const interval = window.setInterval(syncSessionTimer, 1000);
 
     return () => window.clearInterval(interval);
-  }, [room?.id, unlockVoice]);
+  }, [room?.id, room?.startedAt, room?.voiceEnabled, unlockVoice]);
 
   useEffect(() => {
     if (!voiceUnlockedFlash) {
@@ -270,8 +268,8 @@ const SessionPage = () => {
 
   const isActive = room.status === "active";
   const isEnded = room.status === "ended";
-  const partnerLabel = room.partner?.username ?? "Stranger";
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
+
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
   const voiceReady = room.voiceEnabled && sessionRemaining === 0;
   const timerUrgent = sessionRemaining <= 60;

@@ -3,9 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-import { PresenceProvider } from "@/components/presence/presence-provider";
+import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import ContactPage from "@/pages/ContactPage";
@@ -23,6 +23,11 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const location = useLocation();
+  const { authenticated, room, sessionReady } = usePresence();
+
+  if (sessionReady && authenticated && room?.status === "active" && location.pathname !== "/session") {
+    return <Navigate to="/session" replace />;
+  }
 
   return (
     <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
