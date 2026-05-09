@@ -281,7 +281,10 @@ export async function leaveQueue(userId: string) {
     return createOfflineResult({ ok: true, userId });
   }
 
-  const { error } = await supabase.from("queue").delete().eq("user_id", userId);
+  const { error } = await supabase
+    .from("queue")
+    .update({ active: false, room_id: null, matched_at: null })
+    .eq("user_id", userId);
 
   if (error) {
     throw error;

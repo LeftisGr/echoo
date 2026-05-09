@@ -1,9 +1,10 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
 import AdminPage from "@/pages/AdminPage";
@@ -20,12 +21,46 @@ import SettingsPage from "@/pages/SettingsPage";
 import TermsPage from "@/pages/TermsPage";
 
 const queryClient = new QueryClient();
+const routeStorageKey = "presence-mvp-route";
+
+function readStoredRoute() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.sessionStorage.getItem(routeStorageKey);
+}
+
+function writeStoredRoute(route: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(routeStorageKey, route);
+}
 
 function AppRoutes() {
   const location = useLocation();
-  const { authenticated, room, sessionReady, initializing, matchTransition } = usePresence();
+  const navigate = useNavigate();
+  const { appReady, initializing } = usePresence();
 
-  if (initializing || !sessionReady) {
+  const storedRoute = readStoredRoute();
+
+  useEffect(() => {
+    writeStoredRoute(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    if (location.pathname === "/" && storedRoute && storedRoute !== "/") {
+      navigate(storedRoute, { replace: true });
+    }
+  }, [appReady, location.pathname, navigate, storedRoute]);
+
+  if (initializing || !appReady) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
         <div className="space-y-3">
@@ -36,15 +71,8 @@ function AppRoutes() {
     );
   }
 
-  if (sessionReady && authenticated && room?.status === "active" && matchTransition && location.pathname !== "/queue") {
-    return <Navigate to="/queue" replace />;
-  }
-
-  if (sessionReady && authenticated && room?.status === "active" && !matchTransition && location.pathname !== `/session/${room.id}`) {
-    return <Navigate to={`/session/${room.id}`} replace />;
-  }
-
   return (
+
     <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       <Routes location={location}>
         <Route path="/" element={<Index />} />

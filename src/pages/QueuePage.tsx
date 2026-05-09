@@ -16,8 +16,10 @@ const QueuePage = () => {
   const navigate = useNavigate();
   const {
     authenticated,
+    appReady,
     queue,
     room,
+
     matchTransition,
     cancelQueue,
     copy,
@@ -115,6 +117,10 @@ const QueuePage = () => {
     : phase === "searching" && queue.softRelaxed
       ? copy.queue.relaxed
       : null;
+
+  if (!appReady) {
+    return null;
+  }
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;

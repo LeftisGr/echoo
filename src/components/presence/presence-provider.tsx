@@ -76,6 +76,9 @@ interface PresenceContextValue {
   reconnectEnabled: boolean;
   matchSoundEnabled: boolean;
   initializing: boolean;
+  authLoaded: boolean;
+  roomLoaded: boolean;
+  appReady: boolean;
   sessionReady: boolean;
   adminMetrics: AdminMetrics;
 
@@ -103,6 +106,8 @@ interface PresenceContextValue {
 const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
 const roomStorageKey = "presence-mvp-room";
+const queueStorageKey = "presence-mvp-queue";
+const routeStorageKey = "presence-mvp-route";
 const matchTransitionStorageKey = "presence-mvp-match-transition";
 
 function createId() {
@@ -189,6 +194,78 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
     createdAt: new Date().toISOString(),
     type: "system",
   };
+}
+
+interface StoredQueueState {
+
+  active: boolean;
+  joinedAt?: string;
+  estimatedWaitSeconds: number;
+  filters: QueueFilters;
+  messageIndex: number;
+  softRelaxed: boolean;
+}
+
+function readStoredQueueState() {
+  if (typeof window === "undefined") {
+    return createInitialQueue(null);
+  }
+
+  const raw = window.localStorage.getItem(queueStorageKey);
+  if (!raw) {
+    return createInitialQueue(null);
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredQueueState>;
+    return {
+      active: parsed.active ?? false,
+      joinedAt: parsed.joinedAt,
+      estimatedWaitSeconds: parsed.estimatedWaitSeconds ?? 18,
+      filters: {
+        preference: parsed.filters?.preference ?? "anyone",
+        language: parsed.filters?.language ?? "both",
+      },
+      messageIndex: parsed.messageIndex ?? 0,
+      softRelaxed: parsed.softRelaxed ?? false,
+    } satisfies QueueState;
+  } catch {
+    return createInitialQueue(null);
+  }
+}
+
+function writeStoredQueueState(queue: QueueState | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!queue) {
+    window.localStorage.removeItem(queueStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(queueStorageKey, JSON.stringify(queue));
+}
+
+function readStoredRoute() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.sessionStorage.getItem(routeStorageKey);
+}
+
+function writeStoredRoute(route: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (route) {
+    window.sessionStorage.setItem(routeStorageKey, route);
+    return;
+  }
+
+  window.sessionStorage.removeItem(routeStorageKey);
 }
 
 function readStoredState(): PresenceStoredState {
@@ -296,11 +373,12 @@ function roomMatchesUser(room: Pick<RoomRecord, "userA" | "userB">, userId: stri
 
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const stored = useMemo(() => readStoredState(), []);
+  const storedQueue = useMemo(() => readStoredQueueState(), []);
   const [language, setLanguageState] = useState<AppLanguage>(stored.language);
   const [authenticated, setAuthenticated] = useState(stored.authenticated);
   const [profile, setProfile] = useState<PresenceProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [queue, setQueue] = useState<QueueState>(createInitialQueue(null));
+  const [queue, setQueue] = useState<QueueState>(storedQueue);
   const [room, setRoom] = useState<RoomSession | null>(null);
   const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
 
@@ -312,8 +390,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
   const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
   const [initializing, setInitializing] = useState(true);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [roomLoaded, setRoomLoaded] = useState(false);
+  const [appReady, setAppReady] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
-  const [roomRecoveryComplete, setRoomRecoveryComplete] = useState(false);
 
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
@@ -349,16 +429,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const storedState: PresenceStoredState = {
-      language,
-      authenticated,
-      reportsCount,
-      ratings,
-      matchSoundEnabled,
-    };
-
-    window.localStorage.setItem(storageKey, JSON.stringify(storedState));
-  }, [authenticated, language, matchSoundEnabled, ratings, reportsCount]);
+    writeStoredQueueState(queue);
+  }, [queue]);
 
   useEffect(() => {
     if (!sessionReady || !authenticated) {
@@ -374,12 +446,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, room?.id, room?.status, sessionReady]);
 
   useEffect(() => {
-    if (sessionReady && roomRecoveryComplete) {
-      setInitializing(false);
-    }
-  }, [roomRecoveryComplete, sessionReady]);
 
-  useEffect(() => {
     const handleOnline = () => setOnline(true);
 
     const handleOffline = () => setOnline(false);
@@ -421,89 +488,81 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const hydrateSessionUser = async (sessionUserId: string) => {
-      if (hydratedSessionUserIdRef.current === sessionUserId) {
+    const initializeSession = async (sessionUser: { id: string } | null) => {
+      setInitializing(true);
+      setAppReady(false);
+      setAuthLoaded(false);
+      setRoomLoaded(false);
+      setSessionReady(false);
+
+      setAuthenticated(Boolean(sessionUser));
+      setUserId(sessionUser?.id ?? null);
+
+      if (!sessionUser) {
+        hydratedSessionUserIdRef.current = null;
+        stopQueueSubscriptions();
+        stopRoomSubscriptions();
+        matchedRoomIdsRef.current.clear();
+        setProfile(null);
+        setRoom(null);
+        setQueue(createInitialQueue(null));
+        setMatchTransition(null);
+        setVoiceState("idle");
+        writeStoredRoomId(null);
+        writeStoredMatchTransition(null);
+        setAuthLoaded(true);
+        setRoomLoaded(true);
+        setSessionReady(true);
+        setAppReady(true);
+        setInitializing(false);
         return;
       }
 
-      hydratedSessionUserIdRef.current = sessionUserId;
-      await hydrateAuthenticatedUser(sessionUserId);
-    };
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      const sessionUser = session?.user ?? null;
-      setInitializing(true);
-      setRoomRecoveryComplete(false);
-      setSessionReady(false);
-      setAuthenticated(Boolean(sessionUser));
-      setUserId(sessionUser?.id ?? null);
-
-      if (sessionUser) {
-        void hydrateSessionUser(sessionUser.id)
-          .catch(() => {
-            hydratedSessionUserIdRef.current = null;
-            void supabase.auth.signOut();
-            setAuthenticated(false);
-            setUserId(null);
-            setProfile(null);
-            setRoom(null);
-            setQueue(createInitialQueue(null));
-          })
-          .finally(() => {
-            setSessionReady(true);
-          });
-      } else {
+      try {
+        if (hydratedSessionUserIdRef.current !== sessionUser.id) {
+          hydratedSessionUserIdRef.current = sessionUser.id;
+          await hydrateAuthenticatedUser(sessionUser.id);
+        }
+      } catch {
         hydratedSessionUserIdRef.current = null;
+        await supabase.auth.signOut();
+        stopQueueSubscriptions();
         stopRoomSubscriptions();
-        setRoom(null);
-        setProfile(null);
-        setQueue(createInitialQueue(null));
-        setVoiceState("idle");
-        setRoomRecoveryComplete(true);
-        setSessionReady(true);
-
-      }
-    });
-
-    void supabase.auth.getSession().then(({ data }) => {
-      const sessionUser = data.session?.user ?? null;
-      setAuthenticated(Boolean(sessionUser));
-      setUserId(sessionUser?.id ?? null);
-      if (sessionUser) {
-        void hydrateSessionUser(sessionUser.id)
-          .catch(() => {
-            hydratedSessionUserIdRef.current = null;
-            void supabase.auth.signOut();
-            setAuthenticated(false);
-            setUserId(null);
-            setProfile(null);
-            setRoom(null);
-            setQueue(createInitialQueue(null));
-          })
-          .finally(() => {
-            setSessionReady(true);
-          });
-      } else {
-        hydratedSessionUserIdRef.current = null;
+        matchedRoomIdsRef.current.clear();
         setAuthenticated(false);
         setUserId(null);
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
+        setMatchTransition(null);
         setVoiceState("idle");
+        writeStoredRoomId(null);
+        writeStoredMatchTransition(null);
+      } finally {
+        setAuthLoaded(true);
+        setRoomLoaded(true);
         setSessionReady(true);
+        setAppReady(true);
+        setInitializing(false);
       }
-    }).catch(() => {
-      hydratedSessionUserIdRef.current = null;
-      setAuthenticated(false);
-      setUserId(null);
-      setProfile(null);
-      setRoom(null);
-      setQueue(createInitialQueue(null));
-      setVoiceState("idle");
-      setRoomRecoveryComplete(true);
-      setSessionReady(true);
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") {
+        return;
+      }
+
+      void initializeSession(session?.user ?? null);
     });
+
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        void initializeSession(data.session?.user ?? null);
+      })
+      .catch(() => {
+        void initializeSession(null);
+      });
 
     return () => data.subscription.unsubscribe();
   }, []);
@@ -600,55 +659,54 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
-    try {
-      const loadedProfile = await loadProfile(currentUserId);
-      const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+    const loadedProfile = await loadProfile(currentUserId);
+    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
 
-      if (loadedProfile) {
-        setProfile(loadedProfile);
-        setQueue((current) => ({
-          ...current,
-          filters: {
-            preference: loadedProfile.preference,
-            language: loadedProfile.language,
-          },
-        }));
+    if (loadedProfile) {
+      setProfile(loadedProfile);
+      setQueue((current) => ({
+        ...current,
+        filters: {
+          preference: loadedProfile.preference,
+          language: loadedProfile.language,
+        },
+      }));
+    } else {
+      setProfile(profileToUse);
+      await syncProfile(profileToUse);
+    }
+
+    const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+    if (activeRoom) {
+      const pendingMatch = readStoredMatchTransition();
+      if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
+        setMatchTransition(pendingMatch);
       } else {
-        setProfile(profileToUse);
-        await syncProfile(profileToUse);
+        writeStoredMatchTransition(null);
       }
+      await openRoom(activeRoom.id, currentUserId, activeRoom);
+      setQueue(createInitialQueue(profileToUse));
+      writeStoredRoomId(activeRoom.id);
+      return;
+    }
 
-      const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
-      if (activeRoom) {
-        const pendingMatch = readStoredMatchTransition();
-        if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
-          setMatchTransition(pendingMatch);
-        } else {
-          writeStoredMatchTransition(null);
-        }
-        await openRoom(activeRoom.id, currentUserId, activeRoom);
+    const storedRoomId = readStoredRoomId();
+    if (storedRoomId) {
+      const storedRoom = (await loadRoomById(storedRoomId)) as RoomRecord | null;
+      if (storedRoom && !storedRoom.endedAt && roomMatchesUser(storedRoom, currentUserId)) {
+        await openRoom(storedRoom.id, currentUserId, storedRoom);
         setQueue(createInitialQueue(profileToUse));
+        writeStoredRoomId(storedRoom.id);
         return;
       }
 
-      const storedRoomId = readStoredRoomId();
-      if (storedRoomId) {
-        const storedRoom = (await loadRoomById(storedRoomId)) as RoomRecord | null;
-        if (storedRoom && !storedRoom.endedAt && roomMatchesUser(storedRoom, currentUserId)) {
-          await openRoom(storedRoom.id, currentUserId, storedRoom);
-          setQueue(createInitialQueue(profileToUse));
-          return;
-        }
-
-        writeStoredRoomId(null);
-      }
-
-      stopRoomSubscriptions();
-      setRoom(null);
-      writeStoredMatchTransition(null);
-    } finally {
-      setRoomRecoveryComplete(true);
+      writeStoredRoomId(null);
     }
+
+    stopRoomSubscriptions();
+    setRoom(null);
+    writeStoredMatchTransition(null);
+    setQueue(storedQueue.active ? storedQueue : createInitialQueue(profileToUse));
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
@@ -1017,6 +1075,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopQueueSubscriptions();
     stopRoomSubscriptions();
     writeStoredRoomId(null);
+    writeStoredMatchTransition(null);
+    writeStoredQueueState(null);
     setQueue(createInitialQueue(profile));
     setRoom(null);
     setVoiceState("idle");
@@ -1108,7 +1168,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     await cleanupUserSession(activeProfile.id);
 
-    setQueue({
+    const nextQueue: QueueState = {
       active: true,
       joinedAt: new Date().toISOString(),
       estimatedWaitSeconds: 18,
@@ -1118,7 +1178,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       },
       messageIndex: 0,
       softRelaxed: false,
-    });
+    };
+
+    setQueue(nextQueue);
+    writeStoredQueueState(nextQueue);
 
     await joinQueue(activeProfile.id, {
       preference: activeProfile.preference,
@@ -1149,7 +1212,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (profile) {
       await leaveQueue(profile.id);
     }
-    setQueue(createInitialQueue(profile));
+    const nextQueue = createInitialQueue(profile);
+    setQueue(nextQueue);
+    writeStoredQueueState(nextQueue);
   }, [profile]);
 
   const unlockVoice = useCallback(() => {
@@ -1249,7 +1314,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
       setRoom(nextRoom);
+      setQueue(createInitialQueue(profile));
       writeStoredRoomId(null);
+      writeStoredMatchTransition(null);
     },
     [profile, room, stopVoiceChat],
   );
@@ -1325,6 +1392,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reconnectEnabled,
       matchSoundEnabled,
       initializing,
+      authLoaded,
+      roomLoaded,
+      appReady,
       sessionReady,
       adminMetrics,
       login,
@@ -1350,6 +1420,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [
       authenticated,
       adminMetrics,
+      appReady,
+      authLoaded,
       blockCurrentPartner,
       cancelQueue,
       copy,
@@ -1369,18 +1441,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reportCurrentRoom,
       rerollUsername,
       room,
-      sessionReady,
+      roomLoaded,
       sendMessage,
+      sessionReady,
       setLanguage,
-      setHapticsEnabled,
-      setMatchSoundEnabledState,
       setQueueFilters,
-      setReconnectEnabled,
       startNewSessionFromEndedRoom,
       startQueue,
       startVoiceChat,
       stopVoiceChat,
       unlockVoice,
+      updateProfile,
       voiceState,
     ],
   );

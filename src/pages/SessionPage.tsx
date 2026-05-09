@@ -29,8 +29,8 @@ const SessionPage = () => {
   const { roomId: routeRoomId } = useParams();
   const {
     authenticated,
+    appReady,
     initializing,
-    sessionReady,
     queue,
 
     room,
@@ -235,7 +235,8 @@ const SessionPage = () => {
     }, 1200);
   };
 
-  if (initializing || !sessionReady || (queue.active && !room)) {
+  if (initializing || !appReady || (queue.active && !room)) {
+
     return (
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
