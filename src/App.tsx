@@ -23,9 +23,20 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const location = useLocation();
-  const { authenticated, room, sessionReady } = usePresence();
+  const { authenticated, room, sessionReady, matchTransition } = usePresence();
 
-  if (sessionReady && authenticated && room?.status === "active" && location.pathname !== "/session") {
+  if (!sessionReady) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.35em] text-white/35">Echoo</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Restoring your session...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionReady && authenticated && room?.status === "active" && !matchTransition && location.pathname !== "/session") {
     return <Navigate to="/session" replace />;
   }
 

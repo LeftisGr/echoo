@@ -232,10 +232,6 @@ const SessionPage = () => {
     }, 1200);
   };
 
-  if (!authenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
   if (!sessionReady || (queue.active && !room)) {
     return (
       <PageShell className="flex items-center">
@@ -247,6 +243,10 @@ const SessionPage = () => {
         </Surface>
       </PageShell>
     );
+  }
+
+  if (!authenticated) {
+    return <Navigate to="/auth" replace />;
   }
 
   if (!room) {
