@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Mic, PhoneOff, ShieldAlert, Volume2, VolumeX } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import {
   AlertDialog,
@@ -26,10 +26,13 @@ const sessionDurationSeconds = 600;
 
 const SessionPage = () => {
   const navigate = useNavigate();
+  const { roomId: routeRoomId } = useParams();
   const {
     authenticated,
+    initializing,
     sessionReady,
     queue,
+
     room,
     profile,
     copy,
@@ -232,7 +235,7 @@ const SessionPage = () => {
     }, 1200);
   };
 
-  if (!sessionReady || (queue.active && !room)) {
+  if (initializing || !sessionReady || (queue.active && !room)) {
     return (
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
@@ -246,6 +249,7 @@ const SessionPage = () => {
   }
 
   if (!authenticated) {
+
     return <Navigate to="/auth" replace />;
   }
 
@@ -253,7 +257,12 @@ const SessionPage = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if (routeRoomId && routeRoomId !== room.id) {
+    return <Navigate to={`/session/${room.id}`} replace />;
+  }
+
   if (!profile) {
+
     return (
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">

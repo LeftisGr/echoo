@@ -121,7 +121,7 @@ const QueuePage = () => {
   }
 
   if (room && !matchTransition) {
-    return <Navigate to="/session" replace />;
+    return <Navigate to={`/session/${room.id}`} replace />;
   }
 
   if (!queue.active && !room && !matchTransition) {

@@ -75,8 +75,10 @@ interface PresenceContextValue {
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
   matchSoundEnabled: boolean;
+  initializing: boolean;
   sessionReady: boolean;
   adminMetrics: AdminMetrics;
+
   login: (method: AuthMethod, email?: string) => Promise<void>;
   logout: () => void;
   rerollUsername: () => void;
@@ -101,6 +103,7 @@ interface PresenceContextValue {
 const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
 const roomStorageKey = "presence-mvp-room";
+const matchTransitionStorageKey = "presence-mvp-match-transition";
 
 function createId() {
   return crypto.randomUUID();
@@ -246,6 +249,47 @@ function writeStoredRoomId(roomId: string | null) {
   window.localStorage.removeItem(roomStorageKey);
 }
 
+function readStoredMatchTransition() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(matchTransitionStorageKey);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { roomId?: string; expiresAt?: number };
+    if (!parsed.roomId || !parsed.expiresAt || parsed.expiresAt <= Date.now()) {
+      return null;
+    }
+
+    return {
+      roomId: parsed.roomId,
+      secondsLeft: Math.max(1, Math.ceil((parsed.expiresAt - Date.now()) / 1000)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredMatchTransition(transition: MatchTransitionState | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (transition) {
+    window.localStorage.setItem(
+      matchTransitionStorageKey,
+      JSON.stringify({ roomId: transition.roomId, expiresAt: Date.now() + transition.secondsLeft * 1000 }),
+    );
+    return;
+  }
+
+  window.localStorage.removeItem(matchTransitionStorageKey);
+}
+
 function roomMatchesUser(room: Pick<RoomRecord, "userA" | "userB">, userId: string) {
   return room.userA === userId || room.userB === userId;
 }
@@ -267,7 +311,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
   const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
+  const [initializing, setInitializing] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
+  const [roomRecoveryComplete, setRoomRecoveryComplete] = useState(false);
 
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
@@ -328,7 +374,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, room?.id, room?.status, sessionReady]);
 
   useEffect(() => {
+    if (sessionReady && roomRecoveryComplete) {
+      setInitializing(false);
+    }
+  }, [roomRecoveryComplete, sessionReady]);
+
+  useEffect(() => {
     const handleOnline = () => setOnline(true);
+
     const handleOffline = () => setOnline(false);
 
     window.addEventListener("online", handleOnline);
@@ -379,9 +432,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user ?? null;
+      setInitializing(true);
+      setRoomRecoveryComplete(false);
       setSessionReady(false);
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
+
       if (sessionUser) {
         void hydrateSessionUser(sessionUser.id)
           .catch(() => {
@@ -403,7 +459,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setQueue(createInitialQueue(null));
         setVoiceState("idle");
+        setRoomRecoveryComplete(true);
         setSessionReady(true);
+
       }
     });
 
@@ -443,6 +501,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setRoom(null);
       setQueue(createInitialQueue(null));
       setVoiceState("idle");
+      setRoomRecoveryComplete(true);
       setSessionReady(true);
     });
 
@@ -541,44 +600,55 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
-    const loadedProfile = await loadProfile(currentUserId);
-    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+    try {
+      const loadedProfile = await loadProfile(currentUserId);
+      const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
 
-    if (loadedProfile) {
-      setProfile(loadedProfile);
-      setQueue((current) => ({
-        ...current,
-        filters: {
-          preference: loadedProfile.preference,
-          language: loadedProfile.language,
-        },
-      }));
-    } else {
-      setProfile(profileToUse);
-      await syncProfile(profileToUse);
-    }
+      if (loadedProfile) {
+        setProfile(loadedProfile);
+        setQueue((current) => ({
+          ...current,
+          filters: {
+            preference: loadedProfile.preference,
+            language: loadedProfile.language,
+          },
+        }));
+      } else {
+        setProfile(profileToUse);
+        await syncProfile(profileToUse);
+      }
 
-    const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
-    if (activeRoom) {
-      await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profileToUse));
-      return;
-    }
-
-    const storedRoomId = readStoredRoomId();
-    if (storedRoomId) {
-      const storedRoom = (await loadRoomById(storedRoomId)) as RoomRecord | null;
-      if (storedRoom && !storedRoom.endedAt && roomMatchesUser(storedRoom, currentUserId)) {
-        await openRoom(storedRoom.id, currentUserId, storedRoom);
+      const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+      if (activeRoom) {
+        const pendingMatch = readStoredMatchTransition();
+        if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
+          setMatchTransition(pendingMatch);
+        } else {
+          writeStoredMatchTransition(null);
+        }
+        await openRoom(activeRoom.id, currentUserId, activeRoom);
         setQueue(createInitialQueue(profileToUse));
         return;
       }
 
-      writeStoredRoomId(null);
-    }
+      const storedRoomId = readStoredRoomId();
+      if (storedRoomId) {
+        const storedRoom = (await loadRoomById(storedRoomId)) as RoomRecord | null;
+        if (storedRoom && !storedRoom.endedAt && roomMatchesUser(storedRoom, currentUserId)) {
+          await openRoom(storedRoom.id, currentUserId, storedRoom);
+          setQueue(createInitialQueue(profileToUse));
+          return;
+        }
 
-    stopRoomSubscriptions();
-    setRoom(null);
+        writeStoredRoomId(null);
+      }
+
+      stopRoomSubscriptions();
+      setRoom(null);
+      writeStoredMatchTransition(null);
+    } finally {
+      setRoomRecoveryComplete(true);
+    }
   }
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
@@ -1233,8 +1303,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setMatchTransition(null);
     setRoom(null);
     writeStoredRoomId(null);
+    writeStoredMatchTransition(null);
 
     await startQueue();
+
   }, [room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
@@ -1252,9 +1324,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       hapticsEnabled,
       reconnectEnabled,
       matchSoundEnabled,
+      initializing,
       sessionReady,
       adminMetrics,
-
       login,
       logout,
       rerollUsername,
@@ -1282,6 +1354,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       cancelQueue,
       copy,
       hapticsEnabled,
+      initializing,
       language,
       leaveRoom,
       login,

@@ -23,9 +23,9 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const location = useLocation();
-  const { authenticated, room, sessionReady, matchTransition } = usePresence();
+  const { authenticated, room, sessionReady, initializing, matchTransition } = usePresence();
 
-  if (!sessionReady) {
+  if (initializing || !sessionReady) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
         <div className="space-y-3">
@@ -36,8 +36,12 @@ function AppRoutes() {
     );
   }
 
-  if (sessionReady && authenticated && room?.status === "active" && !matchTransition && location.pathname !== "/session") {
-    return <Navigate to="/session" replace />;
+  if (sessionReady && authenticated && room?.status === "active" && matchTransition && location.pathname !== "/queue") {
+    return <Navigate to="/queue" replace />;
+  }
+
+  if (sessionReady && authenticated && room?.status === "active" && !matchTransition && location.pathname !== `/session/${room.id}`) {
+    return <Navigate to={`/session/${room.id}`} replace />;
   }
 
   return (
@@ -48,7 +52,9 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/queue" element={<QueuePage />} />
         <Route path="/session" element={<SessionPage />} />
+        <Route path="/session/:roomId" element={<SessionPage />} />
         <Route path="/safety" element={<SafetyPage />} />
+
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
