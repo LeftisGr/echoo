@@ -54,6 +54,8 @@ const SessionPage = () => {
   const [voiceUnlockedFlash, setVoiceUnlockedFlash] = useState(false);
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
+  const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
+  const [statusTick, setStatusTick] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +65,7 @@ const SessionPage = () => {
   const typingActiveRef = useRef(false);
   const shouldForceScrollRef = useRef(true);
   const isNearBottomRef = useRef(true);
+  const previousLastMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -99,7 +102,6 @@ const SessionPage = () => {
     isNearBottomRef.current = true;
 
     const interval = window.setInterval(syncSessionTimer, 1000);
-
     return () => window.clearInterval(interval);
   }, [room?.id, room?.startedAt, room?.voiceEnabled, unlockVoice]);
 
@@ -111,6 +113,31 @@ const SessionPage = () => {
     const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1400);
     return () => window.clearTimeout(timeout);
   }, [voiceUnlockedFlash]);
+
+  useEffect(() => {
+    if (!room?.messages.length) {
+      previousLastMessageIdRef.current = null;
+      setRecentMessageId(null);
+      return;
+    }
+
+    const lastMessageId = room.messages[room.messages.length - 1]?.id ?? null;
+    if (!lastMessageId || previousLastMessageIdRef.current === lastMessageId) {
+      return;
+    }
+
+    previousLastMessageIdRef.current = lastMessageId;
+    setRecentMessageId(lastMessageId);
+    setStatusTick((current) => current + 1);
+
+    const timeout = window.setTimeout(() => setRecentMessageId(null), 1200);
+    return () => window.clearTimeout(timeout);
+  }, [room?.messages]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setStatusTick((current) => current + 1), 6000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -164,7 +191,7 @@ const SessionPage = () => {
     });
 
     shouldForceScrollRef.current = false;
-  }, [room?.messages.length]);
+  }, [room?.messages.length, recentMessageId]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -285,8 +312,33 @@ const SessionPage = () => {
   const timerUrgent = sessionRemaining <= 60;
   const timerPulseClass = sessionRemaining % 2 === 0 ? "scale-[1.01]" : "scale-100";
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
+  const liveStatusLabel = room
+    ? online
+      ? room.status === "active"
+        ? language === "en"
+          ? "Connected"
+          : "Συνδεδεμένοι"
+        : language === "en"
+          ? "Session ended"
+          : "Το session έληξε"
+      : language === "en"
+        ? "Reconnecting"
+        : "Επανασύνδεση"
+    : language === "en"
+      ? "Idle"
+      : "Αδρανές";
+  const liveStatusTone = room?.status === "active" ? (online ? "text-emerald-200" : "text-amber-200") : "text-white/65";
+  const liveDotTone = room?.status === "active" ? (online ? "bg-emerald-400" : "bg-amber-400") : "bg-white/35";
+  const voiceReadyBadge = voiceReady
+    ? language === "en"
+      ? "Mic open"
+      : "Μικρόφωνο ανοιχτό"
+    : language === "en"
+      ? "Mic locked"
+      : "Μικρόφωνο κλειδωμένο";
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
   const sessionBanner = !online
+
     ? copy.session.connectionLost
     : isEnded
       ? latestSystemMessage ?? copy.session.ended
@@ -440,6 +492,10 @@ const SessionPage = () => {
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
                 <h1 className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">Private Session</h1>
+                <div className={cn("mt-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.28em]", room.status === "active" ? "border-emerald-300/20 bg-emerald-400/10" : "border-white/10 bg-white/5") }>
+                  <span className={cn("h-2 w-2 rounded-full", liveDotTone, room.status === "active" && "animate-pulse")} />
+                  <span className={liveStatusTone}>{liveStatusLabel}</span>
+                </div>
               </div>
             </div>
 
@@ -454,6 +510,10 @@ const SessionPage = () => {
                   style={{ width: `${timerProgress}%` }}
                 />
               </div>
+              <div className={cn("mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.26em]", voiceReady ? "bg-amber-400/15 text-amber-100" : "bg-white/5 text-white/55") }>
+                <Mic className="h-3.5 w-3.5" />
+                <span>{voiceReadyBadge}</span>
+              </div>
             </div>
 
             <div className="flex justify-end">
@@ -461,13 +521,13 @@ const SessionPage = () => {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-11 rounded-full border-white/10 bg-white/5 px-4 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
+                    className="h-11 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 transition-transform duration-150 active:scale-95 hover:bg-rose-500/20 hover:text-white"
                   >
                     <PhoneOff className="mr-2 h-4 w-4" />
                     {language === "en" ? "Leave" : "Έξοδος"}
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
+                <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
                   <AlertDialogHeader>
                     <AlertDialogTitle>{language === "en" ? "Leave this session?" : "Να φύγεις από το session;"}</AlertDialogTitle>
                     <AlertDialogDescription className="text-white/55">
@@ -533,27 +593,48 @@ const SessionPage = () => {
                 hour: "2-digit",
                 minute: "2-digit",
               });
+              const arrivedHot = message.id === recentMessageId;
 
               if (isSystem) {
                 return (
-                  <div key={message.id} className="mx-auto max-w-[88%] rounded-full bg-white/5 px-4 py-2 text-center text-xs text-white/45">
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "mx-auto max-w-[88%] rounded-full px-4 py-2 text-center text-xs transition-all duration-500",
+                      arrivedHot ? "bg-violet-500/15 text-violet-50 ring-1 ring-violet-300/25 shadow-[0_0_30px_rgba(139,92,246,0.16)]" : "bg-white/5 text-white/45",
+                    )}
+                  >
                     {message.content}
                   </div>
                 );
               }
 
               return (
-                <div key={message.id} className={cn("flex animate-in fade-in slide-in-from-bottom-1 duration-300", isSelf ? "justify-end" : "justify-start")}>
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex animate-in fade-in slide-in-from-bottom-1 duration-300",
+                    arrivedHot && "animate-pulse",
+                    isSelf ? "justify-end" : "justify-start",
+                  )}
+                >
                   <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
                       <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
                       <span>•</span>
                       <span>{timestamp}</span>
+                      {arrivedHot && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.65)]" />}
                     </div>
                     <div
                       className={cn(
-                        "rounded-[20px] px-4 py-3 text-[15px] leading-7 shadow-sm",
-                        isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
+                        "rounded-[20px] px-4 py-3 text-[15px] leading-7 shadow-sm transition-all duration-500",
+                        isSelf
+                          ? arrivedHot
+                            ? "bg-rose-500/90 text-white ring-1 ring-rose-200/25 shadow-[0_0_30px_rgba(244,63,94,0.18)]"
+                            : "bg-white text-slate-950"
+                          : arrivedHot
+                            ? "bg-violet-500/16 text-white ring-1 ring-violet-300/25 shadow-[0_0_30px_rgba(139,92,246,0.14)]"
+                            : "bg-white/7 text-white ring-1 ring-white/5",
                       )}
                     >
                       {message.content}
@@ -611,24 +692,30 @@ const SessionPage = () => {
 
                 <div className="mt-3 flex min-h-[2.5rem] items-center justify-between gap-3">
                   {partnerTyping ? (
-                    <div className="flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50">
-                      <span className="font-medium">Stranger is typing...</span>
-                      <span className="flex items-center gap-1">
+                    <div className="flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.10)]">
+                      <span className="font-medium">{language === "en" ? "Stranger is typing" : "Ο άλλος γράφει"}</span>
+                      <span className="flex items-center gap-1.5">
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-white/35">
-                      {voiceReady
-                        ? language === "en"
-                          ? "Voice is ready — the microphone button unlocks now."
-                          : "Η φωνή είναι έτοιμη — το μικρόφωνο ξεκλειδώνει τώρα."
-                        : language === "en"
-                          ? "Microphone unlocks when the timer reaches zero."
-                          : "Το μικρόφωνο ξεκλειδώνει όταν ο χρόνος μηδενιστεί."}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/65">
+                        <span className={cn("h-2 w-2 rounded-full", liveDotTone, online && room.status === "active" && "animate-pulse")} />
+                        {language === "en" ? "Realtime updates live" : "Realtime ενημερώσεις"}
+                      </span>
+                      <span>
+                        {voiceReady
+                          ? language === "en"
+                            ? "Voice is ready — the microphone button lights up now."
+                            : "Η φωνή είναι έτοιμη — το μικρόφωνο ανάβει τώρα."
+                          : language === "en"
+                            ? "The mic opens when the timer hits zero."
+                            : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
+                      </span>
+                    </div>
                   )}
                 </div>
               </form>
@@ -642,9 +729,9 @@ const SessionPage = () => {
       </div>
 
       <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
-        <DialogContent className="border-white/10 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
+        <DialogContent className="border-amber-300/20 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
           <DialogHeader>
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/25">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15 text-amber-100 ring-1 ring-amber-300/25">
               <Mic className="h-6 w-6 animate-pulse" />
             </div>
             <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
@@ -658,7 +745,7 @@ const SessionPage = () => {
           </DialogHeader>
           <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
             <Button
-              className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+              className="h-12 flex-1 rounded-full bg-amber-400 text-slate-950 transition-transform duration-150 active:scale-95 hover:bg-amber-300"
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
                 if (audioRef.current) {
