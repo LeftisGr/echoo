@@ -386,16 +386,116 @@ class QueryBuilder {
   }
 }
 
+type PresenceEventCallback = () => void;
+
+type PresenceState = Record<string, any[]>;
+
+const presenceStoragePrefix = "presence-shim:";
+const channelInstances = new Map<string, Set<ChannelShim>>();
+
+function readPresenceState(topic: string): PresenceState {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = window.localStorage.getItem(`${presenceStoragePrefix}${topic}`);
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw) as PresenceState;
+  } catch {
+    return {};
+  }
+}
+
+function writePresenceState(topic: string, state: PresenceState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(`${presenceStoragePrefix}${topic}`, JSON.stringify(state));
+}
+
 class ChannelShim {
-  on() {
+  private syncCallbacks = new Set<PresenceEventCallback>();
+  private joinCallbacks = new Set<PresenceEventCallback>();
+  private leaveCallbacks = new Set<PresenceEventCallback>();
+  private storageHandler: ((event: StorageEvent) => void) | null = null;
+
+  constructor(
+    private topic = "default",
+    private presenceKey = getUrlSafeRandom(16),
+  ) {
+    if (!channelInstances.has(this.topic)) {
+      channelInstances.set(this.topic, new Set());
+    }
+
+    channelInstances.get(this.topic)?.add(this);
+
+    if (typeof window !== "undefined") {
+      this.storageHandler = (event: StorageEvent) => {
+        if (event.key !== `${presenceStoragePrefix}${this.topic}`) {
+          return;
+        }
+        this.syncCallbacks.forEach((callback) => callback());
+      };
+      window.addEventListener("storage", this.storageHandler);
+    }
+  }
+
+  on(event: string, config: { event?: string }, callback: PresenceEventCallback) {
+    if (event !== "presence") {
+      return this;
+    }
+
+    if (config.event === "sync") {
+      this.syncCallbacks.add(callback);
+    } else if (config.event === "join") {
+      this.joinCallbacks.add(callback);
+    } else if (config.event === "leave") {
+      this.leaveCallbacks.add(callback);
+    }
+
     return this;
   }
 
-  subscribe() {
+  presenceState() {
+    return readPresenceState(this.topic);
+  }
+
+  async track(meta: any) {
+    const state = readPresenceState(this.topic);
+    state[this.presenceKey] = [meta];
+    writePresenceState(this.topic, state);
+    this.joinCallbacks.forEach((callback) => callback());
+    this.syncCallbacks.forEach((callback) => callback());
+    return { data: null, error: null };
+  }
+
+  async untrack() {
+    const state = readPresenceState(this.topic);
+    delete state[this.presenceKey];
+    writePresenceState(this.topic, state);
+    this.leaveCallbacks.forEach((callback) => callback());
+    this.syncCallbacks.forEach((callback) => callback());
+    return { data: null, error: null };
+  }
+
+  subscribe(callback?: (status: string) => void) {
+    queueMicrotask(() => callback?.("SUBSCRIBED"));
     return this;
   }
 
   unsubscribe() {
+    this.leaveCallbacks.clear();
+    this.joinCallbacks.clear();
+    this.syncCallbacks.clear();
+    if (this.storageHandler && typeof window !== "undefined") {
+      window.removeEventListener("storage", this.storageHandler);
+    }
+    channelInstances.get(this.topic)?.delete(this);
     return Promise.resolve();
   }
 }
@@ -507,8 +607,8 @@ export function createClient(url: string, key: string) {
         },
       };
     },
-    channel() {
-      return new ChannelShim();
+    channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
+      return new ChannelShim(topic ?? "default", options?.config?.presence?.key);
     },
   };
 }

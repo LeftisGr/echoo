@@ -50,7 +50,22 @@ interface MatchTransitionState {
   secondsLeft: number;
 }
 
+interface RealtimePresenceEntry {
+  userId: string;
+  status: "online" | "searching" | "room";
+  roomId: string | null;
+  updatedAt: number;
+  tabId: string;
+}
+
+interface RealtimePresenceStats {
+  onlineCount: number;
+  searchingCount: number;
+  roomCount: number;
+}
+
 interface RoomRecord {
+
   id: string;
   userA: string;
   userB: string;
@@ -80,6 +95,7 @@ interface PresenceContextValue {
   roomLoaded: boolean;
   appReady: boolean;
   sessionReady: boolean;
+  presenceStats: RealtimePresenceStats;
   adminMetrics: AdminMetrics;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
@@ -193,6 +209,90 @@ function createSystemMessage(roomId: string, content: string): ChatMessage {
     content,
     createdAt: new Date().toISOString(),
     type: "system",
+  };
+}
+
+function useSmoothedNumber(target: number, initialValue: number) {
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    if (value === target) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setValue((current) => {
+        if (current === target) {
+          window.clearInterval(interval);
+          return current;
+        }
+
+        const delta = target - current;
+        const step = Math.max(1, Math.ceil(Math.abs(delta) * 0.2));
+        const next = current + Math.sign(delta) * step;
+
+        if ((delta > 0 && next >= target) || (delta < 0 && next <= target)) {
+          window.clearInterval(interval);
+          return target;
+        }
+
+        return next;
+      });
+    }, 120);
+
+    return () => window.clearInterval(interval);
+  }, [target, value]);
+
+  return value;
+}
+
+function getPresenceStatus(queue: QueueState, room: RoomSession | null): RealtimePresenceEntry["status"] {
+  if (room?.status === "active") {
+    return "room";
+  }
+
+  if (queue.active) {
+    return "searching";
+  }
+
+  return "online";
+}
+
+function derivePresenceStats(state: Record<string, RealtimePresenceEntry[]>, now = Date.now()): RealtimePresenceStats {
+  const uniqueEntries = Object.entries(state)
+    .map(([userId, metas]) => {
+      const freshEntries = (metas ?? []).filter((entry) => now - entry.updatedAt <= 45000);
+      if (!freshEntries.length) {
+        return null;
+      }
+
+      const latest = freshEntries.reduce((current, candidate) => (candidate.updatedAt > current.updatedAt ? candidate : current), freshEntries[0]);
+      return {
+        userId,
+        ...latest,
+      };
+    })
+    .filter((entry): entry is RealtimePresenceEntry => Boolean(entry));
+
+  return {
+    onlineCount: uniqueEntries.length,
+    searchingCount: uniqueEntries.filter((entry) => entry.status === "searching").length,
+    roomCount: uniqueEntries.filter((entry) => entry.status === "room").length,
+  };
+}
+
+function createPresenceEntry(
+  userId: string,
+  status: RealtimePresenceEntry["status"],
+  roomId: string | null,
+  tabId: string,
+): RealtimePresenceEntry {
+  return {
+    userId,
+    status,
+    roomId,
+    updatedAt: Date.now(),
+    tabId,
   };
 }
 
@@ -394,8 +494,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [roomLoaded, setRoomLoaded] = useState(false);
   const [appReady, setAppReady] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [presenceStats, setPresenceStats] = useState<RealtimePresenceStats>({
+    onlineCount: 0,
+    searchingCount: 0,
+    roomCount: 0,
+  });
 
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
+
     totalUsers: 0,
     activeUsers: 0,
     queueCount: 0,
@@ -411,7 +517,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const queueTimersRef = useRef<number[]>([]);
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const presenceChannelRef = useRef<any>(null);
+  const presenceHeartbeatRef = useRef<number | null>(null);
+  const presenceTabIdRef = useRef(createId());
+  const queueSnapshotRef = useRef(queue);
+  const roomSnapshotRef = useRef(room);
   const matchmakingInFlightRef = useRef(false);
+
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
   const hydratedSessionUserIdRef = useRef<string | null>(null);
   const matchingEnabledRef = useRef(false);
@@ -421,6 +533,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const copy = useMemo(() => getCopy(language), [language]);
 
   useEffect(() => {
+    queueSnapshotRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
+    roomSnapshotRef.current = room;
+  }, [room]);
+
+  const smoothedOnlineCount = useSmoothedNumber(
+
+    presenceStats.onlineCount > 0 ? Math.max(presenceStats.onlineCount, Math.round(presenceStats.onlineCount * 0.45 + 15.5)) : 17,
+    17,
+  );
+  const smoothedSearchingCount = useSmoothedNumber(
+    Math.max(presenceStats.searchingCount, queue.active ? 1 : 0),
+    Math.max(presenceStats.searchingCount, queue.active ? 1 : 0),
+  );
+  const smoothedRoomCount = useSmoothedNumber(
+    Math.max(presenceStats.roomCount, room?.status === "active" ? 1 : 0),
+    Math.max(presenceStats.roomCount, room?.status === "active" ? 1 : 0),
+  );
+
+  useEffect(() => {
+
     document.documentElement.classList.add("dark");
   }, []);
 
@@ -568,7 +703,120 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!sessionReady || !authenticated || !userId || initializing) {
+      presenceChannelRef.current?.untrack?.();
+      if (presenceHeartbeatRef.current) {
+        window.clearInterval(presenceHeartbeatRef.current);
+        presenceHeartbeatRef.current = null;
+      }
+      presenceChannelRef.current?.unsubscribe?.();
+      presenceChannelRef.current = null;
+      setPresenceStats({ onlineCount: 0, searchingCount: 0, roomCount: 0 });
+      return;
+    }
+
+    const channel = supabase.channel("echoo-presence", {
+      config: {
+        presence: {
+          key: userId,
+        },
+      },
+    });
+
+    presenceChannelRef.current = channel;
+
+    const syncPresence = () => {
+      const snapshot = typeof channel.presenceState === "function" ? channel.presenceState() : {};
+      setPresenceStats(derivePresenceStats(snapshot as Record<string, RealtimePresenceEntry[]>));
+    };
+
+    channel.on("presence", { event: "sync" }, syncPresence);
+    channel.on("presence", { event: "join" }, syncPresence);
+    channel.on("presence", { event: "leave" }, syncPresence);
+
+    channel.subscribe((status: string) => {
+      if (status !== "SUBSCRIBED") {
+        return;
+      }
+
+      void channel.track(
+        createPresenceEntry(
+          userId,
+          getPresenceStatus(queueSnapshotRef.current, roomSnapshotRef.current),
+          roomSnapshotRef.current?.status === "active" ? roomSnapshotRef.current.id : null,
+          presenceTabIdRef.current,
+        ),
+      );
+
+      syncPresence();
+
+      if (presenceHeartbeatRef.current) {
+        window.clearInterval(presenceHeartbeatRef.current);
+      }
+
+      presenceHeartbeatRef.current = window.setInterval(() => {
+        void channel.track(
+          createPresenceEntry(
+            userId,
+            getPresenceStatus(queueSnapshotRef.current, roomSnapshotRef.current),
+            roomSnapshotRef.current?.status === "active" ? roomSnapshotRef.current.id : null,
+            presenceTabIdRef.current,
+          ),
+        );
+
+      }, 15000);
+    });
+
+    const handlePageHide = () => {
+      void channel.untrack?.();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+
+      if (presenceHeartbeatRef.current) {
+        window.clearInterval(presenceHeartbeatRef.current);
+        presenceHeartbeatRef.current = null;
+      }
+      void channel.untrack?.();
+      presenceChannelRef.current = null;
+    };
+  }, [authenticated, initializing, sessionReady, userId]);
+
+  useEffect(() => {
+    const channel = presenceChannelRef.current;
+    if (!channel || !authenticated || !sessionReady || !userId || initializing) {
+      return;
+    }
+
+    void channel.track(
+      createPresenceEntry(
+        userId,
+        getPresenceStatus(queueSnapshotRef.current, roomSnapshotRef.current),
+        roomSnapshotRef.current?.status === "active" ? roomSnapshotRef.current.id : null,
+        presenceTabIdRef.current,
+      ),
+    );
+  }, [authenticated, initializing, queue.active, queue.joinedAt, room?.id, room?.status, sessionReady, userId]);
+
+  useEffect(() => {
+    setAdminMetrics((current) => ({
+
+      ...current,
+      activeUsers: smoothedSearchingCount + smoothedRoomCount,
+      queueCount: smoothedSearchingCount,
+      activeRooms: smoothedRoomCount,
+      usersOnlineNow: smoothedOnlineCount,
+    }));
+  }, [smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
+
+  useEffect(() => {
     if (!queue.active || room) {
+
       queueTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       queueTimersRef.current = [];
       return;
@@ -610,7 +858,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }, 30000);
 
     return () => window.clearInterval(interval);
-  }, [authenticated, queue.active, reportsCount]);
+  }, [authenticated, queue.active, reportsCount, queue.estimatedWaitSeconds, smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
 
   useEffect(() => {
     if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
@@ -990,40 +1238,39 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, profile, queue.active, queue.joinedAt, room?.id, userId]);
 
   async function refreshAdminMetrics() {
+    const liveUsers = smoothedOnlineCount;
+    const liveSearching = smoothedSearchingCount;
+    const liveRooms = smoothedRoomCount;
+
     if (!hasSupabaseConfig) {
-      const activeUsers = authenticated ? 1 : 0;
-      const activeRooms = room?.status === "active" ? 1 : 0;
       setAdminMetrics({
         totalUsers: 1842,
-        activeUsers: 426 + activeUsers,
-        queueCount: queue.active ? 37 : 29,
-        activeRooms: 92 + activeRooms,
+        activeUsers: liveSearching + liveRooms,
+        queueCount: liveSearching,
+        activeRooms: liveRooms,
         averageSessionDuration: 7,
         reportsCount: 18 + reportsCount,
         dailySignups: 73,
-        usersOnlineNow: Math.max(14, 14 + activeUsers + (queue.active ? 1 : 0)),
+        usersOnlineNow: liveUsers,
         avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
       });
       return;
     }
 
-    const [{ count: totalUsers }, { count: activeUsers }, { count: queueCount }, { count: activeRooms }, { count: reportsTotal }] = await Promise.all([
+    const [{ count: totalUsers }, { count: reportsTotal }] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
-      supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
-      supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
-      supabase.from("rooms").select("id", { count: "exact", head: true }).is("ended_at", null),
       supabase.from("reports").select("id", { count: "exact", head: true }),
     ]);
 
     setAdminMetrics({
       totalUsers: totalUsers ?? 0,
-      activeUsers: activeUsers ?? 0,
-      queueCount: queueCount ?? 0,
-      activeRooms: activeRooms ?? 0,
+      activeUsers: liveSearching + liveRooms,
+      queueCount: liveSearching,
+      activeRooms: liveRooms,
       averageSessionDuration: 7,
       reportsCount: reportsTotal ?? 0,
       dailySignups: 73,
-      usersOnlineNow: Math.max(14, 14 + (activeUsers ?? 0) + (queueCount ?? 0) + (authenticated ? 1 : 0)),
+      usersOnlineNow: liveUsers,
       avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
     });
   }
@@ -1396,7 +1643,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       roomLoaded,
       appReady,
       sessionReady,
+      presenceStats,
       adminMetrics,
+
       login,
       logout,
       rerollUsername,
@@ -1436,7 +1685,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       online,
       profile,
       queue,
+      presenceStats,
       rateRoom,
+
       reconnectEnabled,
       reportCurrentRoom,
       rerollUsername,
