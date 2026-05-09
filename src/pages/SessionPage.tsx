@@ -419,24 +419,29 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
-                onClick={async () => {
-                  await startNewSessionFromEndedRoom();
-                  navigate("/queue");
-                }}
-              >
-                {copy.session.findNew}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
-                asChild
-              >
-                <Link to="/dashboard">{copy.session.backHome}</Link>
-              </Button>
+            <div className="space-y-3">
+              <p className="text-center text-xs uppercase tracking-[0.28em] text-white/35">
+                {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                  onClick={async () => {
+                    await startNewSessionFromEndedRoom();
+                    navigate("/queue");
+                  }}
+                >
+                  {language === "en" ? "Find someone new" : "Βρες νέο άτομο"}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
+                  asChild
+                >
+                  <Link to="/dashboard">{language === "en" ? "Back to dashboard" : "Πίσω στο dashboard"}</Link>
+                </Button>
+              </div>
             </div>
           </div>
         </Surface>
