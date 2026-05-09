@@ -51,11 +51,10 @@ const SessionPage = () => {
   const [draft, setDraft] = useState("");
   const [muted, setMuted] = useState(false);
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
-  const [voiceUnlockedFlash, setVoiceUnlockedFlash] = useState(false);
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
-  const [statusTick, setStatusTick] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -92,9 +91,9 @@ const SessionPage = () => {
 
       if (nextRemaining === 0 && !room.voiceEnabled) {
         unlockVoice();
-        setVoiceUnlockedFlash(true);
         setVoiceUnlockPromptOpen(true);
       }
+
     };
 
     syncSessionTimer();
@@ -105,14 +104,6 @@ const SessionPage = () => {
     return () => window.clearInterval(interval);
   }, [room?.id, room?.startedAt, room?.voiceEnabled, unlockVoice]);
 
-  useEffect(() => {
-    if (!voiceUnlockedFlash) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setVoiceUnlockedFlash(false), 1400);
-    return () => window.clearTimeout(timeout);
-  }, [voiceUnlockedFlash]);
 
   useEffect(() => {
     if (!room?.messages.length) {
@@ -128,16 +119,12 @@ const SessionPage = () => {
 
     previousLastMessageIdRef.current = lastMessageId;
     setRecentMessageId(lastMessageId);
-    setStatusTick((current) => current + 1);
 
-    const timeout = window.setTimeout(() => setRecentMessageId(null), 1200);
+    const timeout = window.setTimeout(() => setRecentMessageId(null), 900);
+
     return () => window.clearTimeout(timeout);
   }, [room?.messages]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => setStatusTick((current) => current + 1), 6000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -310,32 +297,9 @@ const SessionPage = () => {
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
   const voiceReady = room.voiceEnabled && sessionRemaining === 0;
   const timerUrgent = sessionRemaining <= 60;
-  const timerPulseClass = sessionRemaining % 2 === 0 ? "scale-[1.01]" : "scale-100";
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
-  const liveStatusLabel = room
-    ? online
-      ? room.status === "active"
-        ? language === "en"
-          ? "Connected"
-          : "Συνδεδεμένοι"
-        : language === "en"
-          ? "Session ended"
-          : "Το session έληξε"
-      : language === "en"
-        ? "Reconnecting"
-        : "Επανασύνδεση"
-    : language === "en"
-      ? "Idle"
-      : "Αδρανές";
-  const liveStatusTone = room?.status === "active" ? (online ? "text-emerald-200" : "text-amber-200") : "text-white/65";
-  const liveDotTone = room?.status === "active" ? (online ? "bg-emerald-400" : "bg-amber-400") : "bg-white/35";
-  const voiceReadyBadge = voiceReady
-    ? language === "en"
-      ? "Mic open"
-      : "Μικρόφωνο ανοιχτό"
-    : language === "en"
-      ? "Mic locked"
-      : "Μικρόφωνο κλειδωμένο";
+
+
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
   const sessionBanner = !online
 
@@ -484,35 +448,20 @@ const SessionPage = () => {
     <div className="h-[100dvh] overflow-hidden bg-[#08101b] text-white">
       <div className="flex h-full min-h-0 flex-col">
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6">
-          <div className="grid grid-cols-[auto,1fr,auto] items-start gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
-                <span className="text-sm font-semibold tracking-[0.18em]">E</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-                <h1 className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">Private Session</h1>
-                <div className={cn("mt-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.28em]", room.status === "active" ? "border-emerald-300/20 bg-emerald-400/10" : "border-white/10 bg-white/5") }>
-                  <span className={cn("h-2 w-2 rounded-full", liveDotTone, room.status === "active" && "animate-pulse")} />
-                  <span className={liveStatusTone}>{liveStatusLabel}</span>
-                </div>
-              </div>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
+              <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{language === "en" ? "Private Session" : "Ιδιωτικό room"}</h1>
             </div>
 
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">{language === "en" ? "Session timer" : "Χρονομετρητής"}</p>
-              <div className={cn("mt-1 text-4xl font-semibold tracking-tight text-white sm:text-5xl", timerToneClass, voiceUnlockedFlash && "animate-pulse", timerPulseClass)}>
-                {timerLabel}
-              </div>
-              <div className="mx-auto mt-2 h-1.5 w-full max-w-[180px] overflow-hidden rounded-full bg-white/10">
+              <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">{language === "en" ? "Session timer" : "Χρονομετρητής"}</p>
+              <div className={cn("mt-1 text-3xl font-semibold tracking-tight sm:text-4xl", timerToneClass)}>{timerLabel}</div>
+              <div className="mx-auto mt-2 h-1.5 w-full max-w-[150px] overflow-hidden rounded-full bg-white/10">
                 <div
                   className={cn("h-full rounded-full transition-[width] duration-300", timerUrgent ? "bg-rose-400" : "bg-violet-400")}
                   style={{ width: `${timerProgress}%` }}
                 />
-              </div>
-              <div className={cn("mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.26em]", voiceReady ? "bg-amber-400/15 text-amber-100" : "bg-white/5 text-white/55") }>
-                <Mic className="h-3.5 w-3.5" />
-                <span>{voiceReadyBadge}</span>
               </div>
             </div>
 
@@ -521,7 +470,7 @@ const SessionPage = () => {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-11 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 transition-transform duration-150 active:scale-95 hover:bg-rose-500/20 hover:text-white"
+                    className="h-10 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
                     <PhoneOff className="mr-2 h-4 w-4" />
                     {language === "en" ? "Leave" : "Έξοδος"}
@@ -597,44 +546,25 @@ const SessionPage = () => {
 
               if (isSystem) {
                 return (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "mx-auto max-w-[88%] rounded-full px-4 py-2 text-center text-xs transition-all duration-500",
-                      arrivedHot ? "bg-violet-500/15 text-violet-50 ring-1 ring-violet-300/25 shadow-[0_0_30px_rgba(139,92,246,0.16)]" : "bg-white/5 text-white/45",
-                    )}
-                  >
+                  <div key={message.id} className="mx-auto max-w-[88%] rounded-full bg-white/5 px-4 py-2 text-center text-xs text-white/45">
                     {message.content}
                   </div>
                 );
               }
 
               return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex animate-in fade-in slide-in-from-bottom-1 duration-300",
-                    arrivedHot && "animate-pulse",
-                    isSelf ? "justify-end" : "justify-start",
-                  )}
-                >
+                <div key={message.id} className={cn("flex", isSelf ? "justify-end" : "justify-start") }>
                   <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
                       <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
                       <span>•</span>
                       <span>{timestamp}</span>
-                      {arrivedHot && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.65)]" />}
                     </div>
                     <div
                       className={cn(
-                        "rounded-[20px] px-4 py-3 text-[15px] leading-7 shadow-sm transition-all duration-500",
-                        isSelf
-                          ? arrivedHot
-                            ? "bg-rose-500/90 text-white ring-1 ring-rose-200/25 shadow-[0_0_30px_rgba(244,63,94,0.18)]"
-                            : "bg-white text-slate-950"
-                          : arrivedHot
-                            ? "bg-violet-500/16 text-white ring-1 ring-violet-300/25 shadow-[0_0_30px_rgba(139,92,246,0.14)]"
-                            : "bg-white/7 text-white ring-1 ring-white/5",
+                        "rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm",
+                        isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
+                        arrivedHot && "ring-1 ring-white/10",
                       )}
                     >
                       {message.content}
@@ -643,6 +573,7 @@ const SessionPage = () => {
                 </div>
               );
             })}
+
             <div ref={chatEndRef} />
           </div>
         </main>
@@ -690,34 +621,29 @@ const SessionPage = () => {
                   </Button>
                 </div>
 
-                <div className="mt-3 flex min-h-[2.5rem] items-center justify-between gap-3">
+                <div className="mt-3 flex min-h-[2.5rem] items-center gap-3">
                   {partnerTyping ? (
-                    <div className="flex items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.10)]">
-                      <span className="font-medium">{language === "en" ? "Stranger is typing" : "Ο άλλος γράφει"}</span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.1s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-200" />
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+                      <span>{language === "en" ? "Typing" : "Γράφει"}</span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55 [animation-delay:-0.18s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55 [animation-delay:-0.08s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55" />
                       </span>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/65">
-                        <span className={cn("h-2 w-2 rounded-full", liveDotTone, online && room.status === "active" && "animate-pulse")} />
-                        {language === "en" ? "Realtime updates live" : "Realtime ενημερώσεις"}
-                      </span>
-                      <span>
-                        {voiceReady
-                          ? language === "en"
-                            ? "Voice is ready — the microphone button lights up now."
-                            : "Η φωνή είναι έτοιμη — το μικρόφωνο ανάβει τώρα."
-                          : language === "en"
-                            ? "The mic opens when the timer hits zero."
-                            : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
-                      </span>
-                    </div>
+                    <span className="text-xs text-white/35">
+                      {voiceReady
+                        ? language === "en"
+                          ? "Voice is ready"
+                          : "Η φωνή είναι έτοιμη"
+                        : language === "en"
+                          ? "The mic opens when the timer hits zero."
+                          : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
+                    </span>
                   )}
                 </div>
+
               </form>
             ) : (
               <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">{copy.session.howWasIt}</div>
