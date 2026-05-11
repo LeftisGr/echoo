@@ -33,6 +33,7 @@ const SessionPage = () => {
     appReady,
     initializing,
     queue,
+    guestMode,
 
     room,
     roomLoaded,
@@ -140,14 +141,14 @@ const SessionPage = () => {
       if (typingHeartbeatRef.current) {
         window.clearInterval(typingHeartbeatRef.current);
       }
-      if (room && profile?.id) {
+      if (room && profile?.id && !guestMode) {
         void persistRoomTyping(room, null);
       }
     };
-  }, [profile?.id, room]);
+  }, [guestMode, profile?.id, room]);
 
   useEffect(() => {
-    if (!room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
+    if (guestMode || !room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
       setPartnerTyping(false);
       return;
     }
@@ -161,7 +162,7 @@ const SessionPage = () => {
 
     const timeout = window.setTimeout(() => setPartnerTyping(false), 1600);
     return () => window.clearTimeout(timeout);
-  }, [profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
+  }, [guestMode, profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
 
   useEffect(() => {
     const node = chatEndRef.current;
@@ -192,7 +193,7 @@ const SessionPage = () => {
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
   const publishTypingState = (isTyping: boolean) => {
-    if (!room || !profile?.id) {
+    if (!room || !profile?.id || guestMode) {
       return;
     }
 

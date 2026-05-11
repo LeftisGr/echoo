@@ -81,6 +81,7 @@ interface PresenceContextValue {
   setLanguage: (language: AppLanguage) => void;
   copy: ReturnType<typeof getCopy>;
   authenticated: boolean;
+  guestMode: boolean;
   profile: PresenceProfile | null;
   queue: QueueState;
   room: RoomSession | null;
@@ -566,7 +567,7 @@ function roomMatchesUser(room: Pick<RoomRecord, "userA" | "userB">, userId: stri
 }
 
 function createGuestRoom(profile: PresenceProfile): RoomSession {
-  const roomId = `guest-${profile.id}`;
+  const roomId = crypto.randomUUID();
   return {
     id: roomId,
     userA: profile.id,
@@ -756,6 +757,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       if (!sessionUser) {
+        const storedGuestProfile = readStoredGuestProfile();
+        if (guestMode && storedGuestProfile) {
+          hydratedSessionUserIdRef.current = storedGuestProfile.id;
+          setAuthenticated(true);
+          setUserId(storedGuestProfile.id);
+          setProfile(storedGuestProfile);
+          setIsAdmin(storedGuestProfile.role === "admin");
+          setRoom(readStoredRoomState()?.room ?? createGuestRoom(storedGuestProfile));
+          setQueue(readStoredQueueState());
+          setMatchTransition(readStoredMatchTransition());
+          setVoiceState("idle");
+          setAuthLoaded(true);
+          setRoomLoaded(true);
+          setSessionReady(true);
+          setAppReady(true);
+          setInitializing(false);
+          return;
+        }
+
         hydratedSessionUserIdRef.current = null;
         stopQueueSubscriptions();
         stopRoomSubscriptions();
@@ -988,7 +1008,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, queue.active, reportsCount, queue.estimatedWaitSeconds, smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
 
   useEffect(() => {
-    if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
+    if (guestMode || !room?.id || !reconnectEnabled || !hasSupabaseConfig) {
       return;
     }
 
@@ -1031,7 +1051,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }, 2400);
 
     return () => window.clearInterval(interval);
-  }, [reconnectEnabled, room?.id]);
+  }, [guestMode, reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
     const loadedProfile = await loadProfile(currentUserId);
@@ -1428,17 +1448,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: AuthMethod, email?: string) => {
       if (method === "guest") {
-        setGuestMode(false);
-        writeStoredGuestSession(false);
-        writeStoredGuestProfile(null);
-
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          toast.error(error.message);
-          return;
-        }
-
-        toast.success(language === "en" ? "Guest session ready." : "Η guest συνεδρία είναι έτοιμη.");
+        const guestProfile = createDefaultProfile(createId());
+        setAuthenticated(true);
+        setGuestMode(true);
+        setUserId(guestProfile.id);
+        setProfile(guestProfile);
+        setQueue(createInitialQueue(guestProfile));
+        setRoom(null);
+        setMatchTransition(null);
+        setIsAdmin(false);
+        writeStoredGuestSession(true);
+        writeStoredGuestProfile(guestProfile);
+        toast.success(language === "en" ? "Guest mode enabled." : "Η λειτουργία guest ενεργοποιήθηκε.");
         return;
       }
 
@@ -1830,6 +1851,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setLanguage,
       copy,
       authenticated,
+      guestMode,
       profile,
       queue,
       room,
@@ -1861,6 +1883,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reportCurrentRoom,
       blockCurrentPartner,
       setQueueFilters,
+
       setHapticsEnabled,
       setReconnectEnabled,
       setMatchSoundEnabled: setMatchSoundEnabledState,
@@ -1899,14 +1922,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setLanguage,
       setQueueFilters,
       setHapticsEnabled,
-      setMatchSoundEnabledState,
       setReconnectEnabled,
+      setMatchSoundEnabledState,
       startNewSessionFromEndedRoom,
       startQueue,
       startVoiceChat,
       stopVoiceChat,
       unlockVoice,
       voiceState,
+      guestMode,
     ],
   );
 
