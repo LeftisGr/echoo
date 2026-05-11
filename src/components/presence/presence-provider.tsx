@@ -97,9 +97,12 @@ interface PresenceContextValue {
   sessionReady: boolean;
   presenceStats: RealtimePresenceStats;
   adminMetrics: AdminMetrics;
+  userId: string | null;
+  isAdmin: boolean;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
   logout: () => void;
+  claimAdminAccess: () => Promise<void>;
   rerollUsername: () => void;
   updateProfile: (updates: Partial<PresenceProfile>) => void;
   startQueue: () => Promise<void>;
@@ -518,6 +521,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<QueueState>(storedQueue);
   const [room, setRoom] = useState<RoomSession | null>(storedRoomState?.room ?? null);
   const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
@@ -674,6 +678,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setQueue(createInitialQueue(null));
         setMatchTransition(null);
         setVoiceState("idle");
+        setIsAdmin(false);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
         setAuthLoaded(true);
@@ -702,6 +707,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setQueue(createInitialQueue(null));
         setMatchTransition(null);
         setVoiceState("idle");
+        setIsAdmin(false);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
       } finally {
@@ -940,6 +946,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   async function hydrateAuthenticatedUser(currentUserId: string) {
     const loadedProfile = await loadProfile(currentUserId);
     const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", currentUserId)
+      .maybeSingle();
+
+    setIsAdmin(Boolean(adminRow));
 
     if (loadedProfile) {
       setProfile(loadedProfile);
@@ -1373,6 +1387,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setQueue(createInitialQueue(profile));
     setRoom(null);
     setVoiceState("idle");
+    setIsAdmin(false);
 
     void supabase.auth.signOut();
 
@@ -1381,6 +1396,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     toast(copy.misc.signedOut);
   }, [copy.misc.signedOut]);
+
+  const claimAdminAccess = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+
+    const { error } = await supabase.from("admin_users").upsert({ user_id: userId });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setIsAdmin(true);
+    toast.success(language === "en" ? "Admin access enabled." : "Η πρόσβαση admin ενεργοποιήθηκε.");
+  }, [language, userId]);
 
   const rerollUsername = useCallback(() => {
     setProfile((current) => {
@@ -1691,9 +1721,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       sessionReady,
       presenceStats,
       adminMetrics,
+      userId,
+      isAdmin,
 
       login,
       logout,
+      claimAdminAccess,
       rerollUsername,
       updateProfile,
       startQueue,
@@ -1711,6 +1744,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       startVoiceChat,
       stopVoiceChat,
       startNewSessionFromEndedRoom,
+
     }),
     [
       adminMetrics,
@@ -1718,9 +1752,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       authenticated,
       blockCurrentPartner,
       cancelQueue,
+      claimAdminAccess,
       copy,
       hapticsEnabled,
       initializing,
+      isAdmin,
       language,
       leaveRoom,
       login,
@@ -1736,6 +1772,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reportCurrentRoom,
       room,
       roomLoaded,
+      userId,
       sendMessage,
       sessionReady,
       setLanguage,
@@ -1749,6 +1786,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       stopVoiceChat,
       unlockVoice,
       voiceState,
+
     ],
   );
 

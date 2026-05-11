@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, Settings, Shield, UserRound } from "lucide-react";
+import { ArrowRight, Clock3, Home, Settings, Shield, UserRound } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,22 @@ const DashboardPage = () => {
     <PageShell className="space-y-6">
       <Surface className="space-y-6 p-6 sm:p-8">
         <SectionTitle title={copy.dashboard.title} body={copy.dashboard.body} />
+        <div className="flex flex-wrap gap-3">
+          <Link to="/">
+            <Button variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+              <Home className="mr-2 h-4 w-4" />
+              {copy.nav.home}
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            onClick={() => navigate("/settings")}
+          >
+            <UserRound className="mr-2 h-4 w-4" />
+            {copy.dashboard.profile}
+          </Button>
+        </div>
         <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-violet-100/70">
             {language === "en" ? "You are ready to connect as" : "Είσαι έτοιμος/η να συνδεθείς ως"}

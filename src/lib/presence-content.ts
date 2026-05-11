@@ -128,7 +128,9 @@ export const copy = {
         "Echoo is a mobile-first anonymous conversation app for instant 1-to-1 sessions. Start with text, unlock voice after time, and keep the focus on emotional chemistry instead of appearances.",
       heroPrimary: "Start now",
       heroSecondary: "See how it works",
+      getApp: "Get the app",
       statUsers: "online now",
+
       statWait: "avg wait",
       statSafety: "moderated layers",
       whatIsTitle: "What is Echoo",
@@ -308,7 +310,9 @@ export const copy = {
         "Το Echoo είναι μια mobile-first ανώνυμη εφαρμογή για άμεσες 1-to-1 συνομιλίες. Ξεκινάς με κείμενο, ξεκλειδώνεις φωνή μετά από χρόνο και η χημεία χτίζεται χωρίς εικόνες.",
       heroPrimary: "Ξεκίνα τώρα",
       heroSecondary: "Δες πώς δουλεύει",
+      getApp: "Κατέβασε την app",
       statUsers: "online τώρα",
+
       statWait: "μέση αναμονή",
       statSafety: "στρώματα ασφάλειας",
       whatIsTitle: "Τι είναι το Echoo",

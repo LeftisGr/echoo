@@ -1,6 +1,7 @@
 import { Activity, Flag, Gauge, MessagesSquare, UserPlus, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
+import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -13,7 +14,7 @@ const chartConfig = {
 };
 
 const AdminPage = () => {
-  const { adminMetrics } = usePresence();
+  const { adminMetrics, claimAdminAccess, isAdmin, userId } = usePresence();
 
   return (
     <PageShell className="space-y-6">
@@ -24,6 +25,18 @@ const AdminPage = () => {
 
           body="Lean operating dashboard for launch metrics, queue health, and trust & safety signals."
         />
+        <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <p className="text-sm text-white/55">{isAdmin ? "Admin access is enabled for this account." : "This account is not marked as admin yet."}</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.22em] text-white/35">{userId ?? "No user id"}</p>
+          {!isAdmin && userId && (
+            <Button
+              className="mt-4 h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+              onClick={claimAdminAccess}
+            >
+              Claim admin access
+            </Button>
+          )}
+        </div>
       </Surface>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

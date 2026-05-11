@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -43,6 +43,7 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { appReady, initializing } = usePresence();
+  const initialRouteHandledRef = useRef(false);
 
   const storedRoute = readStoredRoute();
 
@@ -51,9 +52,11 @@ function AppRoutes() {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
-    if (!appReady) {
+    if (!appReady || initialRouteHandledRef.current) {
       return;
     }
+
+    initialRouteHandledRef.current = true;
 
     if (location.pathname === "/" && storedRoute && storedRoute !== "/") {
       navigate(storedRoute, { replace: true });
