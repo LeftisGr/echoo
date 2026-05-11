@@ -402,13 +402,15 @@ class QueryBuilder {
       throw new Error(errorText);
     }
 
+    const responseText = await response.text();
+    const data = responseText ? JSON.parse(responseText) : null;
+
     if (expectSingle) {
-      const data = await response.json();
       return { data: Array.isArray(data) ? data[0] ?? null : data, error: null };
     }
 
-    const data = this.head ? null : await response.json();
-    return { data, error: null };
+    return { data: this.head ? null : data, error: null };
+
   }
 }
 
