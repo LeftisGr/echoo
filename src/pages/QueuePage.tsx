@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import { queueMessages } from "@/lib/presence-content";
+import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
 
 const loadingWindowSeconds = 20;
 const searchingWindowSeconds = 20;
@@ -82,7 +82,7 @@ const QueuePage = () => {
 
   const progress = useMemo(() => {
     if (phase === "match-found") {
-      return Math.min(((4 - matchTransition!.secondsLeft) / 3) * 100, 100);
+      return Math.min(((3 - matchTransition!.secondsLeft) / 3) * 100, 100);
 
     }
 
@@ -100,6 +100,10 @@ const QueuePage = () => {
 
   const estimatedWait = Math.max(queue.estimatedWaitSeconds, phase === "searching" ? secondsLeft : queue.estimatedWaitSeconds);
   const liveUsers = Math.max(adminMetrics.usersOnlineNow, 14);
+  const matchingStage = phase === "loading" ? 1 : phase === "searching" ? 2 : 3;
+  const currentPreferenceLabel = localizePreference(language, queue.filters.preference);
+  const currentLanguageLabel = localizeLanguagePreference(language, queue.filters.language);
+
   const currentMessage =
     phase === "loading"
       ? language === "en"
@@ -167,6 +171,38 @@ const QueuePage = () => {
           </div>
 
           <p className="max-w-xl text-sm leading-6 text-white/60">{copy.queue.body}</p>
+
+          <div className="grid gap-3 rounded-[28px] border border-white/10 bg-white/5 p-4 sm:grid-cols-2 sm:p-5">
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                {language === "en" ? "Your match settings" : "Οι ρυθμίσεις σου"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 hover:bg-white/5">
+                  {currentPreferenceLabel}
+                </Badge>
+                <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 hover:bg-white/5">
+                  {currentLanguageLabel}
+                </Badge>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                {language === "en" ? "Match flow" : "Ροή matching"}
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.18em] text-white/45">
+                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 1 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
+                  1 · {language === "en" ? "Ready" : "Έτοιμο"}
+                </div>
+                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 2 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
+                  2 · {language === "en" ? "Searching" : "Αναζήτηση"}
+                </div>
+                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 3 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
+                  3 · {language === "en" ? "Opening" : "Άνοιγμα"}
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
@@ -281,6 +317,11 @@ const QueuePage = () => {
                   ? "A room is opening just for you."
                   : "Ένα room ανοίγει ειδικά για εσένα."}
               </p>
+              <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">1</div>
+                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">2</div>
+                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">3</div>
+              </div>
               <div className="mt-8 h-1 overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full bg-violet-400 transition-[width] duration-1000 ease-out"

@@ -34,6 +34,8 @@ const SessionPage = () => {
     queue,
 
     room,
+    roomLoaded,
+
     profile,
     copy,
     language,
@@ -249,7 +251,7 @@ const SessionPage = () => {
     }, 1200);
   };
 
-  if (initializing || !appReady || (queue.active && !room)) {
+  if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
 
     return (
       <PageShell className="flex items-center">
