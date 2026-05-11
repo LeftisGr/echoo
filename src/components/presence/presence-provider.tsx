@@ -126,6 +126,8 @@ const PresenceContext = createContext<PresenceContextValue | null>(null);
 const storageKey = "presence-mvp-state";
 const roomStorageKey = "presence-mvp-room";
 const queueStorageKey = "presence-mvp-queue";
+const guestProfileStorageKey = "presence-mvp-guest-profile";
+const guestSessionStorageKey = "presence-mvp-guest-session";
 const routeStorageKey = "presence-mvp-route";
 const matchTransitionStorageKey = "presence-mvp-match-transition";
 
@@ -356,7 +358,59 @@ function writeStoredQueueState(queue: QueueState | null) {
   window.localStorage.setItem(queueStorageKey, JSON.stringify(queue));
 }
 
+function readStoredGuestProfile() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(guestProfileStorageKey);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as PresenceProfile;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredGuestProfile(profile: PresenceProfile | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!profile) {
+    window.localStorage.removeItem(guestProfileStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(guestProfileStorageKey, JSON.stringify(profile));
+}
+
+function readStoredGuestSession() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(guestSessionStorageKey) === "true";
+}
+
+function writeStoredGuestSession(isGuest: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!isGuest) {
+    window.localStorage.removeItem(guestSessionStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(guestSessionStorageKey, "true");
+}
+
 function readStoredRoute() {
+
   if (typeof window === "undefined") {
     return null;
   }
@@ -511,6 +565,20 @@ function roomMatchesUser(room: Pick<RoomRecord, "userA" | "userB">, userId: stri
   return room.userA === userId || room.userB === userId;
 }
 
+function createGuestRoom(profile: PresenceProfile): RoomSession {
+  const roomId = `guest-${profile.id}`;
+  return {
+    id: roomId,
+    userA: profile.id,
+    userB: `${profile.id}-partner`,
+    startedAt: new Date().toISOString(),
+    voiceEnabled: false,
+    status: "active",
+    partner: null,
+    messages: [createSystemMessage(roomId, profile.role === "admin" ? "Guest admin session ready." : "Guest session ready.")],
+  };
+}
+
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const stored = useMemo(() => readStoredState(), []);
   const storedQueue = useMemo(() => readStoredQueueState(), []);
@@ -522,6 +590,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<QueueState>(storedQueue);
   const [room, setRoom] = useState<RoomSession | null>(storedRoomState?.room ?? null);
   const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
+  const [guestMode, setGuestMode] = useState(readStoredGuestSession());
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
@@ -618,8 +687,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (guestMode && profile) {
+      writeStoredGuestProfile(profile);
+      writeStoredRoomState(userId, room && room.status !== "idle" ? room : null);
+      writeStoredGuestSession(true);
+      return;
+    }
+
     writeStoredRoomState(userId, room && room.status !== "idle" ? room : null);
-  }, [authenticated, room, sessionReady, userId]);
+  }, [authenticated, guestMode, profile, room, sessionReady, userId]);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -673,7 +749,33 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
 
+      if (sessionUser) {
+        setGuestMode(false);
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
+      }
+
       if (!sessionUser) {
+
+        const storedGuestProfile = readStoredGuestProfile();
+        if (guestMode && storedGuestProfile) {
+          hydratedSessionUserIdRef.current = storedGuestProfile.id;
+          setAuthenticated(true);
+          setUserId(storedGuestProfile.id);
+          setProfile(storedGuestProfile);
+          setIsAdmin(storedGuestProfile.role === "admin");
+          setRoom(readStoredRoomState()?.room ?? null);
+          setQueue(readStoredQueueState());
+          setMatchTransition(readStoredMatchTransition());
+          setVoiceState("idle");
+          setAuthLoaded(true);
+          setRoomLoaded(true);
+          setSessionReady(true);
+          setAppReady(true);
+          setInitializing(false);
+          return;
+        }
+
         hydratedSessionUserIdRef.current = null;
         stopQueueSubscriptions();
         stopRoomSubscriptions();
@@ -684,6 +786,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setMatchTransition(null);
         setVoiceState("idle");
         setIsAdmin(false);
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
         setAuthLoaded(true);
@@ -1345,12 +1449,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (method === "guest") {
         const guestProfile = createDefaultProfile(createId());
         setAuthenticated(true);
+        setGuestMode(true);
         setUserId(guestProfile.id);
         setProfile(guestProfile);
         setQueue(createInitialQueue(guestProfile));
         setRoom(null);
         setMatchTransition(null);
         setIsAdmin(false);
+        writeStoredGuestSession(true);
+        writeStoredGuestProfile(guestProfile);
         toast.success(language === "en" ? "Guest mode enabled." : "Η λειτουργία guest ενεργοποιήθηκε.");
         return;
       }
@@ -1402,6 +1509,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setRoom(null);
     setVoiceState("idle");
     setIsAdmin(false);
+    setGuestMode(false);
+    writeStoredGuestSession(false);
+    writeStoredGuestProfile(null);
 
     void supabase.auth.signOut();
 
@@ -1479,7 +1589,31 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     if (!profile) {
       setProfile(activeProfile);
-      await syncProfile(activeProfile);
+      if (!guestMode) {
+        await syncProfile(activeProfile);
+      }
+    }
+
+    if (guestMode) {
+      stopQueueSubscriptions();
+      stopRoomSubscriptions();
+      matchingEnabledRef.current = false;
+      matchedRoomIdsRef.current.clear();
+      setMatchTransition(null);
+
+      const guestRoom = createGuestRoom(activeProfile);
+      const nextQueue = createInitialQueue(activeProfile);
+      setQueue(nextQueue);
+      setRoom(guestRoom);
+      writeStoredQueueState(nextQueue);
+      writeStoredRoomState(activeProfile.id, guestRoom);
+      writeStoredGuestSession(true);
+      writeStoredGuestProfile(activeProfile);
+
+      if (hapticsEnabled) {
+        vibrate([40, 20, 40]);
+      }
+      return;
     }
 
     stopQueueSubscriptions();
@@ -1517,7 +1651,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, hapticsEnabled, profile, userId]);
+  }, [authenticated, guestMode, hapticsEnabled, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
@@ -1532,13 +1666,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       window.clearInterval(matchingIntervalRef.current);
       matchingIntervalRef.current = null;
     }
-    if (profile) {
+    if (profile && !guestMode) {
       await leaveQueue(profile.id);
     }
     const nextQueue = createInitialQueue(profile);
     setQueue(nextQueue);
     writeStoredQueueState(nextQueue);
-  }, [profile]);
+  }, [guestMode, profile]);
 
   const unlockVoice = useCallback(() => {
     setRoom((current) => {
@@ -1550,11 +1684,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         ...current,
         voiceEnabled: true,
       };
-      void persistRoom(nextRoom);
+      if (!guestMode) {
+        void persistRoom(nextRoom);
+      }
       toast.success(copy.session.voiceUnlocked);
       return nextRoom;
     });
-  }, [copy.session.voiceUnlocked]);
+  }, [copy.session.voiceUnlocked, guestMode]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -1581,9 +1717,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             }
           : current,
       );
-      await persistMessage(userMessage);
+      if (!guestMode) {
+        await persistMessage(userMessage);
+      }
     },
-    [profile, room],
+    [guestMode, profile, room],
   );
 
   const stopVoiceChat = useCallback(() => {
@@ -1629,10 +1767,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : room.messages,
       };
 
-      void endRoom(nextRoom);
-      void persistRoom(nextRoom);
-      if (profile) {
-        void leaveQueue(profile.id);
+      if (!guestMode) {
+        void endRoom(nextRoom);
+        void persistRoom(nextRoom);
+        if (profile) {
+          void leaveQueue(profile.id);
+        }
       }
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
@@ -1641,7 +1781,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       writeStoredRoomState(profile?.id ?? null, nextRoom);
       writeStoredMatchTransition(null);
     },
-    [profile, room, stopVoiceChat],
+    [guestMode, profile, room, stopVoiceChat],
   );
 
   const rateRoom = useCallback(
@@ -1652,10 +1792,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       setRoom((current) => (current ? { ...current, rating: score } : current));
       setRatings((current) => [...current, score]);
-      await persistRating(room.id, userId, score);
+      if (!guestMode) {
+        await persistRating(room.id, userId, score);
+      }
       toast.success(copy.misc.ratingSaved);
     },
-    [copy.misc.ratingSaved, room, userId],
+    [copy.misc.ratingSaved, guestMode, room, userId],
   );
 
   const reportCurrentRoom = useCallback(
@@ -1666,11 +1808,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const partnerId = room.userA === userId ? room.userB : room.userA;
       setReportsCount((current) => current + 1);
-      await persistReport(room.id, userId, partnerId, reason);
+      if (!guestMode) {
+        await persistReport(room.id, userId, partnerId, reason);
+      }
       toast.success(copy.misc.reported);
       leaveRoom(language === "en" ? "Conversation ended after a report." : "Η συνομιλία ολοκληρώθηκε μετά από αναφορά.");
     },
-    [copy.misc.reported, language, leaveRoom, room, userId],
+    [copy.misc.reported, guestMode, language, leaveRoom, room, userId],
   );
 
   const blockCurrentPartner = useCallback(() => {
@@ -1685,8 +1829,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         status: "ended" as const,
         endedAt: room.endedAt ?? new Date().toISOString(),
       };
-      void endRoom(endedRoom);
-      void persistRoom(endedRoom);
+      if (!guestMode) {
+        void endRoom(endedRoom);
+        void persistRoom(endedRoom);
+      }
     }
 
     matchedRoomIdsRef.current.clear();
@@ -1696,8 +1842,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     writeStoredMatchTransition(null);
 
     await startQueue();
-
-  }, [room, startQueue]);
+  }, [guestMode, room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
     () => ({
@@ -1723,11 +1868,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       adminMetrics,
       userId,
       isAdmin,
-
       login,
       logout,
       rerollUsername,
-
       updateProfile,
       startQueue,
       cancelQueue,
@@ -1744,7 +1887,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       startVoiceChat,
       stopVoiceChat,
       startNewSessionFromEndedRoom,
-
     }),
     [
       adminMetrics,
@@ -1753,7 +1895,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       blockCurrentPartner,
       cancelQueue,
       copy,
-
       hapticsEnabled,
       initializing,
       isAdmin,
@@ -1786,7 +1927,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       stopVoiceChat,
       unlockVoice,
       voiceState,
-
     ],
   );
 
