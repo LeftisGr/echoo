@@ -751,36 +751,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setUserId(sessionUser?.id ?? null);
 
       if (sessionUser) {
-        setGuestMode(false);
-        writeStoredGuestSession(false);
-        writeStoredGuestProfile(null);
+        if (!guestMode) {
+          writeStoredGuestSession(false);
+          writeStoredGuestProfile(null);
+        }
       }
 
       if (!sessionUser) {
-        const storedGuestProfile = readStoredGuestProfile();
-        if (guestMode && storedGuestProfile) {
-          hydratedSessionUserIdRef.current = storedGuestProfile.id;
-          setAuthenticated(true);
-          setUserId(storedGuestProfile.id);
-          setProfile(storedGuestProfile);
-          setIsAdmin(storedGuestProfile.role === "admin");
-          setRoom(readStoredRoomState()?.room ?? createGuestRoom(storedGuestProfile));
-          setQueue(readStoredQueueState());
-          setMatchTransition(readStoredMatchTransition());
-          setVoiceState("idle");
-          setAuthLoaded(true);
-          setRoomLoaded(true);
-          setSessionReady(true);
-          setAppReady(true);
-          setInitializing(false);
-          return;
-        }
-
         hydratedSessionUserIdRef.current = null;
         stopQueueSubscriptions();
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
-        setGuestMode(false);
+        if (!guestMode) {
+          setGuestMode(false);
+        }
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
@@ -1448,18 +1432,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: AuthMethod, email?: string) => {
       if (method === "guest") {
-        const guestProfile = createDefaultProfile(createId());
-        setAuthenticated(true);
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
         setGuestMode(true);
-        setUserId(guestProfile.id);
-        setProfile(guestProfile);
-        setQueue(createInitialQueue(guestProfile));
-        setRoom(null);
-        setMatchTransition(null);
-        setIsAdmin(false);
         writeStoredGuestSession(true);
-        writeStoredGuestProfile(guestProfile);
-        toast.success(language === "en" ? "Guest mode enabled." : "Η λειτουργία guest ενεργοποιήθηκε.");
+        toast.success(language === "en" ? "Guest session ready." : "Η guest συνεδρία είναι έτοιμη.");
         return;
       }
 
@@ -1590,31 +1571,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     if (!profile) {
       setProfile(activeProfile);
-      if (!guestMode) {
-        await syncProfile(activeProfile);
-      }
-    }
-
-    if (guestMode) {
-      stopQueueSubscriptions();
-      stopRoomSubscriptions();
-      matchingEnabledRef.current = false;
-      matchedRoomIdsRef.current.clear();
-      setMatchTransition(null);
-
-      const guestRoom = createGuestRoom(activeProfile);
-      const nextQueue = createInitialQueue(activeProfile);
-      setQueue(nextQueue);
-      setRoom(guestRoom);
-      writeStoredQueueState(nextQueue);
-      writeStoredRoomState(activeProfile.id, guestRoom);
-      writeStoredGuestSession(true);
-      writeStoredGuestProfile(activeProfile);
-
-      if (hapticsEnabled) {
-        vibrate([40, 20, 40]);
-      }
-      return;
+      await syncProfile(activeProfile);
     }
 
     stopQueueSubscriptions();
@@ -1652,7 +1609,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, guestMode, hapticsEnabled, profile, userId]);
+  }, [authenticated, hapticsEnabled, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
@@ -1667,13 +1624,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       window.clearInterval(matchingIntervalRef.current);
       matchingIntervalRef.current = null;
     }
-    if (profile && !guestMode) {
+    if (profile) {
       await leaveQueue(profile.id);
     }
     const nextQueue = createInitialQueue(profile);
     setQueue(nextQueue);
     writeStoredQueueState(nextQueue);
-  }, [guestMode, profile]);
+  }, [profile]);
 
   const unlockVoice = useCallback(() => {
     setRoom((current) => {
@@ -1685,13 +1642,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         ...current,
         voiceEnabled: true,
       };
-      if (!guestMode) {
-        void persistRoom(nextRoom);
-      }
+      void persistRoom(nextRoom);
       toast.success(copy.session.voiceUnlocked);
       return nextRoom;
     });
-  }, [copy.session.voiceUnlocked, guestMode]);
+  }, [copy.session.voiceUnlocked]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -1718,11 +1673,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             }
           : current,
       );
-      if (!guestMode) {
-        await persistMessage(userMessage);
-      }
+      await persistMessage(userMessage);
     },
-    [guestMode, profile, room],
+    [profile, room],
   );
 
   const stopVoiceChat = useCallback(() => {
@@ -1768,12 +1721,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : room.messages,
       };
 
-      if (!guestMode) {
-        void endRoom(nextRoom);
-        void persistRoom(nextRoom);
-        if (profile) {
-          void leaveQueue(profile.id);
-        }
+      void endRoom(nextRoom);
+      void persistRoom(nextRoom);
+      if (profile) {
+        void leaveQueue(profile.id);
       }
       matchedRoomIdsRef.current.clear();
       setMatchTransition(null);
@@ -1782,7 +1733,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       writeStoredRoomState(profile?.id ?? null, nextRoom);
       writeStoredMatchTransition(null);
     },
-    [guestMode, profile, room, stopVoiceChat],
+    [profile, room, stopVoiceChat],
   );
 
   const rateRoom = useCallback(
@@ -1793,12 +1744,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       setRoom((current) => (current ? { ...current, rating: score } : current));
       setRatings((current) => [...current, score]);
-      if (!guestMode) {
-        await persistRating(room.id, userId, score);
-      }
+      await persistRating(room.id, userId, score);
       toast.success(copy.misc.ratingSaved);
     },
-    [copy.misc.ratingSaved, guestMode, room, userId],
+    [copy.misc.ratingSaved, room, userId],
   );
 
   const reportCurrentRoom = useCallback(
@@ -1809,13 +1758,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const partnerId = room.userA === userId ? room.userB : room.userA;
       setReportsCount((current) => current + 1);
-      if (!guestMode) {
-        await persistReport(room.id, userId, partnerId, reason);
-      }
+      await persistReport(room.id, userId, partnerId, reason);
       toast.success(copy.misc.reported);
       leaveRoom(language === "en" ? "Conversation ended after a report." : "Η συνομιλία ολοκληρώθηκε μετά από αναφορά.");
     },
-    [copy.misc.reported, guestMode, language, leaveRoom, room, userId],
+    [copy.misc.reported, language, leaveRoom, room, userId],
   );
 
   const blockCurrentPartner = useCallback(() => {
@@ -1830,10 +1777,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         status: "ended" as const,
         endedAt: room.endedAt ?? new Date().toISOString(),
       };
-      if (!guestMode) {
-        void endRoom(endedRoom);
-        void persistRoom(endedRoom);
-      }
+      void endRoom(endedRoom);
+      void persistRoom(endedRoom);
     }
 
     matchedRoomIdsRef.current.clear();
@@ -1843,7 +1788,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     writeStoredMatchTransition(null);
 
     await startQueue();
-  }, [guestMode, room, startQueue]);
+  }, [room, startQueue]);
 
   const value = useMemo<PresenceContextValue>(
     () => ({
@@ -1883,7 +1828,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reportCurrentRoom,
       blockCurrentPartner,
       setQueueFilters,
-
       setHapticsEnabled,
       setReconnectEnabled,
       setMatchSoundEnabled: setMatchSoundEnabledState,

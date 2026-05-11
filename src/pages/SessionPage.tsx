@@ -394,8 +394,8 @@ const SessionPage = () => {
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{copy.session.howWasIt}</h2>
               <p className="mt-3 text-sm leading-6 text-white/55">
                 {language === "en"
-                  ? "A quick rating helps us shape the next conversation."
-                  : "Μια γρήγορη αξιολόγηση μας βοηθά να βελτιώσουμε την επόμενη συνομιλία."}
+                  ? "Rate this chat, then decide if you want another one or to head home."
+                  : "Αξιολόγησε αυτή τη συνομιλία και μετά διάλεξε αν θέλεις άλλη μία ή να γυρίσεις σπίτι."}
               </p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -435,7 +435,7 @@ const SessionPage = () => {
                     navigate("/queue");
                   }}
                 >
-                  {language === "en" ? "Find someone new" : "Βρες νέο άτομο"}
+                  {language === "en" ? "Next chat" : "Επόμενη συνομιλία"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
