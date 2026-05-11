@@ -1342,6 +1342,19 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (method: AuthMethod, email?: string) => {
+      if (method === "guest") {
+        const guestProfile = createDefaultProfile(createId());
+        setAuthenticated(true);
+        setUserId(guestProfile.id);
+        setProfile(guestProfile);
+        setQueue(createInitialQueue(guestProfile));
+        setRoom(null);
+        setMatchTransition(null);
+        setIsAdmin(false);
+        toast.success(language === "en" ? "Guest mode enabled." : "Η λειτουργία guest ενεργοποιήθηκε.");
+        return;
+      }
+
       if (method === "google") {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",

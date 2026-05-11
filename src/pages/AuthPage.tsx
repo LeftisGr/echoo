@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Mail, RefreshCcw, Shield, Sparkles } from "lucide-react";
+import { Mail, RefreshCcw, Shield, Sparkles, UserRound } from "lucide-react";
+
 import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ const AuthPage = () => {
               placeholder="name@example.com"
               className="h-12 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Button
                 className="h-12 rounded-full bg-white text-slate-950 hover:bg-white/90"
                 onClick={async () => {
@@ -56,6 +57,16 @@ const AuthPage = () => {
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {copy.auth.google}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-full border-violet-400/20 bg-violet-400/10 text-violet-50 hover:bg-violet-400/15 hover:text-violet-50"
+                onClick={async () => {
+                  await login("guest");
+                }}
+              >
+                <UserRound className="mr-2 h-4 w-4" />
+                {copy.auth.guest}
               </Button>
               <Button
                 variant="outline"
@@ -68,6 +79,7 @@ const AuthPage = () => {
                 {copy.auth.magic}
               </Button>
             </div>
+
           </div>
         </div>
 

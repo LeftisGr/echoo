@@ -153,9 +153,11 @@ export const copy = {
     },
     auth: {
       title: "Create your anonymous account",
-      body: "Use Google or a magic link. Echoo keeps the profile anonymous by default.",
+      body: "Use Google, a guest session, or a magic link. Echoo keeps the profile anonymous by default.",
       google: "Continue with Google",
+      guest: "Continue as guest",
       magic: "Email magic link",
+
       reroll: "Reroll username",
       profileTitle: "Anonymous profile",
       ageRange: "Age range",
@@ -335,9 +337,11 @@ export const copy = {
     },
     auth: {
       title: "Δημιούργησε τον ανώνυμο λογαριασμό σου",
-      body: "Συνδέσου με Google ή magic link. Το Presence κρατά το προφίλ ανώνυμο από προεπιλογή.",
+      body: "Συνδέσου με Google, ως guest ή με magic link. Το Presence κρατά το προφίλ ανώνυμο από προεπιλογή.",
       google: "Συνέχεια με Google",
+      guest: "Συνέχεια ως guest",
       magic: "Email magic link",
+
       reroll: "Νέο username",
       profileTitle: "Ανώνυμο προφίλ",
       ageRange: "Ηλικιακό εύρος",
