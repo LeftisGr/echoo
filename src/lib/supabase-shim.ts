@@ -112,6 +112,21 @@ function createGuestCredentials() {
   };
 }
 
+async function invokeEdgeFunction(baseUrl: string, key: string, name: string, body?: unknown) {
+  const response = await fetch(`${baseUrl}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  return { response, data };
+}
+
 async function persistAuthResponse(response: Response) {
   if (!response.ok) {
     return { session: null, errorText: await response.text() };
@@ -515,29 +530,39 @@ export function createClient(url: string, key: string) {
       return { data: null, error: errorText ? new Error(errorText) : null };
     },
     async signInAnonymously() {
-      const credentials = readGuestCredentials() ?? createGuestCredentials();
-      writeGuestCredentials(credentials);
-
-      const passwordLogin = await auth.signInWithPassword(credentials);
-      if (passwordLogin.data?.session) {
-        return passwordLogin;
+      const credentials = readGuestCredentials();
+      if (credentials) {
+        const existingLogin = await auth.signInWithPassword(credentials);
+        if (existingLogin.data?.session) {
+          return existingLogin;
+        }
       }
 
-      const signup = await auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-          data: { is_guest: true },
-        },
-      });
+      const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
+      if (!response.ok) {
+        return {
+          data: null,
+          error: new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})),
+        };
+      }
 
-      if (signup.data?.session) {
-        return signup;
+      const nextCredentials = data as { email?: string; password?: string } | null;
+      if (!nextCredentials?.email || !nextCredentials.password) {
+        return {
+          data: null,
+          error: new Error("Guest bootstrap did not return credentials."),
+        };
+      }
+
+      writeGuestCredentials({ email: nextCredentials.email, password: nextCredentials.password });
+      const login = await auth.signInWithPassword({ email: nextCredentials.email, password: nextCredentials.password });
+      if (login.data?.session) {
+        return login;
       }
 
       return {
         data: null,
-        error: passwordLogin.error ?? signup.error ?? new Error("Guest sign-in is not available for this project."),
+        error: login.error ?? new Error("Guest sign-in is not available for this project."),
       };
     },
 
@@ -584,6 +609,26 @@ export function createClient(url: string, key: string) {
           return run().then(onfulfilled, onrejected);
         },
       };
+    },
+    functions: {
+      async invoke(functionName: string, options?: { body?: unknown }) {
+        const session = await ensureValidSession(url, key, currentSession ?? readSession());
+        const headers: Record<string, string> = {
+          apikey: key,
+          "Content-Type": "application/json",
+        };
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`;
+        }
+        const response = await fetch(`${url}/functions/v1/${functionName}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(options?.body ?? {}),
+        });
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : null;
+        return { data, error: response.ok ? null : new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})) };
+      },
     },
     channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
       return new ChannelShim(topic ?? "default", options?.config?.presence?.key);

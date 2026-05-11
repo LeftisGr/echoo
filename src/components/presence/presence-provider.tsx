@@ -992,11 +992,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, queue.active, reportsCount, queue.estimatedWaitSeconds, smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
 
   useEffect(() => {
-    if (guestMode || !room?.id || !reconnectEnabled || !hasSupabaseConfig) {
+    if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
       return;
     }
 
     const interval = window.setInterval(async () => {
+
       const latestRoom = await loadRoomById(room.id);
       if (latestRoom) {
         setRoom((current) => {
@@ -1035,7 +1036,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }, 2400);
 
     return () => window.clearInterval(interval);
-  }, [guestMode, reconnectEnabled, room?.id]);
+  }, [reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
     const loadedProfile = await loadProfile(currentUserId);
