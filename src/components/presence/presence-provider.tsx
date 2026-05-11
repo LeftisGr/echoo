@@ -1182,7 +1182,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const activeRoom = await loadRoomById(match.roomId);
+      let activeRoom: RoomRecord | null = (await loadRoomById(match.roomId)) as RoomRecord | null;
+      if (!activeRoom) {
+        activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+      }
+
       if (!activeRoom || activeRoom.endedAt || (activeRoom.userA !== currentUserId && activeRoom.userB !== currentUserId)) {
         return;
       }

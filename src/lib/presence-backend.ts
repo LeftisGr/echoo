@@ -315,7 +315,9 @@ export async function matchQueueUser(userId: string, relaxed = false) {
     throw error;
   }
 
-  const row = (data as MatchQueueRow[] | null | undefined)?.[0] ?? null;
+  const row = Array.isArray(data)
+    ? ((data as MatchQueueRow[] | null | undefined)?.[0] ?? null)
+    : ((data as MatchQueueRow | null | undefined) ?? null);
 
   return {
     roomId: row?.room_id ?? null,
@@ -323,6 +325,7 @@ export async function matchQueueUser(userId: string, relaxed = false) {
     createdRoom: row?.created_room ?? false,
     alreadyMatched: row?.already_matched ?? false,
   };
+
 }
 
 export async function findBestMatch(user: PresenceProfile, relaxed = false) {
