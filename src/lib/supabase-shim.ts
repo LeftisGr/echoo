@@ -15,6 +15,8 @@ type StoredSession = {
 
 const SESSION_KEY = "presence-supabase-session";
 const PKCE_VERIFIER_KEY = "presence-supabase-pkce-verifier";
+const GUEST_EMAIL_KEY = "presence-supabase-guest-email";
+const GUEST_PASSWORD_KEY = "presence-supabase-guest-password";
 const listeners = new Set<AuthChangeHandler>();
 
 function getUrlSafeRandom(size = 32) {
@@ -71,6 +73,59 @@ function emit(event: string, session: StoredSession | null) {
 
 function isSessionExpired(session: StoredSession | null) {
   return Boolean(session && session.expires_at * 1000 <= Date.now());
+}
+
+function readGuestCredentials() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const email = window.localStorage.getItem(GUEST_EMAIL_KEY);
+  const password = window.localStorage.getItem(GUEST_PASSWORD_KEY);
+  if (!email || !password) {
+    return null;
+  }
+
+  return { email, password };
+}
+
+function writeGuestCredentials(credentials: { email: string; password: string } | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!credentials) {
+    window.localStorage.removeItem(GUEST_EMAIL_KEY);
+    window.localStorage.removeItem(GUEST_PASSWORD_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(GUEST_EMAIL_KEY, credentials.email);
+  window.localStorage.setItem(GUEST_PASSWORD_KEY, credentials.password);
+}
+
+function createGuestCredentials() {
+  const token = getUrlSafeRandom(16).toLowerCase();
+  return {
+    email: `guest-${token}@presence.local`,
+    password: getUrlSafeRandom(32),
+  };
+}
+
+async function persistAuthResponse(response: Response) {
+  if (!response.ok) {
+    return { session: null, errorText: await response.text() };
+  }
+
+  const data = await response.json();
+  const session = (data?.session ?? data) as StoredSession | null;
+  if (session?.access_token) {
+    writeSession(session);
+    emit("SIGNED_IN", session);
+    return { session, errorText: null };
+  }
+
+  return { session: null, errorText: null };
 }
 
 async function refreshSession(baseUrl: string, key: string, session: StoredSession) {
@@ -265,17 +320,17 @@ class QueryBuilder {
     return this;
   }
 
-  limit(value: number) {
-    this.limitValue = value;
+  limit(count: number) {
+    this.limitValue = count;
     return this;
   }
 
   maybeSingle() {
-    return this.execute(true, false);
+    return this.execute(true);
   }
 
   single() {
-    return this.execute(true, true);
+    return this.execute(true);
   }
 
   then<TResult1 = any, TResult2 = never>(
@@ -285,217 +340,75 @@ class QueryBuilder {
     return this.execute().then(onfulfilled, onrejected);
   }
 
-  private async execute(single = false, strictSingle = false): Promise<any> {
+  private async execute(expectSingle = false) {
     const session = await ensureValidSession(this.url, this.key, this.session ?? readSession());
     const headers: Record<string, string> = {
       apikey: this.key,
       "Content-Type": "application/json",
     };
-
     if (session?.access_token) {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
 
-    const response = await this.performRequest(headers);
+    const url = new URL(`${this.url}/rest/v1/${this.table}`);
+    if (this.method === "select") {
+      url.searchParams.set("select", this.selectColumns);
+    }
+    for (const filter of this.filters) {
+      const [column, condition] = filter.split("=");
+      url.searchParams.append(column, condition);
+    }
+    if (this.orClause) {
+      url.searchParams.append("or", `(${this.orClause})`);
+    }
+    if (this.inClause) {
+      const [column, values] = this.inClause.split("=");
+      url.searchParams.append(column, values);
+    }
+    if (this.orderClause) {
+      url.searchParams.set("order", this.orderClause);
+    }
+    if (this.limitValue !== null) {
+      url.searchParams.set("limit", String(this.limitValue));
+    }
+
+    const method = this.method === "select" ? "GET" : this.method === "insert" ? "POST" : this.method === "upsert" ? "POST" : "PATCH";
+    const response = await fetch(url.toString(), {
+      method,
+      headers: {
+        ...headers,
+        ...(this.method === "upsert" ? { Prefer: `resolution=${this.useMerge ? "merge-duplicates" : "ignore-duplicates"}` } : {}),
+      },
+      body: this.method === "select" ? undefined : JSON.stringify(this.payload),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      if (response.status === 401 && errorText.includes("JWT expired") && session?.refresh_token) {
-        const refreshed = await refreshSession(this.url, this.key, session);
-        if (refreshed?.access_token) {
-          headers.Authorization = `Bearer ${refreshed.access_token}`;
-          const retry = await this.performRequest(headers);
-          if (!retry.ok) {
-            throw new Error(await retry.text());
-          }
-          return this.readResponse(retry, single, strictSingle);
-        }
-      }
-
       throw new Error(errorText);
     }
 
-    return this.readResponse(response, single, strictSingle);
-  }
-
-  private async performRequest(headers: Record<string, string>) {
-    if (this.method === "insert" || this.method === "upsert" || this.method === "update") {
-      const method = this.method === "update" ? "PATCH" : "POST";
-      const requestUrl = new URL(`${this.url}/rest/v1/${this.table}`);
-      this.filters.forEach((filter) => {
-        const [key, value] = filter.split("=");
-        requestUrl.searchParams.append(key, value);
-      });
-      if (this.inClause) {
-        const [key, value] = this.inClause.split("=");
-        requestUrl.searchParams.append(key, value);
-      }
-      if (this.orClause) {
-        requestUrl.searchParams.append("or", `(${this.orClause})`);
-      }
-
-      return fetch(requestUrl.toString(), {
-        method,
-        headers: {
-          ...headers,
-          Prefer: `${this.useMerge ? "resolution=merge-duplicates," : ""}return=representation`,
-        },
-        body: JSON.stringify(this.payload),
-      });
-    }
-
-    const requestUrl = new URL(`${this.url}/rest/v1/${this.table}`);
-    requestUrl.searchParams.set("select", this.selectColumns);
-    this.filters.forEach((filter) => {
-      const [key, value] = filter.split("=");
-      requestUrl.searchParams.append(key, value);
-    });
-    if (this.inClause) {
-      const [key, value] = this.inClause.split("=");
-      requestUrl.searchParams.append(key, value);
-    }
-    if (this.orClause) {
-      requestUrl.searchParams.append("or", `(${this.orClause})`);
-    }
-    if (this.orderClause) {
-      const [column, direction] = this.orderClause.split(".");
-      requestUrl.searchParams.append("order", `${column}.${direction}`);
-    }
-    if (this.limitValue !== null) {
-      requestUrl.searchParams.append("limit", String(this.limitValue));
-    }
-
-    return fetch(requestUrl.toString(), {
-      method: "GET",
-      headers,
-    });
-  }
-
-  private async readResponse(response: Response, single: boolean, strictSingle: boolean) {
-    if (this.method === "insert" || this.method === "upsert" || this.method === "update") {
+    if (expectSingle) {
       const data = await response.json();
-      return { data, error: null };
+      return { data: Array.isArray(data) ? data[0] ?? null : data, error: null };
     }
 
-    const raw = (await response.json()) as any[];
-    const data = single ? (strictSingle ? raw[0] ?? null : raw[0] ?? null) : raw;
-    if (this.head || this.countExact) {
-      return { data, count: raw.length, error: null };
-    }
+    const data = this.head ? null : await response.json();
     return { data, error: null };
   }
 }
 
-type PresenceEventCallback = () => void;
-
-type PresenceState = Record<string, any[]>;
-
-const presenceStoragePrefix = "presence-shim:";
-const channelInstances = new Map<string, Set<ChannelShim>>();
-
-function readPresenceState(topic: string): PresenceState {
-  if (typeof window === "undefined") {
-    return {};
-  }
-
-  const raw = window.localStorage.getItem(`${presenceStoragePrefix}${topic}`);
-  if (!raw) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(raw) as PresenceState;
-  } catch {
-    return {};
-  }
-}
-
-function writePresenceState(topic: string, state: PresenceState) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(`${presenceStoragePrefix}${topic}`, JSON.stringify(state));
-}
-
 class ChannelShim {
-  private syncCallbacks = new Set<PresenceEventCallback>();
-  private joinCallbacks = new Set<PresenceEventCallback>();
-  private leaveCallbacks = new Set<PresenceEventCallback>();
-  private storageHandler: ((event: StorageEvent) => void) | null = null;
-
-  constructor(
-    private topic = "default",
-    private presenceKey = getUrlSafeRandom(16),
-  ) {
-    if (!channelInstances.has(this.topic)) {
-      channelInstances.set(this.topic, new Set());
-    }
-
-    channelInstances.get(this.topic)?.add(this);
-
-    if (typeof window !== "undefined") {
-      this.storageHandler = (event: StorageEvent) => {
-        if (event.key !== `${presenceStoragePrefix}${this.topic}`) {
-          return;
-        }
-        this.syncCallbacks.forEach((callback) => callback());
-      };
-      window.addEventListener("storage", this.storageHandler);
-    }
-  }
-
-  on(event: string, config: { event?: string }, callback: PresenceEventCallback) {
-    if (event !== "presence") {
-      return this;
-    }
-
-    if (config.event === "sync") {
-      this.syncCallbacks.add(callback);
-    } else if (config.event === "join") {
-      this.joinCallbacks.add(callback);
-    } else if (config.event === "leave") {
-      this.leaveCallbacks.add(callback);
-    }
-
+  constructor(_topic: string, _key?: string) {}
+  on() {
     return this;
   }
-
-  presenceState() {
-    return readPresenceState(this.topic);
-  }
-
-  async track(meta: any) {
-    const state = readPresenceState(this.topic);
-    state[this.presenceKey] = [meta];
-    writePresenceState(this.topic, state);
-    this.joinCallbacks.forEach((callback) => callback());
-    this.syncCallbacks.forEach((callback) => callback());
-    return { data: null, error: null };
-  }
-
-  async untrack() {
-    const state = readPresenceState(this.topic);
-    delete state[this.presenceKey];
-    writePresenceState(this.topic, state);
-    this.leaveCallbacks.forEach((callback) => callback());
-    this.syncCallbacks.forEach((callback) => callback());
-    return { data: null, error: null };
-  }
-
-  subscribe(callback?: (status: string) => void) {
-    queueMicrotask(() => callback?.("SUBSCRIBED"));
+  subscribe() {
     return this;
   }
-
-  unsubscribe() {
-    this.leaveCallbacks.clear();
-    this.joinCallbacks.clear();
-    this.syncCallbacks.clear();
-    if (this.storageHandler && typeof window !== "undefined") {
-      window.removeEventListener("storage", this.storageHandler);
-    }
-    channelInstances.get(this.topic)?.delete(this);
+  track() {
+    return Promise.resolve();
+  }
+  untrack() {
     return Promise.resolve();
   }
 }
@@ -562,6 +475,70 @@ export function createClient(url: string, key: string) {
         return { data: null, error: new Error(await response.text()) };
       }
       return { data: { email }, error: null };
+    },
+    async signUp({ email, password, options }: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
+      const response = await fetch(`${url}/auth/v1/signup`, {
+        method: "POST",
+        headers: {
+          apikey: key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          data: options?.data ?? {},
+        }),
+      });
+
+      const { session, errorText } = await persistAuthResponse(response);
+      if (session) {
+        return { data: { session }, error: null };
+      }
+
+      return { data: null, error: errorText ? new Error(errorText) : null };
+    },
+    async signInWithPassword({ email, password }: { email: string; password: string }) {
+      const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          apikey: key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const { session, errorText } = await persistAuthResponse(response);
+      if (session) {
+        return { data: { session }, error: null };
+      }
+
+      return { data: null, error: errorText ? new Error(errorText) : null };
+    },
+    async signInAnonymously() {
+      const credentials = readGuestCredentials() ?? createGuestCredentials();
+      writeGuestCredentials(credentials);
+
+      const signup = await auth.signUp({
+        email: credentials.email,
+        password: credentials.password,
+        options: {
+          data: { is_guest: true },
+        },
+      });
+
+      if (signup.data?.session) {
+        return signup;
+      }
+
+      const passwordLogin = await auth.signInWithPassword(credentials);
+      if (passwordLogin.data?.session) {
+        return passwordLogin;
+      }
+
+      return {
+        data: null,
+        error: signup.error ?? passwordLogin.error ?? new Error("Guest sign-in is not available for this project.") ,
+      };
     },
     async signOut() {
       currentSession = null;
