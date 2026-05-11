@@ -756,30 +756,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       if (!sessionUser) {
-
-        const storedGuestProfile = readStoredGuestProfile();
-        if (guestMode && storedGuestProfile) {
-          hydratedSessionUserIdRef.current = storedGuestProfile.id;
-          setAuthenticated(true);
-          setUserId(storedGuestProfile.id);
-          setProfile(storedGuestProfile);
-          setIsAdmin(storedGuestProfile.role === "admin");
-          setRoom(readStoredRoomState()?.room ?? null);
-          setQueue(readStoredQueueState());
-          setMatchTransition(readStoredMatchTransition());
-          setVoiceState("idle");
-          setAuthLoaded(true);
-          setRoomLoaded(true);
-          setSessionReady(true);
-          setAppReady(true);
-          setInitializing(false);
-          return;
-        }
-
         hydratedSessionUserIdRef.current = null;
         stopQueueSubscriptions();
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
+        setGuestMode(false);
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
@@ -1447,18 +1428,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: AuthMethod, email?: string) => {
       if (method === "guest") {
-        const guestProfile = createDefaultProfile(createId());
-        setAuthenticated(true);
-        setGuestMode(true);
-        setUserId(guestProfile.id);
-        setProfile(guestProfile);
-        setQueue(createInitialQueue(guestProfile));
-        setRoom(null);
-        setMatchTransition(null);
-        setIsAdmin(false);
-        writeStoredGuestSession(true);
-        writeStoredGuestProfile(guestProfile);
-        toast.success(language === "en" ? "Guest mode enabled." : "Η λειτουργία guest ενεργοποιήθηκε.");
+        setGuestMode(false);
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
+
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
+        toast.success(language === "en" ? "Guest session ready." : "Η guest συνεδρία είναι έτοιμη.");
         return;
       }
 
