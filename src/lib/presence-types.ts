@@ -16,6 +16,8 @@ export type RoomStatus = "idle" | "active" | "ended";
 
 export type VoiceState = "idle" | "connecting" | "connected" | "error";
 
+export type ProfileRole = "member" | "admin";
+
 export interface PresenceProfile {
   id: string;
   username: string;
@@ -24,6 +26,7 @@ export interface PresenceProfile {
   preference: PreferenceOption;
   language: LanguagePreference;
   interests: string[];
+  role: ProfileRole;
   createdAt: string;
 }
 

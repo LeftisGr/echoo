@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type {
   ChatMessage,
   PresenceProfile,
+  ProfileRole,
   QueueFilters,
   RatingScore,
   RoomSession,
@@ -18,6 +19,7 @@ create table if not exists public.profiles (
   preference text not null,
   language text not null,
   interests text[] not null default '{}',
+  role text not null default 'member',
   created_at timestamptz not null default now(),
   primary key (id)
 );
@@ -116,6 +118,10 @@ function normalizeFilters(filters: QueueFilters) {
   };
 }
 
+function normalizeRole(role: string | null | undefined): ProfileRole {
+  return role === "admin" ? "admin" : "member";
+}
+
 export function isLanguageCompatible(
   targetLanguage: PresenceProfile["language"],
   candidateLanguage: PresenceProfile["language"],
@@ -168,6 +174,7 @@ export async function syncProfile(profile: PresenceProfile) {
     preference: profile.preference,
     language: profile.language,
     interests: profile.interests,
+    role: profile.role,
   });
 
   if (error) {
@@ -184,7 +191,7 @@ export async function loadProfile(userId: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, age_range, gender, preference, language, interests, created_at")
+    .select("id, username, age_range, gender, preference, language, interests, role, created_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -209,6 +216,7 @@ export async function loadProfile(userId: string) {
     preference: row.preference,
     language: row.language,
     interests: row.interests ?? [],
+    role: normalizeRole(row.role),
     createdAt: row.created_at,
   } satisfies PresenceProfile;
 
@@ -362,6 +370,7 @@ export async function findBestMatch(user: PresenceProfile, relaxed = false) {
       preference: profileRow.preference,
       language: profileRow.language,
       interests: profileRow.interests ?? [],
+      role: normalizeRole((profileRow as { role?: string }).role),
       createdAt: profileRow.created_at,
     });
 

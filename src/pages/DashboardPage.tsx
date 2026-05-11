@@ -1,13 +1,16 @@
 import { ArrowRight, Clock3, Home, Settings, Shield, UserRound } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { authenticated, profile, copy, language, adminMetrics, startQueue, online } = usePresence();
+  const roleLabel = profile?.role === "admin" ? (language === "en" ? "Admin" : "Admin") : language === "en" ? "Member" : "Μέλος";
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -47,12 +50,14 @@ const DashboardPage = () => {
           </Button>
         </div>
         <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5">
-          <p className="text-xs uppercase tracking-[0.24em] text-violet-100/70">
-            {language === "en" ? "You are ready to connect as" : "Είσαι έτοιμος/η να συνδεθείς ως"}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em] text-violet-100/70">
+            <span>{language === "en" ? "You are ready to connect as" : "Είσαι έτοιμος/η να συνδεθείς ως"}</span>
+            <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] text-white/80 hover:bg-white/5">{roleLabel}</Badge>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-3xl font-semibold text-white">{profile.username}</p>
             <Button
+
               variant="outline"
               className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={() => navigate("/settings")}

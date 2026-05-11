@@ -102,7 +102,7 @@ interface PresenceContextValue {
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
   logout: () => void;
-  claimAdminAccess: () => Promise<void>;
+
   rerollUsername: () => void;
   updateProfile: (updates: Partial<PresenceProfile>) => void;
   startQueue: () => Promise<void>;
@@ -187,6 +187,7 @@ function createDefaultProfile(userId?: string): PresenceProfile {
     preference: "anyone",
     language: "both",
     interests: ["music", "deep talks", "travel"],
+    role: "member",
     createdAt: new Date().toISOString(),
   };
 }
@@ -581,6 +582,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     roomSnapshotRef.current = room;
   }, [room]);
 
+  useEffect(() => {
+    setIsAdmin(profile?.role === "admin");
+  }, [profile?.role]);
+
   const smoothedOnlineCount = useSmoothedNumber(
 
     presenceStats.onlineCount > 0 ? Math.max(presenceStats.onlineCount, Math.round(presenceStats.onlineCount * 0.45 + 15.5)) : 17,
@@ -947,15 +952,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const loadedProfile = await loadProfile(currentUserId);
     const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
 
-    const { data: adminRow } = await supabase
-      .from("admin_users")
-      .select("user_id")
-      .eq("user_id", currentUserId)
-      .maybeSingle();
-
-    setIsAdmin(Boolean(adminRow));
+    const effectiveProfile = loadedProfile ?? profileToUse;
+    setIsAdmin(effectiveProfile.role === "admin");
 
     if (loadedProfile) {
+
       setProfile(loadedProfile);
       setQueue((current) => ({
         ...current,
@@ -1397,20 +1398,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     toast(copy.misc.signedOut);
   }, [copy.misc.signedOut]);
 
-  const claimAdminAccess = useCallback(async () => {
-    if (!userId) {
-      return;
-    }
-
-    const { error } = await supabase.from("admin_users").upsert({ user_id: userId });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setIsAdmin(true);
-    toast.success(language === "en" ? "Admin access enabled." : "Η πρόσβαση admin ενεργοποιήθηκε.");
-  }, [language, userId]);
 
   const rerollUsername = useCallback(() => {
     setProfile((current) => {
@@ -1726,8 +1713,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       login,
       logout,
-      claimAdminAccess,
       rerollUsername,
+
       updateProfile,
       startQueue,
       cancelQueue,
@@ -1752,8 +1739,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       authenticated,
       blockCurrentPartner,
       cancelQueue,
-      claimAdminAccess,
       copy,
+
       hapticsEnabled,
       initializing,
       isAdmin,
