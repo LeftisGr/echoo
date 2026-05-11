@@ -518,6 +518,11 @@ export function createClient(url: string, key: string) {
       const credentials = readGuestCredentials() ?? createGuestCredentials();
       writeGuestCredentials(credentials);
 
+      const passwordLogin = await auth.signInWithPassword(credentials);
+      if (passwordLogin.data?.session) {
+        return passwordLogin;
+      }
+
       const signup = await auth.signUp({
         email: credentials.email,
         password: credentials.password,
@@ -530,16 +535,12 @@ export function createClient(url: string, key: string) {
         return signup;
       }
 
-      const passwordLogin = await auth.signInWithPassword(credentials);
-      if (passwordLogin.data?.session) {
-        return passwordLogin;
-      }
-
       return {
         data: null,
-        error: signup.error ?? passwordLogin.error ?? new Error("Guest sign-in is not available for this project.") ,
+        error: passwordLogin.error ?? signup.error ?? new Error("Guest sign-in is not available for this project."),
       };
     },
+
     async signOut() {
       currentSession = null;
       writeSession(null);
