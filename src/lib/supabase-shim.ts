@@ -422,6 +422,9 @@ class ChannelShim {
   subscribe() {
     return this;
   }
+  unsubscribe() {
+    return Promise.resolve();
+  }
   track() {
     return Promise.resolve();
   }
