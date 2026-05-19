@@ -388,19 +388,19 @@ const SessionPage = () => {
                 </div>
               </div>
 
-              <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
-                <div className="rounded-[28px] border border-white/10 bg-white/5 p-4 text-center sm:p-6">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+              <div className="space-y-3 p-3 sm:space-y-4 sm:p-5">
+                <div className="rounded-[24px] border border-white/10 bg-white/5 p-3 text-center sm:p-5">
+                  <p className="text-[9px] uppercase tracking-[0.32em] text-white/40">
                     {language === "en" ? "Post-session" : "Μετά το session"}
                   </p>
-                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-white sm:text-3xl">{copy.session.howWasIt}</h2>
-                  <p className="mt-2 text-sm leading-6 text-white/55">
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-2xl">{copy.session.howWasIt}</h2>
+                  <p className="mt-1 text-xs leading-5 text-white/55 sm:text-sm">
                     {language === "en"
-                      ? "Rate this chat, then decide if you want another one or to head home."
-                      : "Αξιολόγησε αυτή τη συνομιλία και μετά διάλεξε αν θέλεις άλλη μία ή να γυρίσεις σπίτι."}
+                      ? "Pick a quick reaction, then choose your next step."
+                      : "Διάλεξε μια γρήγορη αντίδραση και μετά το επόμενο βήμα."}
                   </p>
 
-                  <div className="mt-4 grid gap-2 sm:mt-5 sm:grid-cols-3">
+                  <div className="mt-3 flex items-center justify-center gap-2 sm:mt-4 sm:gap-3">
                     {[
                       { score: "good" as const, icon: "👍", label: language === "en" ? "Good" : "Καλό" },
                       { score: "neutral" as const, icon: "👌", label: language === "en" ? "Okay" : "Εντάξει" },
@@ -411,41 +411,40 @@ const SessionPage = () => {
                         <Button
                           key={option.score}
                           variant="outline"
+                          size="icon"
+                          aria-label={option.label}
+                          title={option.label}
                           className={cn(
-                            "h-12 rounded-[20px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:h-14",
+                            "h-11 w-11 rounded-full border-white/10 bg-white/5 text-lg text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:h-12 sm:w-12",
                             isSelected && "border-violet-300/30 bg-violet-500/15 text-violet-50",
                           )}
                           onClick={() => rateRoom(option.score)}
                         >
-                          <span className="mr-2 text-lg">{option.icon}</span>
-                          <span className="font-medium">{option.label}</span>
+                          {option.icon}
                         </Button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-violet-300/15 bg-violet-500/10 p-3 sm:p-4">
-                  <p className="text-center text-[10px] uppercase tracking-[0.28em] text-violet-100/60">
-                    {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
+                <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3 sm:p-4">
+                  <p className="text-center text-[9px] uppercase tracking-[0.28em] text-violet-100/60">
+                    {language === "en" ? "Next" : "Επόμενο"}
                   </p>
-                  <h3 className="mt-2 text-center text-lg font-semibold tracking-tight text-white sm:text-2xl">
-                    {language === "en" ? "Start a new session or head home?" : "Νέα συνεδρία ή πίσω στην αρχική;"}
-                  </h3>
-                  <div className="mt-3 flex flex-col gap-2 sm:mt-4 sm:flex-row">
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Button
-                      className="h-12 flex-1 rounded-full bg-violet-500 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400 sm:text-base"
+                      className="h-11 flex-1 rounded-full bg-violet-500 px-4 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                       onClick={async () => {
                         await startNewSessionFromEndedRoom();
                         navigate("/queue");
                       }}
                     >
-                      {language === "en" ? "Start new session" : "Νέα συνεδρία"}
+                      {language === "en" ? "New session" : "Νέα συνεδρία"}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
-                      className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-sm text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:text-base"
+                      className="h-11 flex-1 rounded-full border-white/10 bg-white/5 text-sm text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
                       asChild
                     >
                       <Link to="/">
@@ -456,6 +455,7 @@ const SessionPage = () => {
                   </div>
                 </div>
               </div>
+
             </div>
           </Surface>
 
