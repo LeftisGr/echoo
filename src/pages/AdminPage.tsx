@@ -1,4 +1,5 @@
-import { Activity, Flag, Gauge, Home, MessagesSquare, UserPlus, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Activity, Flag, Gauge, Home, MessagesSquare, RefreshCcw, UserPlus, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { Link, Navigate } from "react-router-dom";
 
@@ -7,6 +8,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 import { adminChartData } from "@/lib/presence-content";
+import { supabase } from "@/integrations/supabase/client";
 
 const chartConfig = {
   sessions: { label: "Sessions", color: "#8b5cf6" },
@@ -14,8 +16,37 @@ const chartConfig = {
   signups: { label: "Signups", color: "#60a5fa" },
 };
 
+type ReportRow = {
+  id: string;
+  room_id: string;
+  reporter_id: string;
+  reported_user: string;
+  reason: string;
+  created_at: string;
+};
+
 const AdminPage = () => {
   const { authenticated, adminMetrics, isAdmin, profile } = usePresence();
+  const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+
+  const loadReports = useCallback(async () => {
+    setLoadingReports(true);
+    const { data } = await supabase
+      .from("reports")
+      .select("id, room_id, reporter_id, reported_user, reason, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    setRecentReports((data ?? []) as ReportRow[]);
+    setLoadingReports(false);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      void loadReports();
+    }
+  }, [isAdmin, loadReports]);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -40,24 +71,34 @@ const AdminPage = () => {
           body="Lean operating dashboard for launch metrics, queue health, and trust & safety signals."
         />
 
-        <div className="flex flex-wrap items-center gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4">
-          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/50">
-            {profile.role}
-          </div>
-          <p className="text-sm text-white/55">
-            {isAdmin
-              ? "Admin access is enabled for this profile."
-              : "This profile is a member. Change the role column in public.profiles to admin when you want to grant access."}
-          </p>
-          <div className="ml-auto flex gap-2">
-            <Link to="/">
-              <Button variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                <Home className="mr-2 h-4 w-4" />
-                Home
-              </Button>
-            </Link>
-          </div>
+      <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
+        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/50">
+          {profile.role}
         </div>
+        <p className="text-sm text-white/55">
+          {isAdmin
+            ? "Admin access is enabled for this profile."
+            : "This profile is a member. Change the role column in public.profiles to admin when you want to grant access."}
+        </p>
+        <div className="flex gap-2 sm:ml-auto">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            onClick={() => void loadReports()}
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Link to="/">
+            <Button variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+              <Home className="mr-2 h-4 w-4" />
+              Home
+            </Button>
+          </Link>
+        </div>
+      </div>
+
       </Surface>
 
       {isAdmin ? (
@@ -110,20 +151,64 @@ const AdminPage = () => {
             </Surface>
           </div>
 
-          <Surface className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-white/45">Average session duration</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.averageSessionDuration} min</p>
+          <Surface className="space-y-5 p-5">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                <p className="text-sm text-white/45">Average session duration</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.averageSessionDuration} min</p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                <p className="text-sm text-white/45">Average wait time</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
+                <p className="text-sm text-white/45">Trust & safety state</p>
+                <p className="mt-2 text-2xl font-semibold text-white">Stable</p>
+              </div>
             </div>
-            <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-white/45">Average wait time</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
-            </div>
-            <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-white/45">Trust & safety state</p>
-              <p className="mt-2 text-2xl font-semibold text-white">Stable</p>
+
+            <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">Recent reports</p>
+                  <p className="mt-1 text-sm text-white/55">Latest moderation signals from live users.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                  onClick={() => void loadReports()}
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Reload
+                </Button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {loadingReports ? (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">Loading reports...</div>
+                ) : recentReports.length ? (
+                  recentReports.map((report) => (
+                    <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
+                        <span>Room {report.room_id.slice(0, 8)}</span>
+                        <span>•</span>
+                        <span>{new Date(report.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">Reporter {report.reporter_id.slice(0, 8)}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">Reported {report.reported_user.slice(0, 8)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">No recent reports.</div>
+                )}
+              </div>
             </div>
           </Surface>
+
         </>
       ) : (
         <Surface className="space-y-3 p-6 text-white/75">
