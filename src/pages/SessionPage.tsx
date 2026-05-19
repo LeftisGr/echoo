@@ -375,7 +375,7 @@ const SessionPage = () => {
       <PageShell className="flex items-stretch">
         <div className="flex h-full min-h-0 w-full items-start py-4 sm:items-center">
           <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30 max-h-[calc(100dvh-2rem)]">
-            <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+            <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
@@ -388,19 +388,19 @@ const SessionPage = () => {
                 </div>
               </div>
 
-              <div className="space-y-5 p-4 sm:space-y-6 sm:p-8">
-                <div className="rounded-[30px] border border-white/10 bg-white/5 p-5 text-center sm:p-8">
-                  <p className="text-xs uppercase tracking-[0.32em] text-white/40">
+              <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
+                <div className="rounded-[28px] border border-white/10 bg-white/5 p-4 text-center sm:p-6">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
                     {language === "en" ? "Post-session" : "Μετά το session"}
                   </p>
-                  <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-4xl">{copy.session.howWasIt}</h2>
-                  <p className="mt-3 text-sm leading-6 text-white/55">
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-white sm:text-3xl">{copy.session.howWasIt}</h2>
+                  <p className="mt-2 text-sm leading-6 text-white/55">
                     {language === "en"
                       ? "Rate this chat, then decide if you want another one or to head home."
                       : "Αξιολόγησε αυτή τη συνομιλία και μετά διάλεξε αν θέλεις άλλη μία ή να γυρίσεις σπίτι."}
                   </p>
 
-                  <div className="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-3 sm:gap-3">
+                  <div className="mt-4 grid gap-2 sm:mt-5 sm:grid-cols-3">
                     {[
                       { score: "good" as const, icon: "👍", label: language === "en" ? "Good" : "Καλό" },
                       { score: "neutral" as const, icon: "👌", label: language === "en" ? "Okay" : "Εντάξει" },
@@ -412,7 +412,7 @@ const SessionPage = () => {
                           key={option.score}
                           variant="outline"
                           className={cn(
-                            "h-14 rounded-[22px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:h-16",
+                            "h-12 rounded-[20px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:h-14",
                             isSelected && "border-violet-300/30 bg-violet-500/15 text-violet-50",
                           )}
                           onClick={() => rateRoom(option.score)}
@@ -425,31 +425,31 @@ const SessionPage = () => {
                   </div>
                 </div>
 
-                <div className="rounded-[30px] border border-violet-300/15 bg-violet-500/10 p-4 sm:p-6">
-                  <p className="text-center text-xs uppercase tracking-[0.28em] text-violet-100/60">
+                <div className="rounded-[28px] border border-violet-300/15 bg-violet-500/10 p-3 sm:p-4">
+                  <p className="text-center text-[10px] uppercase tracking-[0.28em] text-violet-100/60">
                     {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
                   </p>
-                  <h3 className="mt-3 text-center text-xl font-semibold tracking-tight text-white sm:text-3xl">
+                  <h3 className="mt-2 text-center text-lg font-semibold tracking-tight text-white sm:text-2xl">
                     {language === "en" ? "Start a new session or head home?" : "Νέα συνεδρία ή πίσω στην αρχική;"}
                   </h3>
-                  <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:flex-row">
+                  <div className="mt-3 flex flex-col gap-2 sm:mt-4 sm:flex-row">
                     <Button
-                      className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                      className="h-12 flex-1 rounded-full bg-violet-500 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400 sm:text-base"
                       onClick={async () => {
                         await startNewSessionFromEndedRoom();
                         navigate("/queue");
                       }}
                     >
                       {language === "en" ? "Start new session" : "Νέα συνεδρία"}
-                      <ArrowRight className="ml-2 h-5 w-5" />
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
-                      className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
+                      className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-sm text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:text-base"
                       asChild
                     >
                       <Link to="/">
-                        <Home className="mr-2 h-5 w-5" />
+                        <Home className="mr-2 h-4 w-4" />
                         {language === "en" ? "Home" : "Αρχική"}
                       </Link>
                     </Button>
@@ -458,6 +458,7 @@ const SessionPage = () => {
               </div>
             </div>
           </Surface>
+
         </div>
       </PageShell>
     );
