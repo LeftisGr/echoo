@@ -1435,7 +1435,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (method: AuthMethod, email?: string) => {
+    async (method: AuthMethod) => {
       if (method === "guest") {
         const { error } = await supabase.auth.signInAnonymously();
         if (error) {
@@ -1459,27 +1459,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         if (error) {
           toast.error(error.message);
         }
-        return;
       }
-
-      if (!email) {
-        toast.error(language === "en" ? "Add an email address to receive the magic link." : "Πρόσθεσε ένα email για να λάβεις το magic link.");
-        return;
-      }
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      toast.success(language === "en" ? "Magic link sent." : "Το magic link στάλθηκε.");
     },
     [language],
   );

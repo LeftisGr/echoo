@@ -1,6 +1,6 @@
 export type AppLanguage = "en" | "el";
 
-export type AuthMethod = "google" | "magic" | "guest";
+export type AuthMethod = "google" | "guest";
 
 export type AgeRange = "18-24" | "25-34" | "35-44" | "45+";
 

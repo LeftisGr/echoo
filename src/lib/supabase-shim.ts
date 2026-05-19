@@ -471,31 +471,6 @@ export function createClient(url: string, key: string) {
       }
       return { data: { provider }, error: null };
     },
-    async signInWithOtp({ email, options }: { email: string; options?: { emailRedirectTo?: string } }) {
-      const verifier = getUrlSafeRandom(64);
-      const challenge = await sha256(verifier);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(PKCE_VERIFIER_KEY, verifier);
-      }
-      const response = await fetch(`${url}/auth/v1/otp`, {
-        method: "POST",
-        headers: {
-          apikey: key,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          create_user: true,
-          code_challenge: challenge,
-          code_challenge_method: "s256",
-          email_redirect_to: options?.emailRedirectTo,
-        }),
-      });
-      if (!response.ok) {
-        return { data: null, error: new Error(await response.text()) };
-      }
-      return { data: { email }, error: null };
-    },
     async signUp({ email, password, options }: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
       const response = await fetch(`${url}/auth/v1/signup`, {
         method: "POST",

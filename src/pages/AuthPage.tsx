@@ -1,11 +1,10 @@
-import { useState } from "react";
-import { Mail, RefreshCcw, Shield, Sparkles, UserRound } from "lucide-react";
+import { RefreshCcw, Shield, Sparkles, UserRound } from "lucide-react";
 
 import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+
 import { usePresence } from "@/components/presence/presence-provider";
 import {
   ageRangeOptions,
@@ -20,7 +19,6 @@ import {
 } from "@/lib/presence-content";
 
 const AuthPage = () => {
-  const [email, setEmail] = useState("");
   const { copy, language, login, profile, rerollUsername, updateProfile, authenticated } = usePresence();
 
   if (authenticated) {
@@ -41,14 +39,7 @@ const AuthPage = () => {
             </div>
           </div>
           <div className="space-y-3 rounded-[28px] border border-white/10 bg-black/20 p-4">
-            <Input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              type="email"
-              placeholder="name@example.com"
-              className="h-12 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
-            />
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 className="h-12 rounded-full bg-white text-slate-950 hover:bg-white/90"
                 onClick={async () => {
@@ -68,19 +59,10 @@ const AuthPage = () => {
                 <UserRound className="mr-2 h-4 w-4" />
                 {copy.auth.guest}
               </Button>
-              <Button
-                variant="outline"
-                className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={async () => {
-                  await login("magic", email);
-                }}
-              >
-                <Mail className="mr-2 h-4 w-4" />
-                {copy.auth.magic}
-              </Button>
             </div>
 
           </div>
+
         </div>
 
         {profile ? (

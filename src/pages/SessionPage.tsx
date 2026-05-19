@@ -423,11 +423,14 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-center text-xs uppercase tracking-[0.28em] text-white/35">
+            <div className="rounded-[30px] border border-violet-300/15 bg-violet-500/10 p-5 sm:p-6">
+              <p className="text-center text-xs uppercase tracking-[0.28em] text-violet-100/60">
                 {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
               </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <h3 className="mt-3 text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                {language === "en" ? "Start a new session or head home?" : "Νέα συνεδρία ή πίσω στην αρχική;"}
+              </h3>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <Button
                   className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                   onClick={async () => {
@@ -435,7 +438,7 @@ const SessionPage = () => {
                     navigate("/queue");
                   }}
                 >
-                  {language === "en" ? "Next chat" : "Επόμενη συνομιλία"}
+                  {language === "en" ? "Start new session" : "Νέα συνεδρία"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
@@ -445,12 +448,13 @@ const SessionPage = () => {
                 >
                   <Link to="/">
                     <Home className="mr-2 h-5 w-5" />
-                    {language === "en" ? "Go home" : "Πήγαινε στο home"}
+                    {language === "en" ? "Home" : "Αρχική"}
                   </Link>
                 </Button>
 
               </div>
             </div>
+
           </div>
         </Surface>
       </PageShell>
