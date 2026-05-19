@@ -30,7 +30,8 @@ import {
   syncProfile,
   cleanupUserSession,
 } from "@/lib/presence-backend";
-import { createVoiceLoopback, type VoiceSessionController } from "@/lib/presence-rtc";
+import { createPeerToPeerVoiceSession, type VoiceSessionController } from "@/lib/presence-rtc";
+
 import type {
   AdminMetrics,
   AppLanguage,
@@ -1671,12 +1672,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const startVoiceChat = useCallback(
     async (audioElement: HTMLAudioElement) => {
+      if (!room || !userId) {
+        return;
+      }
+
       setVoiceState("connecting");
       toast(copy.session.voiceStarting);
 
       try {
         voiceControllerRef.current?.stop();
-        voiceControllerRef.current = await createVoiceLoopback(audioElement);
+        voiceControllerRef.current = await createPeerToPeerVoiceSession({
+          audioElement,
+          roomId: room.id,
+          currentUserId: userId,
+          userA: room.userA,
+          userB: room.userB,
+        });
         setVoiceState("connected");
         toast.success(copy.session.connected);
         if (hapticsEnabled) {
@@ -1687,7 +1698,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         toast.error(language === "en" ? "Microphone permission was not granted." : "Δεν δόθηκε άδεια στο μικρόφωνο.");
       }
     },
-    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language],
+    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
   );
 
   const leaveRoom = useCallback(
