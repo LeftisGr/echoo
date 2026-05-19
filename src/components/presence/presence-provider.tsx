@@ -138,9 +138,15 @@ function createId() {
 }
 
 function vibrate(pattern: number | number[]) {
-  if (typeof window !== "undefined" && "vibrate" in navigator) {
-    navigator.vibrate(pattern);
+  if (typeof window === "undefined" || !("vibrate" in navigator)) {
+    return;
   }
+
+  if (navigator.userActivation && !navigator.userActivation.isActive) {
+    return;
+  }
+
+  navigator.vibrate(pattern);
 }
 
 function playMatchFoundSound() {
