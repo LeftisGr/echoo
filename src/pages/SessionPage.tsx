@@ -372,91 +372,93 @@ const SessionPage = () => {
 
   if (isEnded) {
     return (
-      <PageShell className="flex items-center">
-        <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30">
-          <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
-                <ShieldAlert className="h-5 w-5" />
+      <PageShell className="flex items-stretch">
+        <div className="flex h-full min-h-0 w-full items-start py-4 sm:items-center">
+          <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30 max-h-[calc(100dvh-2rem)]">
+            <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+              <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
+                    <ShieldAlert className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.28em] text-white/35">Echoo</p>
+                    <h1 className="text-xl font-semibold tracking-tight text-white">{copy.session.ended}</h1>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-white/35">Echoo</p>
-                <h1 className="text-xl font-semibold tracking-tight text-white">{copy.session.ended}</h1>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-6 p-5 sm:p-8">
-            <div className="rounded-[30px] border border-white/10 bg-white/5 p-6 text-center sm:p-8">
-              <p className="text-xs uppercase tracking-[0.32em] text-white/40">
-                {language === "en" ? "Post-session" : "Μετά το session"}
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{copy.session.howWasIt}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/55">
-                {language === "en"
-                  ? "Rate this chat, then decide if you want another one or to head home."
-                  : "Αξιολόγησε αυτή τη συνομιλία και μετά διάλεξε αν θέλεις άλλη μία ή να γυρίσεις σπίτι."}
-              </p>
+              <div className="space-y-5 p-4 sm:space-y-6 sm:p-8">
+                <div className="rounded-[30px] border border-white/10 bg-white/5 p-5 text-center sm:p-8">
+                  <p className="text-xs uppercase tracking-[0.32em] text-white/40">
+                    {language === "en" ? "Post-session" : "Μετά το session"}
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-4xl">{copy.session.howWasIt}</h2>
+                  <p className="mt-3 text-sm leading-6 text-white/55">
+                    {language === "en"
+                      ? "Rate this chat, then decide if you want another one or to head home."
+                      : "Αξιολόγησε αυτή τη συνομιλία και μετά διάλεξε αν θέλεις άλλη μία ή να γυρίσεις σπίτι."}
+                  </p>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[
-                  { score: "good" as const, icon: "👍", label: language === "en" ? "Good" : "Καλό" },
-                  { score: "neutral" as const, icon: "👌", label: language === "en" ? "Okay" : "Εντάξει" },
-                  { score: "bad" as const, icon: "👎", label: language === "en" ? "Bad" : "Κακό" },
-                ].map((option) => {
-                  const isSelected = room.rating === option.score;
-                  return (
+                  <div className="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-3 sm:gap-3">
+                    {[
+                      { score: "good" as const, icon: "👍", label: language === "en" ? "Good" : "Καλό" },
+                      { score: "neutral" as const, icon: "👌", label: language === "en" ? "Okay" : "Εντάξει" },
+                      { score: "bad" as const, icon: "👎", label: language === "en" ? "Bad" : "Κακό" },
+                    ].map((option) => {
+                      const isSelected = room.rating === option.score;
+                      return (
+                        <Button
+                          key={option.score}
+                          variant="outline"
+                          className={cn(
+                            "h-14 rounded-[22px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white sm:h-16",
+                            isSelected && "border-violet-300/30 bg-violet-500/15 text-violet-50",
+                          )}
+                          onClick={() => rateRoom(option.score)}
+                        >
+                          <span className="mr-2 text-lg">{option.icon}</span>
+                          <span className="font-medium">{option.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-[30px] border border-violet-300/15 bg-violet-500/10 p-4 sm:p-6">
+                  <p className="text-center text-xs uppercase tracking-[0.28em] text-violet-100/60">
+                    {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
+                  </p>
+                  <h3 className="mt-3 text-center text-xl font-semibold tracking-tight text-white sm:text-3xl">
+                    {language === "en" ? "Start a new session or head home?" : "Νέα συνεδρία ή πίσω στην αρχική;"}
+                  </h3>
+                  <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:flex-row">
                     <Button
-                      key={option.score}
-                      variant="outline"
-                      className={cn(
-                        "h-16 rounded-[22px] border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
-                        isSelected && "border-violet-300/30 bg-violet-500/15 text-violet-50",
-                      )}
-                      onClick={() => rateRoom(option.score)}
+                      className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                      onClick={async () => {
+                        await startNewSessionFromEndedRoom();
+                        navigate("/queue");
+                      }}
                     >
-                      <span className="mr-2 text-lg">{option.icon}</span>
-                      <span className="font-medium">{option.label}</span>
+                      {language === "en" ? "Start new session" : "Νέα συνεδρία"}
+                      <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
-                  );
-                })}
+                    <Button
+                      variant="outline"
+                      className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
+                      asChild
+                    >
+                      <Link to="/">
+                        <Home className="mr-2 h-5 w-5" />
+                        {language === "en" ? "Home" : "Αρχική"}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="rounded-[30px] border border-violet-300/15 bg-violet-500/10 p-5 sm:p-6">
-              <p className="text-center text-xs uppercase tracking-[0.28em] text-violet-100/60">
-                {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
-              </p>
-              <h3 className="mt-3 text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                {language === "en" ? "Start a new session or head home?" : "Νέα συνεδρία ή πίσω στην αρχική;"}
-              </h3>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <Button
-                  className="h-14 flex-1 rounded-full bg-violet-500 text-base font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
-                  onClick={async () => {
-                    await startNewSessionFromEndedRoom();
-                    navigate("/queue");
-                  }}
-                >
-                  {language === "en" ? "Start new session" : "Νέα συνεδρία"}
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-14 flex-1 rounded-full border-white/10 bg-white/5 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white"
-                  asChild
-                >
-                  <Link to="/">
-                    <Home className="mr-2 h-5 w-5" />
-                    {language === "en" ? "Home" : "Αρχική"}
-                  </Link>
-                </Button>
-
-              </div>
-            </div>
-
-          </div>
-        </Surface>
+          </Surface>
+        </div>
       </PageShell>
     );
   }
