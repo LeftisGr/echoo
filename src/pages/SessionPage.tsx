@@ -663,7 +663,37 @@ const SessionPage = () => {
 
               </form>
             ) : (
-              <div className="rounded-[22px] bg-white/5 p-4 text-center text-white/70">{copy.session.howWasIt}</div>
+              <div className="rounded-[26px] border border-violet-300/15 bg-violet-500/10 p-4 text-center sm:p-5">
+                <p className="text-xs uppercase tracking-[0.28em] text-violet-100/60">
+                  {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
+                </p>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">
+                  {language === "en" ? "Start new session or go home" : "Νέα συνεδρία ή αρχική;"}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-white/60">{copy.session.howWasIt}</p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                    onClick={async () => {
+                      await startNewSessionFromEndedRoom();
+                      navigate("/queue");
+                    }}
+                  >
+                    {language === "en" ? "Start new session" : "Νέα συνεδρία"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                    asChild
+                  >
+                    <Link to="/">
+                      <Home className="mr-2 h-4 w-4" />
+                      {language === "en" ? "Home" : "Αρχική"}
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </footer>
