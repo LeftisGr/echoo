@@ -163,14 +163,16 @@ const SessionPage = () => {
       return;
     }
 
-    const isRecent = Date.now() - new Date(room.typingUpdatedAt).getTime() < 1600;
-    setPartnerTyping(isRecent);
+    const updatedAt = new Date(room.typingUpdatedAt).getTime();
+    const ttl = 1400;
+    const remaining = Math.max(ttl - (Date.now() - updatedAt), 0);
+    setPartnerTyping(remaining > 0);
 
-    if (!isRecent) {
+    if (!remaining) {
       return;
     }
 
-    const timeout = window.setTimeout(() => setPartnerTyping(false), 1600);
+    const timeout = window.setTimeout(() => setPartnerTyping(false), remaining);
     return () => window.clearTimeout(timeout);
   }, [guestMode, profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
 
@@ -186,7 +188,7 @@ const SessionPage = () => {
   }, [room?.voiceUnlockedAt, sessionRemaining]);
 
   useEffect(() => {
-    const node = chatEndRef.current;
+    const node = chatScrollRef.current;
     if (!node) {
       return;
     }
@@ -195,19 +197,36 @@ const SessionPage = () => {
       return;
     }
 
-    window.requestAnimationFrame(() => {
-      node.scrollIntoView({
-        behavior: shouldForceScrollRef.current ? "smooth" : "auto",
-        block: "end",
-      });
+    const behavior: ScrollBehavior = shouldForceScrollRef.current ? "smooth" : "auto";
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollTo({ top: node.scrollHeight, behavior });
     });
 
     shouldForceScrollRef.current = false;
+    return () => window.cancelAnimationFrame(frame);
   }, [room?.messages.length, recentMessageId]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
+  useEffect(() => {
+    const node = chatScrollRef.current;
+    if (!room || !node) {
+      return;
+    }
+
+    shouldForceScrollRef.current = true;
+    isNearBottomRef.current = true;
+
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+      shouldForceScrollRef.current = false;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [room?.id]);
+
   const voiceReady =
+
     room?.voiceEnabled &&
     sessionRemaining === 0 &&
     voiceState !== "requesting-microphone" &&
@@ -287,11 +306,11 @@ const SessionPage = () => {
     }
 
     const currentValue = value;
-    typingPublishTimeoutRef.current = window.setTimeout(() => {
-      if (!typingActiveRef.current) {
-        publishTypingState(true);
-      }
+    if (!typingActiveRef.current) {
+      publishTypingState(true);
+    }
 
+    typingPublishTimeoutRef.current = window.setTimeout(() => {
       if (typingHeartbeatRef.current) {
         window.clearInterval(typingHeartbeatRef.current);
       }
@@ -301,11 +320,12 @@ const SessionPage = () => {
           publishTypingState(true);
         }
       }, 900);
-    }, 120);
+    }, 80);
 
     typingClearTimeoutRef.current = window.setTimeout(() => {
       stopTyping();
-    }, 1200);
+    }, 1500);
+
   };
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
@@ -405,7 +425,7 @@ const SessionPage = () => {
     }
 
     const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
-    isNearBottomRef.current = distanceFromBottom < 96;
+    isNearBottomRef.current = distanceFromBottom < 120;
   };
 
   const handleDraftChange = (value: string) => {
@@ -617,9 +637,11 @@ const SessionPage = () => {
         <main
           ref={chatScrollRef}
           onScroll={handleChatScroll}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4 sm:px-6"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4 [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable] sm:px-6"
+
         >
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-6">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-10 sm:pb-12">
+
             {room.messages.map((message) => {
               const isSelf = message.senderId === profile.id;
               const isSystem = message.type === "system";
@@ -631,15 +653,22 @@ const SessionPage = () => {
 
               if (isSystem) {
                 return (
-                  <div key={message.id} className="mx-auto max-w-[88%] rounded-full bg-white/5 px-4 py-2 text-center text-xs text-white/45">
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "mx-auto max-w-[min(92%,34rem)] rounded-full border border-white/8 bg-white/5 px-4 py-2 text-center text-xs leading-5 text-white/45 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                      arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
+                    )}
+
+                  >
                     {message.content}
                   </div>
                 );
               }
 
               return (
-                <div key={message.id} className={cn("flex", isSelf ? "justify-end" : "justify-start") }>
-                  <div className={cn("max-w-[82%] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
+                <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start") }>
+                  <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
                       <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
                       <span>•</span>
@@ -647,9 +676,9 @@ const SessionPage = () => {
                     </div>
                     <div
                       className={cn(
-                        "rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm",
+                        "min-w-0 rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm transition-all duration-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
                         isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
-                        arrivedHot && "ring-1 ring-white/10",
+                        arrivedHot && "ring-1 ring-white/10 animate-[echo-message-in_220ms_ease-out]",
                       )}
                     >
                       {message.content}
@@ -657,14 +686,16 @@ const SessionPage = () => {
                   </div>
                 </div>
               );
+
             })}
 
             <div ref={chatEndRef} />
           </div>
         </main>
 
-        <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/96 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-4 backdrop-blur-xl sm:px-6">
-          <div className="mx-auto w-full max-w-3xl">
+        <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/94 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 backdrop-blur-xl sm:px-6 sm:pt-4">
+          <div className="mx-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#10182b]/92 px-3 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4">
+
             {isActive ? (
               <form
                 onSubmit={async (event) => {
@@ -674,8 +705,9 @@ const SessionPage = () => {
                     return;
                   }
 
-                  shouldForceScrollRef.current = true;
+                  shouldForceScrollRef.current = isNearBottomRef.current;
                   await sendMessage(nextDraft);
+
                   stopTyping();
                   setDraft("");
                 }}
@@ -727,18 +759,19 @@ const SessionPage = () => {
                   </div>
                 </div>
 
-                <div className="mt-3 flex min-h-[2.5rem] items-center gap-3">
+                <div className="mt-3 flex min-h-[2.75rem] items-center gap-3">
                   {partnerTyping ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-opacity duration-150">
                       <span>{language === "en" ? "Typing" : "Γράφει"}</span>
                       <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55 [animation-delay:-0.18s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55 [animation-delay:-0.08s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/55" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
                       </span>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
+
                       <span
                         className={cn(
                           "rounded-full border px-3 py-1.5 font-medium tracking-wide",
