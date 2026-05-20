@@ -131,8 +131,10 @@ interface PresenceContextValue {
   stopVoiceChat: () => void;
   enableVoicePlayback: () => Promise<void>;
   setVoiceMuted: (muted: boolean) => void;
+  setVoiceTransmissionEnabled: (enabled: boolean) => void;
 
   startNewSessionFromEndedRoom: () => Promise<void>;
+
 }
 
 const PresenceContext = createContext<PresenceContextValue | null>(null);
@@ -695,10 +697,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     voiceStartInFlightRef.current = false;
     setVoicePlaybackBlocked(false);
     voiceControllerRef.current?.stop();
-
     voiceControllerRef.current = null;
     setVoiceState("idle");
-  }, [voicePlaybackBlocked]);
+  }, []);
 
   const setVoiceMuted = useCallback((muted: boolean) => {
     setVoiceMutedState(muted);
@@ -726,7 +727,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setVoiceTransmissionEnabled = useCallback((enabled: boolean) => {
+    voiceControllerRef.current?.setLocalAudioEnabled(enabled);
+  }, []);
+
   useEffect(() => {
+
     queueSnapshotRef.current = queue;
   }, [queue]);
 
@@ -1742,16 +1748,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return current;
       }
 
+      const unlockedAt = new Date().toISOString();
+      const voiceNotice = copy.session.voiceAvailablePrompt;
+      const nextMessages = current.messages.some((message) => message.type === "system" && message.content === voiceNotice)
+        ? current.messages
+        : [...current.messages, createSystemMessage(current.id, voiceNotice)];
+
       const nextRoom = {
         ...current,
         voiceEnabled: true,
-        voiceUnlockedAt: new Date().toISOString(),
+        voiceUnlockedAt: unlockedAt,
+        messages: nextMessages,
       };
       void persistRoom(nextRoom);
       toast.success(copy.session.voiceUnlocked);
       return nextRoom;
     });
-  }, [copy.session.voiceUnlocked]);
+  }, [copy.session.voiceAvailablePrompt, copy.session.voiceUnlocked]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -1850,7 +1863,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
 
         voiceControllerRef.current = controller;
+        voiceControllerRef.current.setLocalAudioEnabled(false);
       } catch (error) {
+
         if (voiceSessionTokenRef.current !== sessionToken) {
           return;
         }
@@ -1879,7 +1894,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId, voicePlaybackBlocked],
+    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
   );
 
   const leaveRoom = useCallback(
@@ -2015,7 +2030,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       stopVoiceChat,
       enableVoicePlayback,
       setVoiceMuted,
+      setVoiceTransmissionEnabled,
       startNewSessionFromEndedRoom,
+
     }),
 
     [
@@ -2057,12 +2074,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       stopVoiceChat,
       enableVoicePlayback,
       setVoiceMuted,
+      setVoiceTransmissionEnabled,
       unlockVoice,
       voiceMuted,
       voicePlaybackBlocked,
       voiceState,
       guestMode,
     ],
+
   );
 
   return (

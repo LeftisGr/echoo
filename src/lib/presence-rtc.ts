@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface VoiceSessionController {
   stop: () => void;
+  setLocalAudioEnabled: (enabled: boolean) => void;
 }
 
 type VoiceSignalType = "offer" | "answer" | "ice";
@@ -243,12 +244,8 @@ export async function createPeerToPeerVoiceSession({
   }
 
   localAudioTracks.forEach((track) => {
-    rtcLog("local audio track state", {
-      roomId,
-      sessionId,
-      ...trackSnapshot(track),
-    });
-
+    track.enabled = false;
+    rtcLog("local track muted", { roomId, sessionId, ...trackSnapshot(track) });
     track.onmute = () => rtcLog("local track muted", { roomId, sessionId, ...trackSnapshot(track) });
     track.onunmute = () => rtcLog("local track unmuted", { roomId, sessionId, ...trackSnapshot(track) });
     track.onended = () => rtcLog("local track ended", { roomId, sessionId, ...trackSnapshot(track) });
@@ -258,6 +255,8 @@ export async function createPeerToPeerVoiceSession({
   let reconnectAttempts = 0;
   let currentConnectionId = isInitiator ? crypto.randomUUID() : initialConnectionId ?? null;
   let activePeer: RTCPeerConnection | null = null;
+  let localAudioEnabled = false;
+
   let remoteStream = new MediaStream();
   let signalChannel: ReturnType<typeof supabase.channel> | null = null;
   let pollTimer: number | null = null;
@@ -415,7 +414,36 @@ export async function createPeerToPeerVoiceSession({
     rtcLog("remote stream reset", { roomId, sessionId });
   };
 
+  const setLocalAudioEnabled = (enabled: boolean) => {
+    if (stopped || !canContinue()) {
+      rtcLog("push-to-talk ignored for stale session", { roomId, sessionId, enabled });
+      return;
+    }
+
+    if (localAudioEnabled === enabled) {
+      return;
+    }
+
+    localAudioEnabled = enabled;
+    localAudioTracks.forEach((track) => {
+      track.enabled = enabled;
+      rtcLog(enabled ? "local track enabled" : "local track muted", {
+        roomId,
+        sessionId,
+        ...trackSnapshot(track),
+      });
+    });
+
+    rtcLog(enabled ? "push-to-talk pressed" : "push-to-talk released", {
+      roomId,
+      sessionId,
+      enabled,
+      trackCount: localAudioTracks.length,
+    });
+  };
+
   const teardown = async (markIdle = true) => {
+
     if (stopped) {
       return;
     }
@@ -980,5 +1008,6 @@ export async function createPeerToPeerVoiceSession({
     stop: () => {
       void teardown();
     },
+    setLocalAudioEnabled,
   };
 }

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Home, Mic, PhoneOff, ShieldAlert, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Home, Mic, PhoneOff, ShieldAlert } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -50,15 +50,16 @@ const SessionPage = () => {
     startVoiceChat,
     stopVoiceChat,
     enableVoicePlayback,
-    setVoiceMuted,
+    setVoiceTransmissionEnabled,
     voiceState,
-    voiceMuted,
     voicePlaybackBlocked,
   } = usePresence();
 
   const [draft, setDraft] = useState("");
+  const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
 
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
+
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
@@ -319,6 +320,8 @@ const SessionPage = () => {
     voiceState !== "requesting-microphone" &&
     voiceState !== "connecting" &&
     voiceState !== "reconnecting";
+  const pushToTalkAvailable = voiceReady && voiceState === "connected";
+
   const voiceStatusLabel =
     voiceState === "requesting-microphone"
       ? language === "en"
@@ -397,22 +400,39 @@ const SessionPage = () => {
     scheduleTypingState(value);
   };
 
-  const handleVoiceButton = async () => {
-    if (!voiceReady) {
+  const releasePushToTalk = useCallback(() => {
+    setPushToTalkPressed(false);
+    setVoiceTransmissionEnabled(false);
+  }, [setVoiceTransmissionEnabled]);
+
+  const handlePushToTalkPress = useCallback(() => {
+    if (!voiceReady || voiceState !== "connected") {
       return;
     }
 
-    if (voiceState === "connected") {
-      setVoiceMuted(!voiceMuted);
-      return;
+    setPushToTalkPressed(true);
+    setVoiceTransmissionEnabled(true);
+  }, [setVoiceTransmissionEnabled, voiceReady, voiceState]);
+
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      releasePushToTalk();
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [releasePushToTalk]);
+
+  useEffect(() => {
+    if (voiceState !== "connected" && pushToTalkPressed) {
+      releasePushToTalk();
     }
+  }, [pushToTalkPressed, releasePushToTalk, voiceState]);
 
-    await startVoiceChat();
-    setVoiceMuted(false);
-
-  };
+  useEffect(() => () => releasePushToTalk(), [releasePushToTalk]);
 
   if (isEnded) {
+
     return (
       <PageShell className="flex items-stretch">
         <div className="flex h-full min-h-0 w-full items-start py-4 sm:items-center">
@@ -665,19 +685,7 @@ const SessionPage = () => {
                     placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
                     className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "h-14 w-14 rounded-full border-0 bg-white/6 p-0 text-white transition-transform duration-150 active:scale-95 hover:bg-white/10 hover:text-white",
-                      voiceReady && voiceState === "connected" && "ring-2 ring-violet-300/40",
-                      !voiceReady && "cursor-not-allowed opacity-45",
-                    )}
-                    disabled={!voiceReady}
-                    onClick={handleVoiceButton}
-                  >
-                    {voiceState === "connected" ? voiceMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  </Button>
+                  <div className="w-14" aria-hidden="true" />
 
                   <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
                     {copy.session.send}
@@ -812,10 +820,10 @@ const SessionPage = () => {
               className="h-12 flex-1 rounded-full bg-amber-400 text-slate-950 transition-transform duration-150 active:scale-95 hover:bg-amber-300"
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
-                await enableVoicePlayback();
-                setVoiceMuted(false);
+                await startVoiceChat();
               }}
             >
+
               <Mic className="mr-2 h-4 w-4" />
               {language === "en" ? "Start Voice Chat" : "Έναρξη φωνητικής συνομιλίας"}
             </Button>
@@ -840,6 +848,77 @@ const SessionPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {(pushToTalkAvailable || voicePlaybackBlocked) && (
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-50 flex flex-col items-center gap-2">
+          {voicePlaybackBlocked && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full border-emerald-300/20 bg-emerald-300/10 px-4 text-xs font-medium text-emerald-50 shadow-lg shadow-emerald-500/10 hover:bg-emerald-300/15 hover:text-white"
+              onClick={async () => {
+                await enableVoicePlayback();
+              }}
+            >
+              {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+            </Button>
+          )}
+          {pushToTalkAvailable && (
+            <>
+              <div
+                className={cn(
+                  "rounded-full border border-white/10 bg-[#10182b]/95 p-2 shadow-2xl shadow-black/40 backdrop-blur-xl",
+                  pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 shadow-emerald-500/20",
+                )}
+              >
+                <Button
+                  type="button"
+                  className={cn(
+                    "h-16 w-16 rounded-full border-0 bg-violet-500 text-white transition-transform duration-150 hover:bg-violet-400 focus-visible:ring-2 focus-visible:ring-violet-300/40",
+                    pushToTalkPressed && "scale-95 bg-emerald-400 hover:bg-emerald-300",
+                    "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
+                  )}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    try {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                    } catch {
+                      /* noop */
+                    }
+                    handlePushToTalkPress();
+                  }}
+                  onPointerUp={releasePushToTalk}
+                  onPointerCancel={releasePushToTalk}
+                  onPointerLeave={releasePushToTalk}
+                  onLostPointerCapture={releasePushToTalk}
+                  onTouchEnd={releasePushToTalk}
+                  onTouchCancel={releasePushToTalk}
+                  onBlur={releasePushToTalk}
+                  onContextMenu={(event) => event.preventDefault()}
+                  aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+                >
+                  <Mic className={cn("h-6 w-6", pushToTalkPressed && "animate-pulse")} />
+                </Button>
+              </div>
+              <div
+                className={cn(
+                  "rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em]",
+                  pushToTalkPressed ? "bg-emerald-400/15 text-emerald-100" : "bg-white/5 text-white/40",
+                )}
+              >
+                {pushToTalkPressed
+                  ? language === "en"
+                    ? "Speaking"
+                    : "Μιλάς"
+                  : language === "en"
+                    ? "Hold to talk"
+                    : "Κράτα για ομιλία"}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 };

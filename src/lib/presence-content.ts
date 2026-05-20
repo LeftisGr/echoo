@@ -197,9 +197,11 @@ export const copy = {
       send: "Send",
       placeholder: "Write your first message...",
       voiceUnlocked: "Voice is now available",
+      voiceAvailablePrompt: "Audio is now available. Hold the mic button to speak.",
       startVoice: "Start voice chat",
       keepText: "Keep text only",
       voiceStarting: "Voice connection starting...",
+
       connected: "Voice is live",
       ended: "Connection ended.",
       findNew: "Find new person",
@@ -379,9 +381,11 @@ export const copy = {
       send: "Αποστολή",
       placeholder: "Γράψε το πρώτο σου μήνυμα...",
       voiceUnlocked: "Η φωνή είναι τώρα διαθέσιμη",
+      voiceAvailablePrompt: "Ο ήχος είναι τώρα διαθέσιμος. Κράτα πατημένο το μικρόφωνο για να μιλήσεις.",
       startVoice: "Έναρξη voice chat",
       keepText: "Μόνο κείμενο",
       voiceStarting: "Ξεκινά η φωνητική σύνδεση...",
+
       connected: "Η φωνή συνδέθηκε",
       ended: "Η σύνδεση ολοκληρώθηκε.",
       findNew: "Βρες νέο άτομο",
