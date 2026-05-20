@@ -315,9 +315,43 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
-  const voiceReady = room.voiceEnabled && sessionRemaining === 0 && voiceState !== "connecting" && voiceState !== "reconnecting";
+  const voiceReady =
+    room.voiceEnabled &&
+    sessionRemaining === 0 &&
+    voiceState !== "requesting-microphone" &&
+    voiceState !== "connecting" &&
+    voiceState !== "reconnecting";
+  const voiceStatusLabel =
+    voiceState === "requesting-microphone"
+      ? language === "en"
+        ? "Requesting microphone..."
+        : "Ζητείται πρόσβαση στο μικρόφωνο..."
+      : voiceState === "connecting"
+        ? language === "en"
+          ? "Connecting voice..."
+          : "Σύνδεση φωνής..."
+        : voiceState === "connected"
+          ? language === "en"
+            ? "Voice connected"
+            : "Η φωνή συνδέθηκε"
+          : voiceState === "reconnecting"
+            ? language === "en"
+              ? "Reconnecting voice..."
+              : "Επανασύνδεση φωνής..."
+            : voiceState === "failed"
+              ? language === "en"
+                ? "Voice failed"
+                : "Η φωνή απέτυχε"
+              : voiceState === "error"
+                ? language === "en"
+                  ? "Playback or microphone setup failed. Tap voice again to retry."
+                  : "Η αναπαραγωγή ή το μικρόφωνο απέτυχαν. Πάτησε ξανά τη φωνή για επανάληψη."
+                : language === "en"
+                  ? "Voice is ready"
+                  : "Η φωνή είναι έτοιμη";
 
   const timerUrgent = sessionRemaining <= 60;
+
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
 
 
@@ -671,19 +705,51 @@ const SessionPage = () => {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-white/35">
-                      {voiceReady
-                        ? language === "en"
-                          ? "Voice is ready"
-                          : "Η φωνή είναι έτοιμη"
-                        : language === "en"
-                          ? "The mic opens when the timer hits zero."
-                          : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35">
+                      <span
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 font-medium tracking-wide",
+                          voiceState === "connected"
+                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                            : voiceState === "requesting-microphone" || voiceState === "connecting"
+                              ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
+                              : voiceState === "reconnecting"
+                                ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
+                                : voiceState === "failed" || voiceState === "error"
+                                  ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
+                                  : "border-white/10 bg-white/5 text-white/55",
+                        )}
+                      >
+                        {voiceStatusLabel}
+                      </span>
+                      <span>
+                        {voiceState === "connected"
+                          ? language === "en"
+                            ? "Use the mic button to mute or unmute."
+                            : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
+                          : voiceState === "error"
+                            ? language === "en"
+                              ? "Tap Start Voice Chat again to retry."
+                              : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
+                            : voiceState === "failed"
+                              ? language === "en"
+                                ? "The connection needs another attempt."
+                                : "Η σύνδεση χρειάζεται νέα προσπάθεια."
+                              : voiceReady
+                                ? language === "en"
+                                  ? "Voice is ready"
+                                  : "Η φωνή είναι έτοιμη"
+                                : language === "en"
+                                  ? "The mic opens when the timer hits zero."
+                                  : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
+                      </span>
+
+                    </div>
                   )}
                 </div>
 
               </form>
+
             ) : (
               <div className="rounded-[26px] border border-violet-300/15 bg-violet-500/10 p-4 text-center sm:p-5">
                 <p className="text-xs uppercase tracking-[0.28em] text-violet-100/60">

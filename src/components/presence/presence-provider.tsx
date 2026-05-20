@@ -636,7 +636,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   });
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
+  const voiceSessionTokenRef = useRef<string | null>(null);
   const queueTimersRef = useRef<number[]>([]);
+
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const presenceChannelRef = useRef<any>(null);
@@ -655,12 +657,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const copy = useMemo(() => getCopy(language), [language]);
 
   const stopVoiceChat = useCallback(() => {
+    voiceSessionTokenRef.current = null;
     voiceControllerRef.current?.stop();
     voiceControllerRef.current = null;
     setVoiceState("idle");
   }, []);
 
   useEffect(() => {
+
     queueSnapshotRef.current = queue;
   }, [queue]);
 
@@ -1711,46 +1715,62 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [profile, room],
   );
 
-  const handleVoiceStateChange = useCallback(
-    (nextState: VoiceState) => {
-      setVoiceState(nextState);
-
-      if (nextState === "connected") {
-        toast.success(copy.session.connected);
-        if (hapticsEnabled) {
-          vibrate([40, 30, 60]);
-        }
-      }
-
-      if (nextState === "failed") {
-        toast.error(language === "en" ? "Voice connection failed." : "Η σύνδεση φωνής απέτυχε.");
-      }
-    },
-    [copy.session.connected, hapticsEnabled, language],
-  );
-
   const startVoiceChat = useCallback(
     async (audioElement: HTMLAudioElement) => {
       if (!room || !userId) {
         return;
       }
 
-      setVoiceState("connecting");
+      const sessionToken = createId();
+      voiceSessionTokenRef.current = sessionToken;
+      voiceControllerRef.current?.stop();
+      voiceControllerRef.current = null;
+      setVoiceState("requesting-microphone");
       toast(copy.session.voiceStarting);
 
       try {
-        voiceControllerRef.current?.stop();
-        voiceControllerRef.current = await createPeerToPeerVoiceSession({
+        const controller = await createPeerToPeerVoiceSession({
           audioElement,
           roomId: room.id,
           currentUserId: userId,
           userA: room.userA,
           userB: room.userB,
           connectionId: room.rtcConnectionId ?? null,
-          onStateChange: handleVoiceStateChange,
+          isCurrentSession: () => voiceSessionTokenRef.current === sessionToken,
+          onStateChange: (nextState) => {
+            if (voiceSessionTokenRef.current !== sessionToken) {
+              return;
+            }
+
+            setVoiceState(nextState);
+
+            if (nextState === "connected") {
+              toast.success(copy.session.connected);
+              if (hapticsEnabled) {
+                vibrate([40, 30, 60]);
+              }
+            }
+
+            if (nextState === "failed") {
+              toast.error(language === "en" ? "Voice connection failed." : "Η σύνδεση φωνής απέτυχε.");
+            }
+
+            if (nextState === "error") {
+              toast.error(language === "en" ? "Voice playback or microphone setup failed." : "Η ρύθμιση φωνής ή αναπαραγωγής απέτυχε.");
+            }
+          },
         });
 
+        if (voiceSessionTokenRef.current !== sessionToken) {
+          controller.stop();
+          return;
+        }
+
+        voiceControllerRef.current = controller;
       } catch (error) {
+        if (voiceSessionTokenRef.current !== sessionToken) {
+          return;
+        }
 
         setVoiceState("error");
         const errorMessage =
@@ -1771,7 +1791,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 : "Η φωνή δεν μπόρεσε να ξεκινήσει.";
         toast.error(errorMessage);
       }
-
     },
     [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
   );
