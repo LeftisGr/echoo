@@ -769,6 +769,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId: currentUser,
     });
 
+    if (typing) {
+      void channel.track({
+        roomId: currentRoom.id,
+        userId: currentUser,
+        typing: true,
+        updatedAt: new Date().toISOString(),
+      });
+    } else {
+      void channel.untrack();
+    }
+
     void channel
       .send({
         type: "broadcast",
@@ -1400,7 +1411,59 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             self: false,
             ack: true,
           },
+          presence: {
+            key: currentUserId,
+          },
         },
+      })
+      .on("presence", { event: "sync" }, () => {
+        console.info("[typing] received payload", { source: "presence-sync", roomId });
+
+        const currentRoom = roomSnapshotRef.current;
+        if (!currentRoom || currentRoom.id !== roomId) {
+          return;
+        }
+
+        const presenceState = typeof channel.presenceState === "function"
+          ? (channel.presenceState() as Record<string, Array<{ roomId?: string; userId?: string; typing?: boolean; updatedAt?: string }>>)
+          : {};
+
+        const remoteEntries = Object.values(presenceState).flatMap((entries) => entries ?? []).filter((entry) => entry?.roomId === roomId && entry?.userId && entry.userId !== currentUserId && entry.typing);
+        const latestRemote = remoteEntries.reduce<{ roomId?: string; userId?: string; typing?: boolean; updatedAt?: string } | null>((current, candidate) => {
+          if (!current) {
+            return candidate;
+          }
+
+          const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+          const candidateTime = candidate.updatedAt ? new Date(candidate.updatedAt).getTime() : 0;
+          return candidateTime >= currentTime ? candidate : current;
+        }, null);
+
+        if (!latestRemote) {
+          console.info("[typing] remote user typing false", { roomId, userId: null });
+          clearTypingIndicator();
+          return;
+        }
+
+        console.info("[typing] remote user typing true", {
+          roomId,
+          userId: latestRemote.userId,
+        });
+
+        if (typingIndicatorTimeoutRef.current) {
+          window.clearTimeout(typingIndicatorTimeoutRef.current);
+        }
+
+        setTypingIndicator({
+          roomId,
+          senderId: latestRemote.userId ?? "",
+          displayName: currentRoom.partner?.username ?? "Stranger",
+          updatedAt: latestRemote.updatedAt ?? new Date().toISOString(),
+        });
+
+        typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+          clearTypingIndicator();
+        }, 1800);
       })
       .on("broadcast", { event: "typing" }, (payload) => {
         console.info("[typing] received payload", payload);
@@ -1440,7 +1503,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
           typingIndicatorTimeoutRef.current = window.setTimeout(() => {
             clearTypingIndicator();
-          }, 1600);
+          }, 1800);
           return;
         }
 
@@ -1450,7 +1513,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
         clearTypingIndicator();
       })
-
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
         const inserted = payload.new as {
           id: string;
