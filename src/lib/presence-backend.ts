@@ -88,6 +88,10 @@ interface LiveRoomRow {
   started_at: string;
   ended_at: string | null;
   voice_enabled: boolean;
+  rtc_state: string | null;
+  rtc_connection_id: string | null;
+  rtc_updated_at: string | null;
+  voice_unlocked_at: string | null;
   typing_user_id: string | null;
   typing_updated_at: string | null;
 }
@@ -254,7 +258,7 @@ export async function cleanupUserSession(userId: string) {
   const [roomsResult, queueResult] = await Promise.all([
     supabase
       .from("rooms")
-      .update({ ended_at: endedAt })
+      .update({ ended_at: endedAt, rtc_state: "idle", rtc_connection_id: null, rtc_updated_at: endedAt })
       .is("ended_at", null)
       .or(`user_a.eq.${userId},user_b.eq.${userId}`),
 
@@ -406,8 +410,8 @@ export async function createRoomRecord(userA: string, userB: string) {
 
   const { data, error } = await supabase
     .from("rooms")
-    .insert({ user_a: userA, user_b: userB, voice_enabled: false })
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
+    .insert({ user_a: userA, user_b: userB, voice_enabled: false, rtc_state: "idle" })
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, rtc_state, rtc_connection_id, rtc_updated_at, voice_unlocked_at, typing_user_id, typing_updated_at")
     .single();
 
   if (error) {
@@ -422,19 +426,24 @@ export async function createRoomRecord(userA: string, userB: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    rtcState: (room.rtc_state as RoomSession["rtcState"]) ?? "idle",
+    rtcConnectionId: room.rtc_connection_id,
+    rtcUpdatedAt: room.rtc_updated_at,
+    voiceUnlockedAt: room.voice_unlocked_at,
     typingUserId: room.typing_user_id,
     typingUpdatedAt: room.typing_updated_at,
   };
 }
 
 export async function loadActiveRoomForUser(userId: string) {
+
   if (!hasSupabaseConfig) {
     return null;
   }
 
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, rtc_state, rtc_connection_id, rtc_updated_at, voice_unlocked_at, typing_user_id, typing_updated_at")
     .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .is("ended_at", null)
     .order("started_at", { ascending: false })
@@ -457,19 +466,24 @@ export async function loadActiveRoomForUser(userId: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    rtcState: (room.rtc_state as RoomSession["rtcState"]) ?? "idle",
+    rtcConnectionId: room.rtc_connection_id,
+    rtcUpdatedAt: room.rtc_updated_at,
+    voiceUnlockedAt: room.voice_unlocked_at,
     typingUserId: room.typing_user_id,
     typingUpdatedAt: room.typing_updated_at,
   };
 }
 
 export async function loadRoomById(roomId: string) {
+
   if (!hasSupabaseConfig) {
     return null;
   }
 
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, typing_user_id, typing_updated_at")
+    .select("id, user_a, user_b, started_at, ended_at, voice_enabled, rtc_state, rtc_connection_id, rtc_updated_at, voice_unlocked_at, typing_user_id, typing_updated_at")
     .eq("id", roomId)
     .maybeSingle();
 
@@ -489,12 +503,17 @@ export async function loadRoomById(roomId: string) {
     startedAt: room.started_at,
     endedAt: room.ended_at ?? undefined,
     voiceEnabled: room.voice_enabled,
+    rtcState: (room.rtc_state as RoomSession["rtcState"]) ?? "idle",
+    rtcConnectionId: room.rtc_connection_id,
+    rtcUpdatedAt: room.rtc_updated_at,
+    voiceUnlockedAt: room.voice_unlocked_at,
     typingUserId: room.typing_user_id,
     typingUpdatedAt: room.typing_updated_at,
   };
 }
 
 export async function loadRoomMessages(roomId: string) {
+
   if (!hasSupabaseConfig) {
     return [] as ChatMessage[];
   }
@@ -534,6 +553,10 @@ export async function persistRoom(room: RoomSession) {
     started_at: room.startedAt,
     ended_at: room.endedAt ?? null,
     voice_enabled: room.voiceEnabled,
+    rtc_state: room.rtcState ?? "idle",
+    rtc_connection_id: room.rtcConnectionId ?? null,
+    rtc_updated_at: room.rtcUpdatedAt ?? null,
+    voice_unlocked_at: room.voiceUnlockedAt ?? null,
     typing_user_id: room.typingUserId ?? null,
     typing_updated_at: room.typingUpdatedAt ?? null,
   });
@@ -629,7 +652,13 @@ export async function endRoom(room: RoomSession) {
 
   const { error } = await supabase
     .from("rooms")
-    .update({ ended_at: room.endedAt ?? new Date().toISOString(), voice_enabled: room.voiceEnabled })
+    .update({
+      ended_at: room.endedAt ?? new Date().toISOString(),
+      voice_enabled: room.voiceEnabled,
+      rtc_state: "idle",
+      rtc_connection_id: null,
+      rtc_updated_at: new Date().toISOString(),
+    })
     .eq("id", room.id);
 
   if (error) {

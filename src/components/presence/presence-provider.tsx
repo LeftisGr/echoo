@@ -66,13 +66,16 @@ interface RealtimePresenceStats {
 }
 
 interface RoomRecord {
-
   id: string;
   userA: string;
   userB: string;
   startedAt: string;
   endedAt?: string;
   voiceEnabled: boolean;
+  rtcState?: RoomSession["rtcState"];
+  rtcConnectionId?: string | null;
+  rtcUpdatedAt?: string | null;
+  voiceUnlockedAt?: string | null;
   typingUserId?: string | null;
   typingUpdatedAt?: string | null;
 }
@@ -658,6 +661,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     roomSnapshotRef.current = room;
   }, [room]);
+
+  useEffect(() => {
+    if (!room?.rtcState || room.rtcState === "idle") {
+      return;
+    }
+
+    setVoiceState((current) => (current === room.rtcState ? current : room.rtcState));
+  }, [room?.rtcState]);
+
+  useEffect(() => {
+    if (!room?.endedAt) {
+      return;
+    }
+
+    stopVoiceChat();
+  }, [room?.endedAt, stopVoiceChat]);
 
   useEffect(() => {
     setIsAdmin(profile?.role === "admin");
@@ -1267,6 +1286,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           started_at: string;
           ended_at: string | null;
           voice_enabled: boolean;
+          rtc_state: RoomSession["rtcState"] | null;
+          rtc_connection_id: string | null;
+          rtc_updated_at: string | null;
+          voice_unlocked_at: string | null;
           typing_user_id: string | null;
           typing_updated_at: string | null;
         };
@@ -1280,11 +1303,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             ...current,
             endedAt: updated.ended_at ?? undefined,
             voiceEnabled: updated.voice_enabled,
+            rtcState: updated.rtc_state ?? current.rtcState,
+            rtcConnectionId: updated.rtc_connection_id,
+            rtcUpdatedAt: updated.rtc_updated_at,
+            voiceUnlockedAt: updated.voice_unlocked_at,
             typingUserId: updated.typing_user_id,
             typingUpdatedAt: updated.typing_updated_at,
             status: updated.ended_at ? "ended" : "active",
           };
         });
+
       })
       .subscribe();
 
@@ -1308,6 +1336,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       startedAt: roomBase.startedAt,
       endedAt: roomBase.endedAt,
       voiceEnabled: roomBase.voiceEnabled,
+      rtcState: roomBase.rtcState ?? "idle",
+      rtcConnectionId: roomBase.rtcConnectionId ?? null,
+      rtcUpdatedAt: roomBase.rtcUpdatedAt ?? null,
+      voiceUnlockedAt: roomBase.voiceUnlockedAt ?? null,
       status: roomBase.endedAt ? "ended" : "active",
       partner: null,
       messages: [],
@@ -1472,6 +1504,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    stopVoiceChat();
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
     stopQueueSubscriptions();
@@ -1493,7 +1526,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setUserId(null);
     setProfile(null);
     toast(copy.misc.signedOut);
-  }, [copy.misc.signedOut]);
+  }, [copy.misc.signedOut, profile, stopVoiceChat]);
 
 
   const rerollUsername = useCallback(() => {
@@ -1633,6 +1666,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       const nextRoom = {
         ...current,
         voiceEnabled: true,
+        voiceUnlockedAt: new Date().toISOString(),
       };
       void persistRoom(nextRoom);
       toast.success(copy.session.voiceUnlocked);
@@ -1676,6 +1710,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setVoiceState("idle");
   }, []);
 
+  const handleVoiceStateChange = useCallback(
+    (nextState: VoiceState) => {
+      setVoiceState(nextState);
+
+      if (nextState === "connected") {
+        toast.success(copy.session.connected);
+        if (hapticsEnabled) {
+          vibrate([40, 30, 60]);
+        }
+      }
+
+      if (nextState === "failed") {
+        toast.error(language === "en" ? "Voice connection failed." : "Η σύνδεση φωνής απέτυχε.");
+      }
+    },
+    [copy.session.connected, hapticsEnabled, language],
+  );
+
   const startVoiceChat = useCallback(
     async (audioElement: HTMLAudioElement) => {
       if (!room || !userId) {
@@ -1693,16 +1745,32 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           currentUserId: userId,
           userA: room.userA,
           userB: room.userB,
+          connectionId: room.rtcConnectionId ?? null,
+          onStateChange: handleVoiceStateChange,
         });
-        setVoiceState("connected");
-        toast.success(copy.session.connected);
-        if (hapticsEnabled) {
-          vibrate([40, 30, 60]);
-        }
-      } catch {
+
+      } catch (error) {
+
         setVoiceState("error");
-        toast.error(language === "en" ? "Microphone permission was not granted." : "Δεν δόθηκε άδεια στο μικρόφωνο.");
+        const errorMessage =
+          error instanceof DOMException
+            ? error.name === "NotAllowedError"
+              ? language === "en"
+                ? "Microphone permission was not granted."
+                : "Δεν δόθηκε άδεια στο μικρόφωνο."
+              : error.name === "NotFoundError"
+                ? language === "en"
+                  ? "No microphone was found."
+                  : "Δεν βρέθηκε μικρόφωνο."
+                : error.message
+            : error instanceof Error
+              ? error.message
+              : language === "en"
+                ? "Voice could not start."
+                : "Η φωνή δεν μπόρεσε να ξεκινήσει.";
+        toast.error(errorMessage);
       }
+
     },
     [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
   );

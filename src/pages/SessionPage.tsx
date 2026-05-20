@@ -69,6 +69,7 @@ const SessionPage = () => {
   const shouldForceScrollRef = useRef(true);
   const isNearBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef<string | null>(null);
+  const lastVoiceUnlockAtRef = useRef<string | null>(null);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -88,16 +89,20 @@ const SessionPage = () => {
       return;
     }
 
+    if (room.id !== routeRoomId) {
+      lastVoiceUnlockAtRef.current = null;
+      setVoiceUnlockPromptOpen(false);
+    }
+
     const syncSessionTimer = () => {
       const elapsedSeconds = Math.floor((Date.now() - new Date(room.startedAt).getTime()) / 1000);
       const nextRemaining = Math.max(sessionDurationSeconds - elapsedSeconds, 0);
       setSessionRemaining(nextRemaining);
 
-      if (nextRemaining === 0 && !room.voiceEnabled) {
+      if (nextRemaining === 0 && !room.voiceUnlockedAt) {
         unlockVoice();
         setVoiceUnlockPromptOpen(true);
       }
-
     };
 
     syncSessionTimer();
@@ -106,7 +111,7 @@ const SessionPage = () => {
 
     const interval = window.setInterval(syncSessionTimer, 1000);
     return () => window.clearInterval(interval);
-  }, [room?.id, room?.startedAt, room?.voiceEnabled, unlockVoice]);
+  }, [room?.id, room?.startedAt, room?.voiceUnlockedAt, unlockVoice, routeRoomId]);
 
 
   useEffect(() => {
@@ -163,6 +168,17 @@ const SessionPage = () => {
     const timeout = window.setTimeout(() => setPartnerTyping(false), 1600);
     return () => window.clearTimeout(timeout);
   }, [guestMode, profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
+
+  useEffect(() => {
+    if (!room?.voiceUnlockedAt || room.voiceUnlockedAt === lastVoiceUnlockAtRef.current) {
+      return;
+    }
+
+    lastVoiceUnlockAtRef.current = room.voiceUnlockedAt;
+    if (sessionRemaining === 0) {
+      setVoiceUnlockPromptOpen(true);
+    }
+  }, [room?.voiceUnlockedAt, sessionRemaining]);
 
   useEffect(() => {
     const node = chatEndRef.current;
@@ -299,7 +315,8 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
-  const voiceReady = room.voiceEnabled && sessionRemaining === 0;
+  const voiceReady = room.voiceEnabled && sessionRemaining === 0 && voiceState !== "connecting" && voiceState !== "reconnecting";
+
   const timerUrgent = sessionRemaining <= 60;
   const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
 

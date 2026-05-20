@@ -14,7 +14,9 @@ export type RatingScore = "good" | "neutral" | "bad";
 
 export type RoomStatus = "idle" | "active" | "ended";
 
-export type VoiceState = "idle" | "connecting" | "connected" | "error";
+export type VoiceState = "idle" | "connecting" | "connected" | "reconnecting" | "failed" | "error";
+
+export type RtcConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "failed";
 
 export type ProfileRole = "member" | "admin";
 
@@ -60,6 +62,10 @@ export interface RoomSession {
   startedAt: string;
   endedAt?: string;
   voiceEnabled: boolean;
+  rtcState?: RtcConnectionState;
+  rtcConnectionId?: string | null;
+  rtcUpdatedAt?: string | null;
+  voiceUnlockedAt?: string | null;
   status: RoomStatus;
   partner: PartnerProfile | null;
   messages: ChatMessage[];
