@@ -256,6 +256,9 @@ export async function createPeerToPeerVoiceSession({
   let currentConnectionId = isInitiator ? crypto.randomUUID() : initialConnectionId ?? null;
   let activePeer: RTCPeerConnection | null = null;
   let remoteStream = new MediaStream();
+  let audioContext: AudioContext | null = null;
+  let audioSourceNode: MediaStreamAudioSourceNode | null = null;
+  let audioGainNode: GainNode | null = null;
   let signalChannel: ReturnType<typeof supabase.channel> | null = null;
   let pollTimer: number | null = null;
   let reconnectTimer: number | null = null;
@@ -287,14 +290,75 @@ export async function createPeerToPeerVoiceSession({
     signalChannel = null;
   };
 
+  const disconnectAudioGraph = () => {
+    audioSourceNode?.disconnect();
+    audioGainNode?.disconnect();
+    audioSourceNode = null;
+    audioGainNode = null;
+  };
+
+  const ensureAudioGraph = async (reason: string) => {
+    const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) {
+      rtcLog("audio context unavailable", { roomId, sessionId, reason });
+      return false;
+    }
+
+    if (!audioContext) {
+      audioContext = new AudioContextClass();
+      rtcLog("audio context created", { roomId, sessionId, reason, state: audioContext.state });
+    }
+
+    if (audioContext.state === "suspended") {
+      try {
+        await audioContext.resume();
+        rtcLog("audio context resumed", { roomId, sessionId, reason, state: audioContext.state });
+      } catch (error) {
+        rtcLog("audio context resume failed", {
+          roomId,
+          sessionId,
+          reason,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+    }
+
+    disconnectAudioGraph();
+    try {
+      audioGainNode = audioContext.createGain();
+      audioGainNode.gain.value = 1;
+      audioGainNode.connect(audioContext.destination);
+      audioSourceNode = audioContext.createMediaStreamSource(remoteStream);
+      audioSourceNode.connect(audioGainNode);
+      rtcLog("audio graph connected", {
+        roomId,
+        sessionId,
+        reason,
+        stream: streamSnapshot(remoteStream),
+        contextState: audioContext.state,
+      });
+      return true;
+    } catch (error) {
+      rtcLog("audio graph connection failed", {
+        roomId,
+        sessionId,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      disconnectAudioGraph();
+      return false;
+    }
+  };
+
   const ensureAudioPlayback = async (reason: string) => {
+
     if (stopped || !canContinue()) {
       return;
     }
 
     audioElement.srcObject = remoteStream;
     audioElement.autoplay = true;
-    audioElement.muted = false;
     audioElement.volume = 1;
     audioElement.setAttribute("playsinline", "true");
     audioElement.setAttribute("autoplay", "true");
@@ -306,6 +370,9 @@ export async function createPeerToPeerVoiceSession({
       stream: streamSnapshot(remoteStream),
     });
 
+    const graphReady = await ensureAudioGraph(reason);
+    audioElement.muted = graphReady;
+
     try {
       await audioElement.play();
       rtcLog("audio playback success", {
@@ -314,6 +381,7 @@ export async function createPeerToPeerVoiceSession({
         reason,
         muted: audioElement.muted,
         paused: audioElement.paused,
+        graphReady,
       });
       return;
     } catch (error) {
@@ -322,7 +390,29 @@ export async function createPeerToPeerVoiceSession({
         sessionId,
         reason,
         error: error instanceof Error ? error.message : String(error),
+        graphReady,
       });
+    }
+
+    if (graphReady) {
+      try {
+        audioElement.muted = false;
+        await audioElement.play();
+        rtcLog("audio playback success after graph retry", {
+          roomId,
+          sessionId,
+          reason,
+          muted: audioElement.muted,
+        });
+        return;
+      } catch (error) {
+        rtcLog("audio graph retry failed", {
+          roomId,
+          sessionId,
+          reason,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     try {
@@ -412,9 +502,16 @@ export async function createPeerToPeerVoiceSession({
     cleanupPeer();
     audioElement.pause();
     audioElement.srcObject = null;
+    disconnectAudioGraph();
+    if (audioContext) {
+      await audioContext.close().catch(() => undefined);
+      audioContext = null;
+      rtcLog("audio context closed", { roomId, sessionId });
+    }
     Object.entries(audioEventHandlers).forEach(([eventName, handler]) => {
       audioElement.removeEventListener(eventName, handler);
     });
+
     localStream.getTracks().forEach((track) => {
       rtcLog("local track stopped during teardown", { roomId, sessionId, ...trackSnapshot(track) });
       track.stop();
