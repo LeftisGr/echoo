@@ -686,6 +686,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const queueTimersRef = useRef<number[]>([]);
   const typingIndicatorTimeoutRef = useRef<number | null>(null);
+  const typingIndicatorLogRef = useRef<{ senderId: string | null; typing: boolean } | null>(null);
 
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -750,6 +751,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       typingIndicatorTimeoutRef.current = null;
     }
 
+    typingIndicatorLogRef.current = null;
     setTypingIndicator(null);
   }, []);
 
@@ -767,20 +769,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       senderId: currentUser,
     });
 
-    void channel.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
+    if (typing) {
+      void channel.track({
         roomId: currentRoom.id,
         senderId: currentUser,
-        typing,
+        typing: true,
         updatedAt: new Date().toISOString(),
-      },
-    });
-
-    if (!typing) {
-      clearTypingIndicator();
+      });
+      return;
     }
+
+    void channel.untrack();
+    clearTypingIndicator();
   }, [clearTypingIndicator, userId]);
 
   useEffect(() => {
@@ -1287,6 +1287,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   function stopRoomSubscriptions() {
+    void roomChannelRef.current?.untrack?.();
     roomChannelRef.current?.unsubscribe();
     roomChannelRef.current = null;
     clearTypingIndicator();
@@ -1380,58 +1381,74 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   function subscribeToRoom(roomId: string, currentUserId: string) {
-
     stopRoomSubscriptions();
 
     const channel = supabase
-      .channel(`presence-room-${roomId}`)
-      .on("broadcast", { event: "typing" }, (payload) => {
-        const nextTyping = payload.payload as {
-          roomId?: string;
-          senderId?: string;
-          typing?: boolean;
-          updatedAt?: string;
-        } | null;
-
-        if (!nextTyping || nextTyping.roomId !== roomId || !nextTyping.senderId || nextTyping.senderId === currentUserId) {
-
-          return;
-        }
-
+      .channel(`presence-room-${roomId}`, {
+        config: {
+          presence: {
+            key: currentUserId,
+          },
+        },
+      })
+      .on("presence", { event: "sync" }, () => {
         const currentRoom = roomSnapshotRef.current;
         if (!currentRoom || currentRoom.id !== roomId) {
           return;
         }
 
-        if (nextTyping.typing) {
-          console.info("[typing] received typing=true", {
-            roomId,
-            senderId: nextTyping.senderId,
-          });
+        const presenceState = typeof channel.presenceState === "function" ? (channel.presenceState() as Record<string, Array<{ roomId?: string; senderId?: string; typing?: boolean; updatedAt?: string }>>) : {};
+        const activeTyping = Object.values(presenceState)
+          .flatMap((entries) => entries ?? [])
+          .filter((entry) => entry?.roomId === roomId && entry?.senderId && entry.senderId !== currentUserId && entry.typing);
 
-          if (typingIndicatorTimeoutRef.current) {
-            window.clearTimeout(typingIndicatorTimeoutRef.current);
+        const latestTyping = activeTyping.reduce<{ roomId?: string; senderId?: string; typing?: boolean; updatedAt?: string } | null>((current, candidate) => {
+          if (!current) {
+            return candidate;
           }
 
-          const displayName = currentRoom.partner?.username ?? "User";
-          setTypingIndicator({
-            roomId,
-            senderId: nextTyping.senderId,
-            displayName,
-            updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
-          });
+          const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+          const candidateTime = candidate.updatedAt ? new Date(candidate.updatedAt).getTime() : 0;
+          return candidateTime >= currentTime ? candidate : current;
+        }, null);
 
-          typingIndicatorTimeoutRef.current = window.setTimeout(() => {
-            clearTypingIndicator();
-          }, 1600);
+        if (!latestTyping) {
+          if (typingIndicatorLogRef.current?.typing) {
+            console.info("[typing] received typing=false", { roomId, senderId: typingIndicatorLogRef.current.senderId });
+          }
+          clearTypingIndicator();
           return;
         }
 
-        console.info("[typing] received typing=false", {
+        const updatedAt = latestTyping.updatedAt ?? new Date().toISOString();
+        const isFresh = Date.now() - new Date(updatedAt).getTime() < 2200;
+        if (!isFresh) {
+          if (typingIndicatorLogRef.current?.typing) {
+            console.info("[typing] received typing=false", { roomId, senderId: typingIndicatorLogRef.current.senderId });
+          }
+          clearTypingIndicator();
+          return;
+        }
+
+        if (typingIndicatorLogRef.current?.senderId !== latestTyping.senderId || !typingIndicatorLogRef.current?.typing) {
+          console.info("[typing] received typing=true", { roomId, senderId: latestTyping.senderId });
+          typingIndicatorLogRef.current = { senderId: latestTyping.senderId ?? null, typing: true };
+        }
+
+        if (typingIndicatorTimeoutRef.current) {
+          window.clearTimeout(typingIndicatorTimeoutRef.current);
+        }
+
+        setTypingIndicator({
           roomId,
-          senderId: nextTyping.senderId,
+          senderId: latestTyping.senderId ?? "",
+          displayName: currentRoom.partner?.username ?? "User",
+          updatedAt,
         });
-        clearTypingIndicator();
+
+        typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+          clearTypingIndicator();
+        }, 2400);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
         const inserted = payload.new as {
@@ -1499,7 +1516,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             status: updated.ended_at ? "ended" : "active",
           };
         });
-
       })
       .subscribe();
 
