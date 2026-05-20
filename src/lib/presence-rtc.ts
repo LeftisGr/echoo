@@ -160,12 +160,25 @@ export async function createPeerToPeerVoiceSession({
     try {
       await audioElement.play();
       rtcLog("audio playback started", { roomId, reason });
-
+      return;
     } catch (error) {
       rtcLog("audio playback error", {
         roomId,
         reason,
         error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      audioElement.muted = true;
+      await audioElement.play();
+      audioElement.muted = false;
+      rtcLog("audio playback started with muted fallback", { roomId, reason });
+    } catch (fallbackError) {
+      rtcLog("audio playback fallback failed", {
+        roomId,
+        reason,
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
       });
     }
   };

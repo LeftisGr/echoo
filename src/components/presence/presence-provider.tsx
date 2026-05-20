@@ -764,7 +764,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      navigator.vibrate(8);
+      vibrate(8);
+
     };
 
     window.addEventListener("pointerdown", handlePointerDown, { passive: true });

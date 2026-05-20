@@ -718,7 +718,8 @@ const SessionPage = () => {
           </div>
         </footer>
 
-        <audio ref={audioRef} className="hidden" />
+        <audio ref={audioRef} className="pointer-events-none absolute h-px w-px opacity-0" autoPlay playsInline aria-hidden="true" />
+
       </div>
 
       <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
