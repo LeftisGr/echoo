@@ -785,10 +785,6 @@ const SessionPage = () => {
                     )}
                   </div>
                 </div>
-                <div className="mt-2 text-[11px] uppercase tracking-[0.24em] text-white/30">
-                  Typing debug: {typingIndicator ? "true" : "false"}
-                </div>
-
               </form>
 
             ) : (

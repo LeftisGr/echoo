@@ -7,6 +7,9 @@ import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
+import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
+import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
+import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import ContactPage from "@/pages/ContactPage";
@@ -43,6 +46,7 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { appReady, initializing } = usePresence();
+  const { isStandalone } = usePwaInstall();
   const initialRouteHandledRef = useRef(false);
 
   const storedRoute = readStoredRoute();
@@ -64,7 +68,9 @@ function AppRoutes() {
   }, [appReady, location.pathname, navigate, storedRoute]);
 
   if (initializing || !appReady) {
-    return (
+    return isStandalone ? (
+      <PwaSplashScreen message="Restoring your session..." />
+    ) : (
       <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.35em] text-white/35">Echoo</p>
@@ -100,15 +106,18 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <PresenceProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner position="top-center" richColors />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </PresenceProvider>
+      <PwaProvider>
+        <PwaBootstrap />
+        <PresenceProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="top-center" richColors />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </PresenceProvider>
+      </PwaProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

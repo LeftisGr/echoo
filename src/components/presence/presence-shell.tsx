@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/components/presence/presence-provider";
+import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 function MenuSheet() {
   const { copy } = usePresence();
@@ -126,10 +127,12 @@ export function PageShell({
             <PresenceLogo />
           </Link>
           <div className="flex items-center gap-2">
+            <PwaInstallButton compact />
             <LanguageToggle />
             <ProfileButton />
           </div>
         </header>
+
         <main className={cn("flex-1", className)}>{children}</main>
       </div>
     </div>

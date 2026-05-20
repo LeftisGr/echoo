@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { ArrowRight, Clock3, MessageSquareText, Mic, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -11,26 +10,11 @@ import {
   Surface,
 } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-};
+import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 const Index = () => {
 
   const { copy, adminMetrics, language } = usePresence();
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-  }, []);
 
   const steps = [
     {
@@ -153,28 +137,14 @@ const Index = () => {
                   {copy.landing.heroSecondary}
                 </Button>
               </a>
-              {installPrompt && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 rounded-full border-violet-400/20 bg-violet-400/10 px-6 text-violet-50 hover:bg-violet-400/15 hover:text-violet-50"
-                  onClick={async () => {
-                    installPrompt.prompt();
-                    await installPrompt.userChoice;
-                    setInstallPrompt(null);
-                  }}
-                >
-                  {copy.landing.getApp}
-                </Button>
-              )}
+              <PwaInstallButton />
             </div>
-            {!installPrompt && (
-              <p className="text-xs text-white/45">
-                {language === "en"
-                  ? "Install the app from your browser menu when prompted."
-                  : "Εγκατέστησέ το από το μενού του browser όταν εμφανιστεί η επιλογή."}
-              </p>
-            )}
+            <p className="text-xs text-white/45">
+              {language === "en"
+                ? "Echoo is installable on Chrome, Edge, Android, and desktop when your browser supports it."
+                : "Το Echoo εγκαθίσταται σε Chrome, Edge, Android και desktop όταν ο browser το υποστηρίζει."}
+            </p>
+
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-3xl border border-white/10 bg-black/30 p-4">
                 <p className="text-2xl font-semibold text-white">{adminMetrics.usersOnlineNow}</p>
