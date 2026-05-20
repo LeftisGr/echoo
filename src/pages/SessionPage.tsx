@@ -207,7 +207,47 @@ const SessionPage = () => {
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
+  const voiceReady =
+    room?.voiceEnabled &&
+    sessionRemaining === 0 &&
+    voiceState !== "requesting-microphone" &&
+    voiceState !== "connecting" &&
+    voiceState !== "reconnecting";
+  const pushToTalkAvailable = voiceReady && voiceState === "connected";
+
+  const releasePushToTalk = useCallback(() => {
+    setPushToTalkPressed(false);
+    setVoiceTransmissionEnabled(false);
+  }, [setVoiceTransmissionEnabled]);
+
+  const handlePushToTalkPress = useCallback(() => {
+    if (!voiceReady || voiceState !== "connected") {
+      return;
+    }
+
+    setPushToTalkPressed(true);
+    setVoiceTransmissionEnabled(true);
+  }, [setVoiceTransmissionEnabled, voiceReady, voiceState]);
+
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      releasePushToTalk();
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [releasePushToTalk]);
+
+  useEffect(() => {
+    if (voiceState !== "connected" && pushToTalkPressed) {
+      releasePushToTalk();
+    }
+  }, [pushToTalkPressed, releasePushToTalk, voiceState]);
+
+  useEffect(() => () => releasePushToTalk(), [releasePushToTalk]);
+
   const publishTypingState = (isTyping: boolean) => {
+
     if (!room || !profile?.id || guestMode) {
       return;
     }
@@ -314,15 +354,9 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
-  const voiceReady =
-    room.voiceEnabled &&
-    sessionRemaining === 0 &&
-    voiceState !== "requesting-microphone" &&
-    voiceState !== "connecting" &&
-    voiceState !== "reconnecting";
-  const pushToTalkAvailable = voiceReady && voiceState === "connected";
 
   const voiceStatusLabel =
+
     voiceState === "requesting-microphone"
       ? language === "en"
         ? "Requesting microphone..."
@@ -399,37 +433,6 @@ const SessionPage = () => {
 
     scheduleTypingState(value);
   };
-
-  const releasePushToTalk = useCallback(() => {
-    setPushToTalkPressed(false);
-    setVoiceTransmissionEnabled(false);
-  }, [setVoiceTransmissionEnabled]);
-
-  const handlePushToTalkPress = useCallback(() => {
-    if (!voiceReady || voiceState !== "connected") {
-      return;
-    }
-
-    setPushToTalkPressed(true);
-    setVoiceTransmissionEnabled(true);
-  }, [setVoiceTransmissionEnabled, voiceReady, voiceState]);
-
-  useEffect(() => {
-    const handleWindowBlur = () => {
-      releasePushToTalk();
-    };
-
-    window.addEventListener("blur", handleWindowBlur);
-    return () => window.removeEventListener("blur", handleWindowBlur);
-  }, [releasePushToTalk]);
-
-  useEffect(() => {
-    if (voiceState !== "connected" && pushToTalkPressed) {
-      releasePushToTalk();
-    }
-  }, [pushToTalkPressed, releasePushToTalk, voiceState]);
-
-  useEffect(() => () => releasePushToTalk(), [releasePushToTalk]);
 
   if (isEnded) {
 
