@@ -685,11 +685,43 @@ const SessionPage = () => {
                     placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
                     className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                   />
-                  <div className="w-14" aria-hidden="true" />
 
-                  <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
-                    {copy.session.send}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {pushToTalkAvailable && (
+                      <Button
+                        type="button"
+                        className={cn(
+                          "h-14 w-14 rounded-full border border-white/10 bg-[#10182b] text-white shadow-lg shadow-black/20 transition-transform duration-150 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-95",
+                          pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-100",
+                          "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
+                        )}
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          try {
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                          } catch {
+                            /* noop */
+                          }
+                          handlePushToTalkPress();
+                        }}
+                        onPointerUp={releasePushToTalk}
+                        onPointerCancel={releasePushToTalk}
+                        onPointerLeave={releasePushToTalk}
+                        onLostPointerCapture={releasePushToTalk}
+                        onTouchEnd={releasePushToTalk}
+                        onTouchCancel={releasePushToTalk}
+                        onBlur={releasePushToTalk}
+                        onContextMenu={(event) => event.preventDefault()}
+                        aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+                      >
+                        <Mic className={cn("h-5 w-5", pushToTalkPressed && "animate-pulse")} />
+                      </Button>
+                    )}
+
+                    <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
+                      {copy.session.send}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex min-h-[2.5rem] items-center gap-3">
@@ -848,76 +880,6 @@ const SessionPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {(pushToTalkAvailable || voicePlaybackBlocked) && (
-        <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-50 flex flex-col items-center gap-2">
-          {voicePlaybackBlocked && (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 rounded-full border-emerald-300/20 bg-emerald-300/10 px-4 text-xs font-medium text-emerald-50 shadow-lg shadow-emerald-500/10 hover:bg-emerald-300/15 hover:text-white"
-              onClick={async () => {
-                await enableVoicePlayback();
-              }}
-            >
-              {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
-            </Button>
-          )}
-          {pushToTalkAvailable && (
-            <>
-              <div
-                className={cn(
-                  "rounded-full border border-white/10 bg-[#10182b]/95 p-2 shadow-2xl shadow-black/40 backdrop-blur-xl",
-                  pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 shadow-emerald-500/20",
-                )}
-              >
-                <Button
-                  type="button"
-                  className={cn(
-                    "h-16 w-16 rounded-full border-0 bg-violet-500 text-white transition-transform duration-150 hover:bg-violet-400 focus-visible:ring-2 focus-visible:ring-violet-300/40",
-                    pushToTalkPressed && "scale-95 bg-emerald-400 hover:bg-emerald-300",
-                    "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
-                  )}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    try {
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                    } catch {
-                      /* noop */
-                    }
-                    handlePushToTalkPress();
-                  }}
-                  onPointerUp={releasePushToTalk}
-                  onPointerCancel={releasePushToTalk}
-                  onPointerLeave={releasePushToTalk}
-                  onLostPointerCapture={releasePushToTalk}
-                  onTouchEnd={releasePushToTalk}
-                  onTouchCancel={releasePushToTalk}
-                  onBlur={releasePushToTalk}
-                  onContextMenu={(event) => event.preventDefault()}
-                  aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
-                >
-                  <Mic className={cn("h-6 w-6", pushToTalkPressed && "animate-pulse")} />
-                </Button>
-              </div>
-              <div
-                className={cn(
-                  "rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-[0.3em]",
-                  pushToTalkPressed ? "bg-emerald-400/15 text-emerald-100" : "bg-white/5 text-white/40",
-                )}
-              >
-                {pushToTalkPressed
-                  ? language === "en"
-                    ? "Speaking"
-                    : "Μιλάς"
-                  : language === "en"
-                    ? "Hold to talk"
-                    : "Κράτα για ομιλία"}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
     </div>
   );

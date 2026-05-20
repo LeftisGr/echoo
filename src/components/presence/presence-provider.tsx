@@ -1749,23 +1749,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       const unlockedAt = new Date().toISOString();
-      const voiceNotice = copy.session.voiceAvailablePrompt;
-      const nextMessages = current.messages.some((message) => message.type === "system" && message.content === voiceNotice)
-        ? current.messages
-        : [...current.messages, createSystemMessage(current.id, voiceNotice)];
-
       const nextRoom = {
         ...current,
         voiceEnabled: true,
         voiceUnlockedAt: unlockedAt,
-        messages: nextMessages,
       };
       void persistRoom(nextRoom);
       toast.success(copy.session.voiceUnlocked);
       return nextRoom;
     });
-  }, [copy.session.voiceAvailablePrompt, copy.session.voiceUnlocked]);
-
+  }, [copy.session.voiceUnlocked]);
   const sendMessage = useCallback(
     async (content: string) => {
       if (!room || !profile || !content.trim()) {
