@@ -431,6 +431,9 @@ class ChannelShim {
   untrack() {
     return Promise.resolve();
   }
+  send() {
+    return Promise.resolve({});
+  }
 }
 
 export function createClient(url: string, key: string) {

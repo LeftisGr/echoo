@@ -769,18 +769,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       senderId: currentUser,
     });
 
-    if (typing) {
-      void channel.track({
+    void channel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
         roomId: currentRoom.id,
         senderId: currentUser,
-        typing: true,
+        typing,
         updatedAt: new Date().toISOString(),
-      });
-      return;
-    }
+      },
+    });
 
-    void channel.untrack();
-    clearTypingIndicator();
+    if (!typing) {
+      clearTypingIndicator();
+    }
   }, [clearTypingIndicator, userId]);
 
   useEffect(() => {
@@ -1384,71 +1386,52 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopRoomSubscriptions();
 
     const channel = supabase
-      .channel(`presence-room-${roomId}`, {
-        config: {
-          presence: {
-            key: currentUserId,
-          },
-        },
-      })
-      .on("presence", { event: "sync" }, () => {
+      .channel(`presence-room-${roomId}`)
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const nextTyping = payload.payload as {
+          roomId?: string;
+          senderId?: string;
+          typing?: boolean;
+          updatedAt?: string;
+        } | null;
+
+        if (!nextTyping || nextTyping.roomId !== roomId || !nextTyping.senderId || nextTyping.senderId === currentUserId) {
+          return;
+        }
+
         const currentRoom = roomSnapshotRef.current;
         if (!currentRoom || currentRoom.id !== roomId) {
           return;
         }
 
-        const presenceState = typeof channel.presenceState === "function" ? (channel.presenceState() as Record<string, Array<{ roomId?: string; senderId?: string; typing?: boolean; updatedAt?: string }>>) : {};
-        const activeTyping = Object.values(presenceState)
-          .flatMap((entries) => entries ?? [])
-          .filter((entry) => entry?.roomId === roomId && entry?.senderId && entry.senderId !== currentUserId && entry.typing);
+        if (nextTyping.typing) {
+          console.info("[typing] received typing=true", {
+            roomId,
+            senderId: nextTyping.senderId,
+          });
 
-        const latestTyping = activeTyping.reduce<{ roomId?: string; senderId?: string; typing?: boolean; updatedAt?: string } | null>((current, candidate) => {
-          if (!current) {
-            return candidate;
+          if (typingIndicatorTimeoutRef.current) {
+            window.clearTimeout(typingIndicatorTimeoutRef.current);
           }
 
-          const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-          const candidateTime = candidate.updatedAt ? new Date(candidate.updatedAt).getTime() : 0;
-          return candidateTime >= currentTime ? candidate : current;
-        }, null);
+          setTypingIndicator({
+            roomId,
+            senderId: nextTyping.senderId,
+            displayName: currentRoom.partner?.username ?? "User",
+            updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
+          });
 
-        if (!latestTyping) {
-          if (typingIndicatorLogRef.current?.typing) {
-            console.info("[typing] received typing=false", { roomId, senderId: typingIndicatorLogRef.current.senderId });
-          }
-          clearTypingIndicator();
+          typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+            clearTypingIndicator();
+          }, 1600);
           return;
         }
 
-        const updatedAt = latestTyping.updatedAt ?? new Date().toISOString();
-        const isFresh = Date.now() - new Date(updatedAt).getTime() < 2200;
-        if (!isFresh) {
-          if (typingIndicatorLogRef.current?.typing) {
-            console.info("[typing] received typing=false", { roomId, senderId: typingIndicatorLogRef.current.senderId });
-          }
-          clearTypingIndicator();
-          return;
-        }
-
-        if (typingIndicatorLogRef.current?.senderId !== latestTyping.senderId || !typingIndicatorLogRef.current?.typing) {
-          console.info("[typing] received typing=true", { roomId, senderId: latestTyping.senderId });
-          typingIndicatorLogRef.current = { senderId: latestTyping.senderId ?? null, typing: true };
-        }
-
-        if (typingIndicatorTimeoutRef.current) {
-          window.clearTimeout(typingIndicatorTimeoutRef.current);
-        }
-
-        setTypingIndicator({
+        console.info("[typing] received typing=false", {
           roomId,
-          senderId: latestTyping.senderId ?? "",
-          displayName: currentRoom.partner?.username ?? "User",
-          updatedAt,
+          senderId: nextTyping.senderId,
         });
-
-        typingIndicatorTimeoutRef.current = window.setTimeout(() => {
-          clearTypingIndicator();
-        }, 2400);
+        clearTypingIndicator();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
         const inserted = payload.new as {
