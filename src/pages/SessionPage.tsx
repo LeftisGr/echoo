@@ -560,7 +560,8 @@ const SessionPage = () => {
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-              <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{language === "en" ? "Private Session" : "Ιδιωτικό room"}</h1>
+              <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{copy.session.title}</h1>
+
             </div>
 
             <div className="text-center">
@@ -674,7 +675,8 @@ const SessionPage = () => {
                   <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
                     <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                       <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                        <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
+                        <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
+
                         <span>•</span>
                         <span>{timestamp}</span>
                       </div>
@@ -689,7 +691,8 @@ const SessionPage = () => {
                 <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start") }>
                   <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
+                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
+
                       <span>•</span>
                       <span>{timestamp}</span>
                     </div>

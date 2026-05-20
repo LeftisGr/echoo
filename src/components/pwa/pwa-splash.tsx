@@ -18,15 +18,16 @@ export function PwaSplashScreen({ message }: { message: string }) {
           <h1 className="text-3xl font-semibold tracking-tight text-white">
             {isStandalone
               ? language === "en"
-                ? "Opening your app..."
-                : "Ανοίγει η εφαρμογή..."
+                ? "Opening Echoo..."
+                : "Ανοίγει το Echoo..."
               : message}
           </h1>
           <p className="text-sm leading-6 text-white/55">
             {language === "en"
-              ? "Your installed Echoo app is being restored in standalone mode."
-              : "Η εγκατεστημένη εφαρμογή Echoo επανέρχεται σε standalone mode."}
+              ? "Your installed app is restoring in standalone mode."
+              : "Η εγκατεστημένη εφαρμογή επανέρχεται σε standalone mode."}
           </p>
+
         </div>
       </div>
     </div>

@@ -147,9 +147,10 @@ const AuthPage = () => {
             <h2 className="text-2xl font-semibold text-white">{copy.brand.name}</h2>
             <p className="text-sm leading-7 text-white/65">
               {language === "en"
-                ? "Sign in or sign up to unlock your personal profile, queue settings, and room history."
-                : "Συνδέσου ή κάνε εγγραφή για να ξεκλειδώσεις το προσωπικό προφίλ, τις ρυθμίσεις ουράς και το ιστορικό των rooms."}
+                ? "Sign in to keep your profile, queue preferences, and room history in one place."
+                : "Συνδέσου για να κρατήσεις το προφίλ, τις προτιμήσεις της ουράς και το ιστορικό σου σε ένα μέρος."}
             </p>
+
           </Surface>
         )}
       </Surface>

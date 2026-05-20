@@ -14,21 +14,23 @@ const PrivacyPage = () => {
             {[
               language === "en"
                 ? "Anonymous usernames are the default public identity."
-                : "Τα ανώνυμα usernames είναι η προεπιλεγμένη δημόσια ταυτότητα.",
+                : "Τα ανώνυμα usernames είναι η βασική δημόσια ταυτότητα.",
               language === "en"
-                ? "Photos are not part of the MVP."
-                : "Οι φωτογραφίες δεν αποτελούν μέρος του MVP.",
+                ? "Photos are intentionally kept out of the MVP."
+                : "Οι φωτογραφίες μένουν συνειδητά εκτός του MVP.",
               language === "en"
-                ? "Reports and ratings are stored for trust & safety operations."
-                : "Τα reports και οι αξιολογήσεις αποθηκεύονται για λειτουργίες trust & safety.",
+                ? "Reports and ratings are stored to support trust & safety."
+                : "Τα reports και οι αξιολογήσεις αποθηκεύονται για το trust & safety.",
             ].map((item) => (
+
               <div key={item} className="rounded-[22px] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/65">
                 {item}
               </div>
             ))}
           </div>
           <div className="rounded-[24px] border border-white/10 bg-[#090d17] p-4">
-            <p className="mb-3 text-sm uppercase tracking-[0.18em] text-white/40">MVP schema</p>
+            <p className="mb-3 text-sm uppercase tracking-[0.18em] text-white/40">Data model</p>
+
             <pre className="overflow-x-auto text-xs leading-6 text-white/55">{presenceSchemaSql}</pre>
           </div>
         </div>

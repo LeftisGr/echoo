@@ -11,18 +11,19 @@ const ContactPage = () => {
       <Surface className="space-y-5 p-6 sm:p-8">
         <SectionTitle title={copy.contact.title} body={copy.contact.body} />
         <div className="grid gap-4 sm:grid-cols-3">
-          <ContactCard icon={Mail} label="Email" value={copy.contact.email} />
+          <ContactCard icon={Mail} label={language === "en" ? "Email" : "Email"} value={copy.contact.email} />
           <ContactCard
             icon={MapPin}
-            label={language === "en" ? "Market" : "Αγορά"}
-            value={language === "en" ? "Greece first" : "Ελλάδα πρώτα"}
+            label={language === "en" ? "Focus" : "Προτεραιότητα"}
+            value={language === "en" ? "Greece first" : "Πρώτα Ελλάδα"}
           />
           <ContactCard
             icon={Shield}
-            label={language === "en" ? "Trust & Safety" : "Trust & Safety"}
-            value="safety@presence.app"
+            label={language === "en" ? "Trust & Safety" : "Ασφάλεια"}
+            value={language === "en" ? "Safety team" : "Ομάδα ασφάλειας"}
           />
         </div>
+
       </Surface>
     </PageShell>
   );

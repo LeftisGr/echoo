@@ -17,10 +17,11 @@ const SafetyPage = () => {
             { icon: TimerReset, title: copy.safety.actions[2], body: copy.session.leave },
             {
               icon: HandHeart,
-              title: language === "en" ? "Community rules" : "Κανόνες κοινότητας",
+              title: language === "en" ? "Shared rules" : "Κοινές αρχές",
               body: copy.safety.rules[0],
             },
           ].map(({ icon: Icon, title, body }) => (
+
             <div key={title} className="rounded-[24px] border border-white/10 bg-black/20 p-5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/15 text-violet-100">
                 <Icon className="h-5 w-5" />

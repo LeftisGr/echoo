@@ -22,9 +22,10 @@ const DashboardPage = () => {
         <Surface className="space-y-3 p-6 sm:p-8">
           <SectionTitle
             title={copy.dashboard.title}
-            body={language === "en" ? "Loading your nickname..." : "Φορτώνουμε το ψευδώνυμό σου..."}
+            body={language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."}
           />
         </Surface>
+
       </PageShell>
     );
   }
@@ -51,9 +52,10 @@ const DashboardPage = () => {
         </div>
         <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5">
           <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em] text-violet-100/70">
-            <span>{language === "en" ? "You are ready to connect as" : "Είσαι έτοιμος/η να συνδεθείς ως"}</span>
+            <span>{language === "en" ? "Ready to connect as" : "Έτοιμος/η να συνδεθείς ως"}</span>
             <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] text-white/80 hover:bg-white/5">{roleLabel}</Badge>
           </div>
+
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-3xl font-semibold text-white">{profile.username}</p>
             <Button
@@ -77,9 +79,10 @@ const DashboardPage = () => {
             <p className="mt-2 text-3xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
           </div>
           <div className="rounded-[24px] border border-white/10 bg-black/25 p-4">
-            <p className="text-sm text-white/50">{language === "en" ? "Live sync" : "Live sync"}</p>
+            <p className="text-sm text-white/50">{language === "en" ? "Live sync" : "Ζωντανή σύνδεση"}</p>
             <p className="mt-2 text-xl font-semibold text-white">{online ? copy.misc.online : copy.misc.reconnecting}</p>
           </div>
+
         </div>
         <Button
           className="h-16 w-full rounded-[28px] bg-violet-500 text-base font-medium text-white hover:bg-violet-400"

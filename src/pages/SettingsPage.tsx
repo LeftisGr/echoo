@@ -38,7 +38,8 @@ const SettingsPage = () => {
     return (
       <PageShell className="space-y-6">
         <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title={copy.settings.title} body={language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."} />
+          <SectionTitle title={copy.settings.title} body={language === "en" ? "Loading your settings..." : "Φορτώνουμε τις ρυθμίσεις σου..."} />
+
         </Surface>
       </PageShell>
     );
@@ -98,10 +99,11 @@ const SettingsPage = () => {
               onCheckedChange={setHapticsEnabled}
             />
             <SwitchRow
-              label={language === "en" ? "Match found sound" : "Ήχος match"}
+              label={language === "en" ? "Match found sound" : "Ήχος όταν βρεθεί match"}
               checked={matchSoundEnabled}
               onCheckedChange={setMatchSoundEnabled}
             />
+
             <SwitchRow
               label={copy.settings.reconnect}
               checked={reconnectEnabled}
@@ -120,12 +122,13 @@ const SettingsPage = () => {
             </Button>
           </Link>
           <Button
-            variant="outline"
-            className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-            onClick={logout}
-          >
-            {language === "en" ? "Sign out" : "Αποσύνδεση"}
-          </Button>
+          variant="outline"
+          className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+          onClick={logout}
+        >
+          {language === "en" ? "Sign out" : "Έξοδος"}
+        </Button>
+
         </div>
       </Surface>
     </PageShell>
