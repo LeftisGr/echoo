@@ -764,21 +764,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.info(`[typing] local ${typing ? "start" : "stop"}`, {
+    console.info(typing ? "[typing] broadcasting start" : "[typing] broadcasting stop", {
       roomId: currentRoom.id,
-      senderId: currentUser,
+      userId: currentUser,
     });
 
-    void channel.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
-        roomId: currentRoom.id,
-        senderId: currentUser,
-        typing,
-        updatedAt: new Date().toISOString(),
-      },
-    });
+    void channel
+      .send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          roomId: currentRoom.id,
+          userId: currentUser,
+          typing,
+          updatedAt: new Date().toISOString(),
+        },
+      })
+      .then((result) => {
+        console.info(typing ? "[typing] broadcasted start" : "[typing] broadcasted stop", {
+          roomId: currentRoom.id,
+          userId: currentUser,
+          result,
+        });
+      });
 
     if (!typing) {
       clearTypingIndicator();
@@ -1386,16 +1394,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopRoomSubscriptions();
 
     const channel = supabase
-      .channel(`presence-room-${roomId}`)
+      .channel(`presence-room-${roomId}`, {
+        config: {
+          broadcast: {
+            self: false,
+            ack: true,
+          },
+        },
+      })
       .on("broadcast", { event: "typing" }, (payload) => {
-        const nextTyping = payload.payload as {
+        console.info("[typing] received payload", payload);
+
+        const nextTyping = ((payload as { payload?: unknown })?.payload ?? payload) as {
           roomId?: string;
-          senderId?: string;
+          userId?: string;
           typing?: boolean;
           updatedAt?: string;
         } | null;
 
-        if (!nextTyping || nextTyping.roomId !== roomId || !nextTyping.senderId || nextTyping.senderId === currentUserId) {
+        if (!nextTyping || nextTyping.roomId !== roomId || !nextTyping.userId || nextTyping.userId === currentUserId) {
           return;
         }
 
@@ -1405,9 +1422,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
 
         if (nextTyping.typing) {
-          console.info("[typing] received typing=true", {
+          console.info("[typing] remote user typing true", {
             roomId,
-            senderId: nextTyping.senderId,
+            userId: nextTyping.userId,
           });
 
           if (typingIndicatorTimeoutRef.current) {
@@ -1416,8 +1433,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
           setTypingIndicator({
             roomId,
-            senderId: nextTyping.senderId,
-            displayName: currentRoom.partner?.username ?? "User",
+            senderId: nextTyping.userId,
+            displayName: currentRoom.partner?.username ?? "Stranger",
             updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
           });
 
@@ -1427,12 +1444,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        console.info("[typing] received typing=false", {
+        console.info("[typing] remote user typing false", {
           roomId,
-          senderId: nextTyping.senderId,
+          userId: nextTyping.userId,
         });
         clearTypingIndicator();
       })
+
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
         const inserted = payload.new as {
           id: string;
@@ -1500,7 +1518,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           };
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.info("[typing] room channel status", { roomId, status });
+      });
 
     roomChannelRef.current = channel;
   }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+
 import { ArrowRight, Home, Mic, PhoneOff, ShieldAlert } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -238,6 +239,13 @@ const SessionPage = () => {
     }, 1500);
   }
 
+  useEffect(() => {
+    console.info("[typing] render state", {
+      roomId: room?.id ?? null,
+      remoteTyping: Boolean(typingIndicator),
+    });
+  }, [room?.id, typingIndicator]);
+
   const releasePushToTalk = useCallback(() => {
     setPushToTalkPressed(false);
     setVoiceTransmissionEnabled(false);
@@ -371,6 +379,23 @@ const SessionPage = () => {
 
     const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
     isNearBottomRef.current = distanceFromBottom < 120;
+  };
+
+  const handleDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+
+    if (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Delete") {
+      return;
+    }
+
+    console.info("[typing] key pressed", { key: event.key });
+
+    if (event.key !== "Backspace" && event.key !== "Delete") {
+      startTypingIndicator();
+      queueTypingStop();
+    }
   };
 
   const handleDraftChange = (value: string) => {
@@ -646,9 +671,9 @@ const SessionPage = () => {
                 <div className="flex items-end gap-3">
                   <Input
                     value={draft}
+                    onKeyDown={handleDraftKeyDown}
                     onChange={(event) => handleDraftChange(event.target.value)}
                     onBlur={stopTypingIndicator}
-
                     placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
                     className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                   />
@@ -695,12 +720,7 @@ const SessionPage = () => {
                   <div className="min-h-[2.5rem]">
                     {typingIndicator ? (
                       <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                        <span className="truncate">
-                          <span className="font-medium text-white">{room.partner?.username ?? typingIndicator.displayName}</span>
-                          <span className="text-white/70"> is typing</span>
-                          <span className="ml-0.5 text-violet-100">…</span>
-                        </span>
-
+                        <span className="truncate">Stranger is typing…</span>
                         <span className="flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
                           <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
@@ -712,6 +732,7 @@ const SessionPage = () => {
                     )}
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
+
                     <span
                       className={cn(
                         "rounded-full border px-3 py-1.5 font-medium tracking-wide",
@@ -764,6 +785,10 @@ const SessionPage = () => {
                     )}
                   </div>
                 </div>
+                <div className="mt-2 text-[11px] uppercase tracking-[0.24em] text-white/30">
+                  Typing debug: {typingIndicator ? "true" : "false"}
+                </div>
+
               </form>
 
             ) : (
