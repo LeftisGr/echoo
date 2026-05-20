@@ -654,6 +654,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const copy = useMemo(() => getCopy(language), [language]);
 
+  const stopVoiceChat = useCallback(() => {
+    voiceControllerRef.current?.stop();
+    voiceControllerRef.current = null;
+    setVoiceState("idle");
+  }, []);
+
   useEffect(() => {
     queueSnapshotRef.current = queue;
   }, [queue]);
@@ -1703,12 +1709,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     },
     [profile, room],
   );
-
-  const stopVoiceChat = useCallback(() => {
-    voiceControllerRef.current?.stop();
-    voiceControllerRef.current = null;
-    setVoiceState("idle");
-  }, []);
 
   const handleVoiceStateChange = useCallback(
     (nextState: VoiceState) => {
