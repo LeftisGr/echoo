@@ -82,7 +82,15 @@ interface RoomRecord {
   typingUpdatedAt?: string | null;
 }
 
+interface TypingIndicatorState {
+  roomId: string;
+  senderId: string;
+  displayName: string;
+  updatedAt: string;
+}
+
 interface PresenceContextValue {
+
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
   copy: ReturnType<typeof getCopy>;
@@ -95,6 +103,7 @@ interface PresenceContextValue {
   voiceState: VoiceState;
   voiceMuted: boolean;
   voicePlaybackBlocked: boolean;
+  typingIndicator: TypingIndicatorState | null;
   online: boolean;
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
@@ -132,6 +141,7 @@ interface PresenceContextValue {
   enableVoicePlayback: () => Promise<void>;
   setVoiceMuted: (muted: boolean) => void;
   setVoiceTransmissionEnabled: (enabled: boolean) => void;
+  sendTypingState: (typing: boolean) => void;
 
   startNewSessionFromEndedRoom: () => Promise<void>;
 
@@ -640,6 +650,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [voiceMuted, setVoiceMutedState] = useState(false);
   const [voicePlaybackBlocked, setVoicePlaybackBlocked] = useState(false);
+  const [typingIndicator, setTypingIndicator] = useState<TypingIndicatorState | null>(null);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
 
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -674,8 +685,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const voiceStartInFlightRef = useRef(false);
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const queueTimersRef = useRef<number[]>([]);
+  const typingIndicatorTimeoutRef = useRef<number | null>(null);
 
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const presenceChannelRef = useRef<any>(null);
   const presenceHeartbeatRef = useRef<number | null>(null);
@@ -731,6 +744,45 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     voiceControllerRef.current?.setLocalAudioEnabled(enabled);
   }, []);
 
+  const clearTypingIndicator = useCallback(() => {
+    if (typingIndicatorTimeoutRef.current) {
+      window.clearTimeout(typingIndicatorTimeoutRef.current);
+      typingIndicatorTimeoutRef.current = null;
+    }
+
+    setTypingIndicator(null);
+  }, []);
+
+  const sendTypingState = useCallback((typing: boolean) => {
+    const channel = roomChannelRef.current;
+    const currentRoom = roomSnapshotRef.current;
+    const currentUser = userId;
+
+    if (!channel || !currentRoom || !currentUser) {
+      return;
+    }
+
+    console.info(`[typing] local ${typing ? "start" : "stop"}`, {
+      roomId: currentRoom.id,
+      senderId: currentUser,
+    });
+
+    void channel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
+        roomId: currentRoom.id,
+        senderId: currentUser,
+        typing,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
+    if (!typing) {
+      clearTypingIndicator();
+    }
+  }, [clearTypingIndicator, userId]);
+
   useEffect(() => {
 
     queueSnapshotRef.current = queue;
@@ -745,6 +797,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     roomSnapshotRef.current = room;
   }, [room]);
+
+  useEffect(() => () => clearTypingIndicator(), [clearTypingIndicator]);
 
   useEffect(() => {
     if (!room?.rtcState || room.rtcState === "idle") {
@@ -1235,6 +1289,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   function stopRoomSubscriptions() {
     roomChannelRef.current?.unsubscribe();
     roomChannelRef.current = null;
+    clearTypingIndicator();
   }
 
   function stopQueueSubscriptions() {
@@ -1324,11 +1379,60 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function subscribeToRoom(roomId: string) {
+  function subscribeToRoom(roomId: string, currentUserId: string) {
+
     stopRoomSubscriptions();
 
     const channel = supabase
       .channel(`presence-room-${roomId}`)
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const nextTyping = payload.payload as {
+          roomId?: string;
+          senderId?: string;
+          typing?: boolean;
+          updatedAt?: string;
+        } | null;
+
+        if (!nextTyping || nextTyping.roomId !== roomId || !nextTyping.senderId || nextTyping.senderId === currentUserId) {
+
+          return;
+        }
+
+        const currentRoom = roomSnapshotRef.current;
+        if (!currentRoom || currentRoom.id !== roomId) {
+          return;
+        }
+
+        if (nextTyping.typing) {
+          console.info("[typing] received typing=true", {
+            roomId,
+            senderId: nextTyping.senderId,
+          });
+
+          if (typingIndicatorTimeoutRef.current) {
+            window.clearTimeout(typingIndicatorTimeoutRef.current);
+          }
+
+          const displayName = currentRoom.partner?.username ?? "User";
+          setTypingIndicator({
+            roomId,
+            senderId: nextTyping.senderId,
+            displayName,
+            updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
+          });
+
+          typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+            clearTypingIndicator();
+          }, 1600);
+          return;
+        }
+
+        console.info("[typing] received typing=false", {
+          roomId,
+          senderId: nextTyping.senderId,
+        });
+        clearTypingIndicator();
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
         const inserted = payload.new as {
           id: string;
@@ -1392,8 +1496,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             rtcConnectionId: updated.rtc_connection_id,
             rtcUpdatedAt: updated.rtc_updated_at,
             voiceUnlockedAt: updated.voice_unlocked_at,
-            typingUserId: updated.typing_user_id,
-            typingUpdatedAt: updated.typing_updated_at,
             status: updated.ended_at ? "ended" : "active",
           };
         });
@@ -1434,7 +1536,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     setRoom(roomSession);
     await hydrateRoomPartner(roomSession, currentUserId);
-    subscribeToRoom(roomId);
+    subscribeToRoom(roomId, currentUserId);
+
   }
 
   useEffect(() => {
@@ -1989,7 +2092,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voiceState,
       voiceMuted,
       voicePlaybackBlocked,
+      typingIndicator,
       online,
+
       hapticsEnabled,
 
       reconnectEnabled,
@@ -2024,6 +2129,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       enableVoicePlayback,
       setVoiceMuted,
       setVoiceTransmissionEnabled,
+      sendTypingState,
       startNewSessionFromEndedRoom,
 
     }),
@@ -2071,8 +2177,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       unlockVoice,
       voiceMuted,
       voicePlaybackBlocked,
+      typingIndicator,
       voiceState,
       guestMode,
+      sendTypingState,
     ],
 
   );

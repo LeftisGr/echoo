@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import { persistRoomTyping } from "@/lib/presence-backend";
 import { cn } from "@/lib/utils";
 
 const sessionDurationSeconds = 600;
@@ -33,9 +32,9 @@ const SessionPage = () => {
     appReady,
     initializing,
     queue,
-    guestMode,
 
     room,
+
     roomLoaded,
 
     profile,
@@ -51,6 +50,8 @@ const SessionPage = () => {
     stopVoiceChat,
     enableVoicePlayback,
     setVoiceTransmissionEnabled,
+    sendTypingState,
+    typingIndicator,
     voiceState,
     voicePlaybackBlocked,
   } = usePresence();
@@ -61,17 +62,15 @@ const SessionPage = () => {
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
 
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
-  const [partnerTyping, setPartnerTyping] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const typingClearTimeoutRef = useRef<number | null>(null);
-  const typingPublishTimeoutRef = useRef<number | null>(null);
-  const typingHeartbeatRef = useRef<number | null>(null);
+  const typingStopTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const shouldForceScrollRef = useRef(true);
+
   const isNearBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef<string | null>(null);
   const lastVoiceUnlockAtRef = useRef<string | null>(null);
@@ -139,45 +138,11 @@ const SessionPage = () => {
     return () => window.clearTimeout(timeout);
   }, [room?.messages]);
 
-
-  useEffect(() => {
-    return () => {
-      if (typingPublishTimeoutRef.current) {
-        window.clearTimeout(typingPublishTimeoutRef.current);
-      }
-      if (typingClearTimeoutRef.current) {
-        window.clearTimeout(typingClearTimeoutRef.current);
-      }
-      if (typingHeartbeatRef.current) {
-        window.clearInterval(typingHeartbeatRef.current);
-      }
-      if (room && profile?.id && !guestMode) {
-        void persistRoomTyping(room, null);
-      }
-    };
-  }, [guestMode, profile?.id, room]);
-
-  useEffect(() => {
-    if (guestMode || !room?.typingUserId || room.typingUserId === profile?.id || !room.typingUpdatedAt) {
-      setPartnerTyping(false);
-      return;
-    }
-
-    const updatedAt = new Date(room.typingUpdatedAt).getTime();
-    const ttl = 1400;
-    const remaining = Math.max(ttl - (Date.now() - updatedAt), 0);
-    setPartnerTyping(remaining > 0);
-
-    if (!remaining) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setPartnerTyping(false), remaining);
-    return () => window.clearTimeout(timeout);
-  }, [guestMode, profile?.id, room?.typingUpdatedAt, room?.typingUserId]);
+  useEffect(() => () => stopTypingIndicator(), []);
 
   useEffect(() => {
     if (!room?.voiceUnlockedAt || room.voiceUnlockedAt === lastVoiceUnlockAtRef.current) {
+
       return;
     }
 
@@ -209,7 +174,14 @@ const SessionPage = () => {
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
   useEffect(() => {
+    if (room?.status === "ended") {
+      stopTypingIndicator();
+    }
+  }, [room?.status]);
+
+  useEffect(() => {
     const node = chatScrollRef.current;
+
     if (!room || !node) {
       return;
     }
@@ -226,13 +198,45 @@ const SessionPage = () => {
   }, [room?.id]);
 
   const voiceReady =
-
     room?.voiceEnabled &&
     sessionRemaining === 0 &&
     voiceState !== "requesting-microphone" &&
     voiceState !== "connecting" &&
     voiceState !== "reconnecting";
   const pushToTalkAvailable = voiceReady && voiceState === "connected";
+
+  function stopTypingIndicator() {
+    if (typingStopTimeoutRef.current) {
+      window.clearTimeout(typingStopTimeoutRef.current);
+      typingStopTimeoutRef.current = null;
+    }
+
+    if (!typingActiveRef.current) {
+      return;
+    }
+
+    typingActiveRef.current = false;
+    sendTypingState(false);
+  }
+
+  function startTypingIndicator() {
+    if (typingActiveRef.current) {
+      return;
+    }
+
+    typingActiveRef.current = true;
+    sendTypingState(true);
+  }
+
+  function queueTypingStop() {
+    if (typingStopTimeoutRef.current) {
+      window.clearTimeout(typingStopTimeoutRef.current);
+    }
+
+    typingStopTimeoutRef.current = window.setTimeout(() => {
+      stopTypingIndicator();
+    }, 1500);
+  }
 
   const releasePushToTalk = useCallback(() => {
     setPushToTalkPressed(false);
@@ -251,11 +255,12 @@ const SessionPage = () => {
   useEffect(() => {
     const handleWindowBlur = () => {
       releasePushToTalk();
+      stopTypingIndicator();
     };
 
     window.addEventListener("blur", handleWindowBlur);
     return () => window.removeEventListener("blur", handleWindowBlur);
-  }, [releasePushToTalk]);
+  }, [releasePushToTalk, stopTypingIndicator]);
 
   useEffect(() => {
     if (voiceState !== "connected" && pushToTalkPressed) {
@@ -263,70 +268,10 @@ const SessionPage = () => {
     }
   }, [pushToTalkPressed, releasePushToTalk, voiceState]);
 
-  useEffect(() => () => releasePushToTalk(), [releasePushToTalk]);
-
-  const publishTypingState = (isTyping: boolean) => {
-
-    if (!room || !profile?.id || guestMode) {
-      return;
-    }
-
-    typingActiveRef.current = isTyping;
-    void persistRoomTyping(room, isTyping ? profile.id : null);
-  };
-
-  const clearTypingTimers = () => {
-    if (typingPublishTimeoutRef.current) {
-      window.clearTimeout(typingPublishTimeoutRef.current);
-      typingPublishTimeoutRef.current = null;
-    }
-
-    if (typingClearTimeoutRef.current) {
-      window.clearTimeout(typingClearTimeoutRef.current);
-      typingClearTimeoutRef.current = null;
-    }
-
-    if (typingHeartbeatRef.current) {
-      window.clearInterval(typingHeartbeatRef.current);
-      typingHeartbeatRef.current = null;
-    }
-  };
-
-  const stopTyping = () => {
-    clearTypingTimers();
-    publishTypingState(false);
-  };
-
-  const scheduleTypingState = (value: string) => {
-    clearTypingTimers();
-
-    if (!value.trim()) {
-      publishTypingState(false);
-      return;
-    }
-
-    const currentValue = value;
-    if (!typingActiveRef.current) {
-      publishTypingState(true);
-    }
-
-    typingPublishTimeoutRef.current = window.setTimeout(() => {
-      if (typingHeartbeatRef.current) {
-        window.clearInterval(typingHeartbeatRef.current);
-      }
-
-      typingHeartbeatRef.current = window.setInterval(() => {
-        if (currentValue.trim()) {
-          publishTypingState(true);
-        }
-      }, 900);
-    }, 80);
-
-    typingClearTimeoutRef.current = window.setTimeout(() => {
-      stopTyping();
-    }, 1500);
-
-  };
+  useEffect(() => () => {
+    releasePushToTalk();
+    stopTypingIndicator();
+  }, [releasePushToTalk, stopTypingIndicator]);
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
 
@@ -431,27 +376,13 @@ const SessionPage = () => {
   const handleDraftChange = (value: string) => {
     setDraft(value);
 
-    if (typingPublishTimeoutRef.current) {
-      window.clearTimeout(typingPublishTimeoutRef.current);
-      typingPublishTimeoutRef.current = null;
-    }
-
-    if (typingClearTimeoutRef.current) {
-      window.clearTimeout(typingClearTimeoutRef.current);
-      typingClearTimeoutRef.current = null;
-    }
-
-    if (typingHeartbeatRef.current) {
-      window.clearInterval(typingHeartbeatRef.current);
-      typingHeartbeatRef.current = null;
-    }
-
     if (!value.trim()) {
-      stopTyping();
+      stopTypingIndicator();
       return;
     }
 
-    scheduleTypingState(value);
+    startTypingIndicator();
+    queueTypingStop();
   };
 
   if (isEnded) {
@@ -706,17 +637,18 @@ const SessionPage = () => {
                   }
 
                   shouldForceScrollRef.current = isNearBottomRef.current;
+                  stopTypingIndicator();
                   await sendMessage(nextDraft);
-
-                  stopTyping();
                   setDraft("");
+
                 }}
               >
                 <div className="flex items-end gap-3">
                   <Input
                     value={draft}
                     onChange={(event) => handleDraftChange(event.target.value)}
-                    onBlur={stopTyping}
+                    onBlur={stopTypingIndicator}
+
                     placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
                     className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                   />
@@ -760,74 +692,78 @@ const SessionPage = () => {
                 </div>
 
                 <div className="mt-3 flex min-h-[2.75rem] items-center gap-3">
-                  {partnerTyping ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-opacity duration-150">
-                      <span>{language === "en" ? "Typing" : "Γράφει"}</span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
+                  <div className="min-h-[2.5rem]">
+                    {typingIndicator ? (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
+                        <span className="truncate">
+                          <span className="font-medium text-white">{room.partner?.username ?? typingIndicator.displayName}</span>
+                          <span className="text-white/70"> is typing</span>
+                          <span className="ml-0.5 text-violet-100">…</span>
+                        </span>
 
-                      <span
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 font-medium tracking-wide",
-                          voiceState === "connected"
-                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                            : voiceState === "requesting-microphone" || voiceState === "connecting"
-                              ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
-                              : voiceState === "reconnecting"
-                                ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
-                                : voiceState === "failed" || voiceState === "error"
-                                  ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
-                                  : "border-white/10 bg-white/5 text-white/55",
-                        )}
-                      >
-                        {voiceStatusLabel}
-                      </span>
-                      <span>
-                        {voiceState === "connected"
-                          ? language === "en"
-                            ? "Use the mic button to mute or unmute."
-                            : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
-                          : voiceState === "error"
-                            ? language === "en"
-                              ? "Tap Start Voice Chat again to retry."
-                              : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
-                            : voiceState === "failed"
-                              ? language === "en"
-                                ? "The connection needs another attempt."
-                                : "Η σύνδεση χρειάζεται νέα προσπάθεια."
-                              : voiceReady
-                                ? language === "en"
-                                  ? "Voice is ready"
-                                  : "Η φωνή είναι έτοιμη"
-                                : language === "en"
-                                  ? "The mic opens when the timer hits zero."
-                                  : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
-                      </span>
-                      {voicePlaybackBlocked && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
-                          onClick={async () => {
-                            await enableVoicePlayback();
-                          }}
-                        >
-                          {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
-                        </Button>
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="h-[2.5rem]" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
+                    <span
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 font-medium tracking-wide",
+                        voiceState === "connected"
+                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                          : voiceState === "requesting-microphone" || voiceState === "connecting"
+                            ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
+                            : voiceState === "reconnecting"
+                              ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
+                              : voiceState === "failed" || voiceState === "error"
+                                ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
+                                : "border-white/10 bg-white/5 text-white/55",
                       )}
-
-                    </div>
-
-                  )}
+                    >
+                      {voiceStatusLabel}
+                    </span>
+                    <span>
+                      {voiceState === "connected"
+                        ? language === "en"
+                          ? "Use the mic button to mute or unmute."
+                          : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
+                        : voiceState === "error"
+                          ? language === "en"
+                            ? "Tap Start Voice Chat again to retry."
+                            : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
+                          : voiceState === "failed"
+                            ? language === "en"
+                              ? "The connection needs another attempt."
+                              : "Η σύνδεση χρειάζεται νέα προσπάθεια."
+                            : voiceReady
+                              ? language === "en"
+                                ? "Voice is ready"
+                                : "Η φωνή είναι έτοιμη"
+                              : language === "en"
+                                ? "The mic opens when the timer hits zero."
+                                : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
+                    </span>
+                    {voicePlaybackBlocked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                        onClick={async () => {
+                          await enableVoicePlayback();
+                        }}
+                      >
+                        {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-
               </form>
 
             ) : (
