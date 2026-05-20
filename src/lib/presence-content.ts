@@ -197,12 +197,14 @@ export const copy = {
       send: "Send",
       placeholder: "Write your first message...",
       voiceUnlocked: "Voice is now available",
+      mediaUnlocked: "You’ve spent some time together. Media sharing is now available.",
       startVoice: "Start voice chat",
 
       keepText: "Keep text only",
       voiceStarting: "Voice connection starting...",
 
       connected: "Voice is live",
+
       ended: "Connection ended.",
       findNew: "Find new person",
       backHome: "Back home",
@@ -381,6 +383,7 @@ export const copy = {
       send: "Αποστολή",
       placeholder: "Γράψε το πρώτο σου μήνυμα...",
       voiceUnlocked: "Η φωνή είναι τώρα διαθέσιμη",
+      mediaUnlocked: "Έχετε περάσει λίγο χρόνο μαζί. Το media sharing είναι τώρα διαθέσιμο.",
       startVoice: "Έναρξη voice chat",
 
       keepText: "Μόνο κείμενο",

@@ -46,14 +46,40 @@ export interface PartnerProfile {
   interests: string[];
 }
 
-export interface ChatMessage {
+export interface MediaMessagePayload {
+  url: string;
+  path: string;
+  mimeType: string;
+  name: string;
+  size: number;
+  kind: "image" | "video";
+  durationSeconds?: number;
+  width?: number;
+  height?: number;
+}
+
+interface ChatMessageBase {
   id: string;
   roomId: string;
   senderId: string;
   content: string;
   createdAt: string;
-  type: "text" | "system";
 }
+
+export interface TextChatMessage extends ChatMessageBase {
+  type: "text";
+}
+
+export interface SystemChatMessage extends ChatMessageBase {
+  type: "system";
+}
+
+export interface MediaChatMessage extends ChatMessageBase {
+  type: "media";
+  media: MediaMessagePayload;
+}
+
+export type ChatMessage = TextChatMessage | SystemChatMessage | MediaChatMessage;
 
 export interface RoomSession {
   id: string;

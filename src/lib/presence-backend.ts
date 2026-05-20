@@ -51,6 +51,15 @@ create table if not exists public.messages (
   room_id uuid not null references public.rooms(id) on delete cascade,
   sender_id uuid not null references auth.users(id) on delete cascade,
   content text not null,
+  type text not null default 'text',
+  media_url text,
+  media_path text,
+  media_mime_type text,
+  media_name text,
+  media_size bigint,
+  media_duration_seconds integer,
+  media_width integer,
+  media_height integer,
   created_at timestamptz not null default now()
 );
 
@@ -101,6 +110,15 @@ interface LiveMessageRow {
   room_id: string;
   sender_id: string;
   content: string;
+  type: "text" | "system" | "media";
+  media_url: string | null;
+  media_path: string | null;
+  media_mime_type: string | null;
+  media_name: string | null;
+  media_size: number | null;
+  media_duration_seconds: number | null;
+  media_width: number | null;
+  media_height: number | null;
   created_at: string;
 }
 
@@ -520,7 +538,7 @@ export async function loadRoomMessages(roomId: string) {
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, room_id, sender_id, content, created_at")
+    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
 
@@ -530,13 +548,35 @@ export async function loadRoomMessages(roomId: string) {
 
   return (data ?? []).map((row) => {
     const message = row as unknown as LiveMessageRow;
+    if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+      return {
+        id: message.id,
+        roomId: message.room_id,
+        senderId: message.sender_id,
+        content: message.content,
+        createdAt: message.created_at,
+        type: "media" as const,
+        media: {
+          url: message.media_url,
+          path: message.media_path,
+          mimeType: message.media_mime_type,
+          name: message.media_name,
+          size: Number(message.media_size),
+          kind: message.media_mime_type.startsWith("video/") ? "video" : "image",
+          durationSeconds: message.media_duration_seconds ?? undefined,
+          width: message.media_width ?? undefined,
+          height: message.media_height ?? undefined,
+        },
+      };
+    }
+
     return {
       id: message.id,
       roomId: message.room_id,
       senderId: message.sender_id,
       content: message.content,
       createdAt: message.created_at,
-      type: "text" as const,
+      type: (message.type as "text" | "system") ?? "text",
     };
   });
 }
@@ -598,6 +638,15 @@ export async function persistMessage(message: ChatMessage) {
     room_id: message.roomId,
     sender_id: message.senderId,
     content: message.content,
+    type: message.type,
+    media_url: message.type === "media" ? message.media.url : null,
+    media_path: message.type === "media" ? message.media.path : null,
+    media_mime_type: message.type === "media" ? message.media.mimeType : null,
+    media_name: message.type === "media" ? message.media.name : null,
+    media_size: message.type === "media" ? message.media.size : null,
+    media_duration_seconds: message.type === "media" ? message.media.durationSeconds ?? null : null,
+    media_width: message.type === "media" ? message.media.width ?? null : null,
+    media_height: message.type === "media" ? message.media.height ?? null : null,
     created_at: message.createdAt,
   });
 

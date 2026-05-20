@@ -34,6 +34,14 @@ import {
   cleanupUserSession,
 } from "@/lib/presence-backend";
 import { createPeerToPeerVoiceSession, type VoiceSessionController } from "@/lib/presence-rtc";
+import { getSessionProgression } from "@/lib/session-progression";
+import {
+  MEDIA_UPLOAD_BUCKET,
+  MEDIA_UPLOAD_COOLDOWN_MS,
+  MAX_MEDIA_MESSAGES_PER_SESSION,
+  sanitizeMediaFileName,
+  type MediaPreviewData,
+} from "@/lib/session-media";
 
 import type {
   AdminMetrics,
@@ -129,6 +137,7 @@ interface PresenceContextValue {
   cancelQueue: () => Promise<void>;
   unlockVoice: () => void;
   sendMessage: (content: string) => Promise<void>;
+  sendMediaMessage: (input: { file: File; caption: string; preview: MediaPreviewData }) => Promise<void>;
   leaveRoom: (reason?: string) => void;
   rateRoom: (score: RatingScore) => Promise<void>;
   reportCurrentRoom: (reason: string) => Promise<void>;
@@ -143,6 +152,7 @@ interface PresenceContextValue {
   setVoiceMuted: (muted: boolean) => void;
   setVoiceTransmissionEnabled: (enabled: boolean) => void;
   sendTypingState: (typing: boolean) => void;
+  appendSystemMessage: (content: string) => void;
 
   startNewSessionFromEndedRoom: () => Promise<void>;
 
@@ -688,6 +698,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const queueTimersRef = useRef<number[]>([]);
   const typingIndicatorTimeoutRef = useRef<number | null>(null);
   const typingIndicatorLogRef = useRef<{ senderId: string | null; typing: boolean } | null>(null);
+  const mediaUploadCooldownRef = useRef(0);
+  const mediaUploadCountRef = useRef(0);
+  const mediaUploadInFlightRef = useRef(false);
 
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -850,6 +863,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     roomSnapshotRef.current = room;
   }, [room]);
+
+  useEffect(() => {
+    mediaUploadCooldownRef.current = 0;
+    mediaUploadCountRef.current = 0;
+  }, [room?.id]);
 
   useEffect(() => () => clearTypingIndicator(), [clearTypingIndicator]);
 
@@ -2011,7 +2029,152 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [profile, room],
   );
 
+  const sendMediaMessage = useCallback(async ({ file, caption, preview }: { file: File; caption: string; preview: MediaPreviewData }) => {
+
+    const currentRoom = roomSnapshotRef.current;
+    const currentUser = userId;
+    if (!currentRoom || !currentUser) {
+      return;
+    }
+
+    const progression = getSessionProgression(currentRoom.startedAt);
+    if (progression.phase !== "MEDIA_PHASE") {
+      console.info("[media] upload blocked", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        phase: progression.phase,
+      });
+      return;
+    }
+
+    const now = Date.now();
+    if (mediaUploadInFlightRef.current) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        reason: "in-flight",
+      });
+      throw new Error("A media upload is already in progress.");
+    }
+
+    if (mediaUploadCooldownRef.current && now - mediaUploadCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        reason: "cooldown",
+      });
+      throw new Error("Please wait a moment before sending another media item.");
+    }
+
+    if (mediaUploadCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        reason: "limit-reached",
+      });
+      throw new Error("Media sharing limit reached for this session.");
+    }
+
+    console.info("[media] upload started", {
+      roomId: currentRoom.id,
+      userId: currentUser,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+    });
+
+    mediaUploadInFlightRef.current = true;
+    try {
+      const uploadPath = `${currentUser}/${currentRoom.id}/${Date.now()}-${sanitizeMediaFileName(preview.displayName)}`;
+      const { error: uploadError } = await supabase.storage.from(MEDIA_UPLOAD_BUCKET).upload(uploadPath, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from(MEDIA_UPLOAD_BUCKET).getPublicUrl(uploadPath);
+      const mediaMessage: ChatMessage = {
+        id: createId(),
+        roomId: currentRoom.id,
+        senderId: currentUser,
+        content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
+        createdAt: new Date().toISOString(),
+        type: "media",
+        media: {
+          url: publicUrlData.publicUrl,
+          path: uploadPath,
+          mimeType: file.type,
+          name: preview.displayName,
+          size: file.size,
+          kind: preview.kind,
+          durationSeconds: preview.durationSeconds,
+          width: preview.width,
+          height: preview.height,
+        },
+      };
+
+      setRoom((current) =>
+        current && current.id === currentRoom.id
+          ? {
+              ...current,
+              messages: current.messages.some((message) => message.id === mediaMessage.id)
+                ? current.messages
+                : [...current.messages, mediaMessage],
+            }
+          : current,
+      );
+
+      await persistMessage(mediaMessage);
+      mediaUploadCooldownRef.current = Date.now();
+      mediaUploadCountRef.current += 1;
+
+      console.info("[media] upload completed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        fileName: preview.displayName,
+        mediaType: preview.kind,
+      });
+
+    } catch (error) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      mediaUploadInFlightRef.current = false;
+    }
+  }, [userId]);
+
+  const appendSystemMessage = useCallback((content: string) => {
+    const currentRoom = roomSnapshotRef.current;
+    if (!currentRoom) {
+      return;
+    }
+
+    setRoom((current) => {
+      if (!current || current.id !== currentRoom.id) {
+        return current;
+      }
+
+      const systemMessage = createSystemMessage(currentRoom.id, content);
+      if (current.messages.some((message) => message.type === "system" && message.content === content)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        messages: [...current.messages, systemMessage],
+      };
+    });
+  }, []);
+
   const startVoiceChat = useCallback(
+
     async () => {
       if (!room || !userId || voiceStartInFlightRef.current) {
         return;
@@ -2235,6 +2398,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       cancelQueue,
       unlockVoice,
       sendMessage,
+      sendMediaMessage,
       leaveRoom,
       rateRoom,
       reportCurrentRoom,
@@ -2249,6 +2413,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setVoiceMuted,
       setVoiceTransmissionEnabled,
       sendTypingState,
+      appendSystemMessage,
       startNewSessionFromEndedRoom,
 
     }),
@@ -2280,6 +2445,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       roomLoaded,
       userId,
       sendMessage,
+      sendMediaMessage,
       sessionReady,
       setLanguage,
       setQueueFilters,
@@ -2300,6 +2466,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voiceState,
       guestMode,
       sendTypingState,
+      appendSystemMessage,
     ],
 
   );

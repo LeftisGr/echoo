@@ -20,10 +20,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
+import { MediaComposer } from "@/components/session/media-composer";
+import { SessionMediaMessage } from "@/components/session/session-media-message";
+import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
 import { cn } from "@/lib/utils";
-
-const sessionDurationSeconds = 600;
+import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 const SessionPage = () => {
   const navigate = useNavigate();
@@ -44,6 +46,8 @@ const SessionPage = () => {
     online,
     unlockVoice,
     sendMessage,
+    sendMediaMessage,
+    appendSystemMessage,
     leaveRoom,
     rateRoom,
     startNewSessionFromEndedRoom,
@@ -60,8 +64,6 @@ const SessionPage = () => {
   const [draft, setDraft] = useState("");
   const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
 
-  const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
-
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
@@ -75,6 +77,10 @@ const SessionPage = () => {
   const isNearBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef<string | null>(null);
   const lastVoiceUnlockAtRef = useRef<string | null>(null);
+  const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
+
+  const sessionProgression = useSessionProgression(room?.startedAt);
+  const phase = sessionProgression.phase;
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -96,27 +102,13 @@ const SessionPage = () => {
 
     if (room.id !== routeRoomId) {
       lastVoiceUnlockAtRef.current = null;
+      mediaUnlockMessageRoomIdRef.current = null;
       setVoiceUnlockPromptOpen(false);
     }
 
-    const syncSessionTimer = () => {
-      const elapsedSeconds = Math.floor((Date.now() - new Date(room.startedAt).getTime()) / 1000);
-      const nextRemaining = Math.max(sessionDurationSeconds - elapsedSeconds, 0);
-      setSessionRemaining(nextRemaining);
-
-      if (nextRemaining === 0 && !room.voiceUnlockedAt) {
-        unlockVoice();
-        setVoiceUnlockPromptOpen(true);
-      }
-    };
-
-    syncSessionTimer();
     shouldForceScrollRef.current = true;
     isNearBottomRef.current = true;
-
-    const interval = window.setInterval(syncSessionTimer, 1000);
-    return () => window.clearInterval(interval);
-  }, [room?.id, room?.startedAt, room?.voiceUnlockedAt, unlockVoice, routeRoomId]);
+  }, [room?.id, routeRoomId]);
 
 
   useEffect(() => {
@@ -142,19 +134,42 @@ const SessionPage = () => {
   useEffect(() => () => stopTypingIndicator(), []);
 
   useEffect(() => {
-    if (!room?.voiceUnlockedAt || room.voiceUnlockedAt === lastVoiceUnlockAtRef.current) {
+    if (!room || phase === "TEXT_PHASE" || room.voiceUnlockedAt) {
+      return;
+    }
 
+    unlockVoice();
+    setVoiceUnlockPromptOpen(true);
+  }, [phase, room, unlockVoice]);
+
+  useEffect(() => {
+    if (!room?.voiceUnlockedAt || room.voiceUnlockedAt === lastVoiceUnlockAtRef.current) {
       return;
     }
 
     lastVoiceUnlockAtRef.current = room.voiceUnlockedAt;
-    if (sessionRemaining === 0) {
+    if (phase !== "TEXT_PHASE") {
       setVoiceUnlockPromptOpen(true);
     }
-  }, [room?.voiceUnlockedAt, sessionRemaining]);
+  }, [phase, room?.voiceUnlockedAt]);
+
+  useEffect(() => {
+    if (!room || phase !== "MEDIA_PHASE") {
+      return;
+    }
+
+    if (mediaUnlockMessageRoomIdRef.current === room.id) {
+      return;
+    }
+
+    mediaUnlockMessageRoomIdRef.current = room.id;
+    appendSystemMessage(copy.session.mediaUnlocked);
+    console.info("[session] media unlocked", { roomId: room.id, phase });
+  }, [appendSystemMessage, copy.session.mediaUnlocked, phase, room]);
 
   useEffect(() => {
     const node = chatScrollRef.current;
+
     if (!node) {
       return;
     }
@@ -200,7 +215,7 @@ const SessionPage = () => {
 
   const voiceReady =
     room?.voiceEnabled &&
-    sessionRemaining === 0 &&
+    phase !== "TEXT_PHASE" &&
     voiceState !== "requesting-microphone" &&
     voiceState !== "connecting" &&
     voiceState !== "reconnecting";
@@ -324,9 +339,9 @@ const SessionPage = () => {
 
   const isActive = room.status === "active";
   const isEnded = room.status === "ended";
-  const timerLabel = `${String(Math.floor(sessionRemaining / 60)).padStart(2, "0")}:${String(sessionRemaining % 60).padStart(2, "0")}`;
+  const timerLabel = `${String(Math.floor(sessionProgression.secondsUntilMediaUnlock / 60)).padStart(2, "0")}:${String(sessionProgression.secondsUntilMediaUnlock % 60).padStart(2, "0")}`;
 
-  const timerProgress = ((sessionDurationSeconds - sessionRemaining) / sessionDurationSeconds) * 100;
+  const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
 
   const voiceStatusLabel =
 
@@ -358,12 +373,39 @@ const SessionPage = () => {
                   ? "Voice is ready"
                   : "Η φωνή είναι έτοιμη";
 
-  const timerUrgent = sessionRemaining <= 60;
+  const timerUrgent = sessionProgression.secondsUntilMediaUnlock <= 60;
 
-  const timerToneClass = timerUrgent ? "text-rose-200" : "text-white";
+  const timerToneClass =
+    phase === "TEXT_PHASE"
+      ? "text-white"
+      : phase === "AUDIO_PHASE"
+        ? "text-emerald-100"
+        : timerUrgent
+          ? "text-amber-100"
+          : "text-amber-50";
 
+  const progressSubtitle =
+    phase === "TEXT_PHASE"
+      ? language === "en"
+        ? "Text phase"
+        : "Φάση κειμένου"
+      : phase === "AUDIO_PHASE"
+        ? language === "en"
+          ? "Audio phase"
+          : "Φάση ήχου"
+        : language === "en"
+          ? "Media phase"
+          : "Φάση media";
+
+  const composerShellClass =
+    phase === "TEXT_PHASE"
+      ? "border-white/10 bg-[#10182b]/92"
+      : phase === "AUDIO_PHASE"
+        ? "border-emerald-300/12 bg-[#101f1a]/92"
+        : "border-amber-300/18 bg-[#1c1621]/92";
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
+
   const sessionBanner = !online
 
     ? copy.session.connectionLost
@@ -516,14 +558,13 @@ const SessionPage = () => {
             </div>
 
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-white/30">{language === "en" ? "Session timer" : "Χρονομετρητής"}</p>
-              <div className={cn("mt-1 text-3xl font-semibold tracking-tight sm:text-4xl", timerToneClass)}>{timerLabel}</div>
-              <div className="mx-auto mt-2 h-1.5 w-full max-w-[150px] overflow-hidden rounded-full bg-white/10">
-                <div
-                  className={cn("h-full rounded-full transition-[width] duration-300", timerUrgent ? "bg-rose-400" : "bg-violet-400")}
-                  style={{ width: `${timerProgress}%` }}
-                />
-              </div>
+              <SessionProgressHeader
+                phase={phase}
+                timerLabel={timerLabel}
+                timerProgress={timerProgress}
+                toneClassName={timerToneClass}
+                subtitle={progressSubtitle}
+              />
             </div>
 
             <div className="flex justify-end">
@@ -622,6 +663,22 @@ const SessionPage = () => {
                 );
               }
 
+              if (message.type === "media") {
+                return (
+                  <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
+                    <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
+                      <div className="flex items-center gap-2 px-1 text-xs text-white/35">
+                        <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? "You" : "Stranger"}</span>
+                        <span>•</span>
+                        <span>{timestamp}</span>
+                      </div>
+                      <SessionMediaMessage message={message} isSelf={isSelf} />
+
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start") }>
                   <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
@@ -650,7 +707,7 @@ const SessionPage = () => {
         </main>
 
         <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/94 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 backdrop-blur-xl sm:px-6 sm:pt-4">
-          <div className="mx-auto w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#10182b]/92 px-3 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4">
+          <div className={cn("mx-auto w-full max-w-3xl rounded-[28px] border px-3 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4", composerShellClass)}>
 
             {isActive ? (
               <form
@@ -668,7 +725,20 @@ const SessionPage = () => {
 
                 }}
               >
+                {phase === "MEDIA_PHASE" && (
+                  <div className="mb-3">
+                    <MediaComposer
+                      enabled={phase === "MEDIA_PHASE"}
+                      onSendMedia={async ({ file, caption, preview }) => {
+                        shouldForceScrollRef.current = isNearBottomRef.current;
+                        await sendMediaMessage({ file, caption, preview });
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-end gap-3">
+
                   <Input
                     value={draft}
                     onKeyDown={handleDraftKeyDown}
