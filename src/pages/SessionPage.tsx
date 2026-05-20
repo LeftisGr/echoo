@@ -382,6 +382,8 @@ const SessionPage = () => {
     }
 
     if (audioRef.current) {
+      audioRef.current.muted = true;
+      void audioRef.current.play().catch(() => undefined);
       await startVoiceChat(audioRef.current);
       setMuted(false);
     }
@@ -743,10 +745,13 @@ const SessionPage = () => {
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
                 if (audioRef.current) {
+                  audioRef.current.muted = true;
+                  void audioRef.current.play().catch(() => undefined);
                   await startVoiceChat(audioRef.current);
                   setMuted(false);
                 }
               }}
+
             >
               <Mic className="mr-2 h-4 w-4" />
               {language === "en" ? "Start Voice Chat" : "Έναρξη φωνητικής συνομιλίας"}

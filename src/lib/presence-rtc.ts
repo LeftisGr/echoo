@@ -109,7 +109,15 @@ export async function createPeerToPeerVoiceSession({
 
   const remoteUserId = currentUserId === userA ? userB : userA;
   const isInitiator = currentUserId < remoteUserId;
+
+  audioElement.autoplay = true;
+  audioElement.muted = true;
+  audioElement.setAttribute("playsinline", "true");
+  audioElement.setAttribute("autoplay", "true");
+  void audioElement.play().catch(() => undefined);
+
   const localStream = await navigator.mediaDevices.getUserMedia({
+
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
