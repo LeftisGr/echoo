@@ -122,6 +122,7 @@ export async function createPeerToPeerVoiceSession({
   userB,
   connectionId: initialConnectionId,
   onStateChange,
+  onPlaybackFailure,
   isCurrentSession,
 }: {
   audioElement: HTMLAudioElement;
@@ -131,8 +132,10 @@ export async function createPeerToPeerVoiceSession({
   userB: string;
   connectionId?: string | null;
   onStateChange?: (state: VoiceSessionState) => void;
+  onPlaybackFailure?: () => void;
   isCurrentSession?: () => boolean;
 }): Promise<VoiceSessionController> {
+
   const sessionId = crypto.randomUUID();
   const remoteUserId = currentUserId === userA ? userB : userA;
   const isInitiator = currentUserId < remoteUserId;
@@ -288,12 +291,23 @@ export async function createPeerToPeerVoiceSession({
   };
 
   const ensureAudioPlayback = async (reason: string) => {
-
     if (stopped || !canContinue()) {
       return;
     }
 
+    const audioTracks = remoteStream.getAudioTracks();
+    if (!audioTracks.length) {
+      rtcLog("audio playback skipped until remote audio exists", {
+        roomId,
+        sessionId,
+        reason,
+        stream: streamSnapshot(remoteStream),
+      });
+      return;
+    }
+
     audioElement.srcObject = remoteStream;
+
     audioElement.autoplay = true;
     audioElement.muted = false;
     audioElement.volume = 1;
@@ -345,6 +359,7 @@ export async function createPeerToPeerVoiceSession({
         error: error instanceof Error ? error.message : String(error),
       });
       emitState("error");
+      onPlaybackFailure?.();
     }
   };
 

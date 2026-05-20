@@ -7,7 +7,9 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -91,10 +93,13 @@ interface PresenceContextValue {
   room: RoomSession | null;
   matchTransition: MatchTransitionState | null;
   voiceState: VoiceState;
+  voiceMuted: boolean;
+  voicePlaybackBlocked: boolean;
   online: boolean;
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
   matchSoundEnabled: boolean;
+
   initializing: boolean;
   authLoaded: boolean;
   roomLoaded: boolean;
@@ -122,8 +127,11 @@ interface PresenceContextValue {
   setHapticsEnabled: (enabled: boolean) => void;
   setReconnectEnabled: (enabled: boolean) => void;
   setMatchSoundEnabled: (enabled: boolean) => void;
-  startVoiceChat: (audioElement: HTMLAudioElement) => Promise<void>;
+  startVoiceChat: () => Promise<void>;
   stopVoiceChat: () => void;
+  enableVoicePlayback: () => Promise<void>;
+  setVoiceMuted: (muted: boolean) => void;
+
   startNewSessionFromEndedRoom: () => Promise<void>;
 }
 
@@ -140,7 +148,28 @@ function createId() {
   return crypto.randomUUID();
 }
 
+function PersistentVoiceAudio({ audioRef }: { audioRef: RefObject<HTMLAudioElement | null> }) {
+
+  useEffect(() => {
+    console.info("[rtc] audio element mounted");
+    return () => {
+      console.info("[rtc] audio element unmounted");
+    };
+  }, []);
+
+  return (
+    <audio
+      ref={audioRef}
+      autoPlay
+      playsInline
+      aria-hidden="true"
+      className="pointer-events-none absolute h-px w-px opacity-0"
+    />
+  );
+}
+
 function vibrate(pattern: number | number[]) {
+
   if (typeof window === "undefined" || !("vibrate" in navigator)) {
     return;
   }
@@ -607,7 +636,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceMuted, setVoiceMutedState] = useState(false);
+  const [voicePlaybackBlocked, setVoicePlaybackBlocked] = useState(false);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
   const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
@@ -637,6 +669,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
   const voiceSessionTokenRef = useRef<string | null>(null);
+  const voiceStartInFlightRef = useRef(false);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const queueTimersRef = useRef<number[]>([]);
 
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -658,15 +692,49 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const stopVoiceChat = useCallback(() => {
     voiceSessionTokenRef.current = null;
+    voiceStartInFlightRef.current = false;
+    setVoicePlaybackBlocked(false);
     voiceControllerRef.current?.stop();
+
     voiceControllerRef.current = null;
     setVoiceState("idle");
+  }, [voicePlaybackBlocked]);
+
+  const setVoiceMuted = useCallback((muted: boolean) => {
+    setVoiceMutedState(muted);
+    if (voiceAudioRef.current) {
+      voiceAudioRef.current.muted = muted;
+    }
+  }, []);
+
+  const enableVoicePlayback = useCallback(async () => {
+    const audioElement = voiceAudioRef.current;
+    if (!audioElement) {
+      return;
+    }
+
+    console.info("[rtc] manual audio enable requested");
+    try {
+      audioElement.muted = false;
+      await audioElement.play();
+      setVoicePlaybackBlocked(false);
+      console.info("[rtc] manual audio enable success");
+    } catch (error) {
+      console.info("[rtc] manual audio enable failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }, []);
 
   useEffect(() => {
-
     queueSnapshotRef.current = queue;
   }, [queue]);
+
+  useEffect(() => {
+    if (voiceAudioRef.current) {
+      voiceAudioRef.current.muted = voiceMuted;
+    }
+  }, [voiceMuted]);
 
   useEffect(() => {
     roomSnapshotRef.current = room;
@@ -1716,19 +1784,27 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   );
 
   const startVoiceChat = useCallback(
-    async (audioElement: HTMLAudioElement) => {
-      if (!room || !userId) {
+    async () => {
+      if (!room || !userId || voiceStartInFlightRef.current) {
         return;
       }
 
       const sessionToken = createId();
       voiceSessionTokenRef.current = sessionToken;
+      voiceStartInFlightRef.current = true;
+      setVoicePlaybackBlocked(false);
       voiceControllerRef.current?.stop();
+
       voiceControllerRef.current = null;
       setVoiceState("requesting-microphone");
       toast(copy.session.voiceStarting);
 
       try {
+        const audioElement = voiceAudioRef.current;
+        if (!audioElement) {
+          throw new Error("Audio element is unavailable");
+        }
+
         const controller = await createPeerToPeerVoiceSession({
           audioElement,
           roomId: room.id,
@@ -1758,6 +1834,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             if (nextState === "error") {
               toast.error(language === "en" ? "Voice playback or microphone setup failed." : "Η ρύθμιση φωνής ή αναπαραγωγής απέτυχε.");
             }
+          },
+          onPlaybackFailure: () => {
+            if (voiceSessionTokenRef.current !== sessionToken) {
+              return;
+            }
+
+            setVoicePlaybackBlocked(true);
           },
         });
 
@@ -1790,9 +1873,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 ? "Voice could not start."
                 : "Η φωνή δεν μπόρεσε να ξεκινήσει.";
         toast.error(errorMessage);
+      } finally {
+        if (voiceSessionTokenRef.current === sessionToken) {
+          voiceStartInFlightRef.current = false;
+        }
       }
     },
-    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
+    [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId, voicePlaybackBlocked],
   );
 
   const leaveRoom = useCallback(
@@ -1892,8 +1979,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       room,
       matchTransition,
       voiceState,
+      voiceMuted,
+      voicePlaybackBlocked,
       online,
       hapticsEnabled,
+
       reconnectEnabled,
       matchSoundEnabled,
       initializing,
@@ -1923,8 +2013,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setMatchSoundEnabled: setMatchSoundEnabledState,
       startVoiceChat,
       stopVoiceChat,
+      enableVoicePlayback,
+      setVoiceMuted,
       startNewSessionFromEndedRoom,
     }),
+
     [
       adminMetrics,
       appReady,
@@ -1962,13 +2055,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       startQueue,
       startVoiceChat,
       stopVoiceChat,
+      enableVoicePlayback,
+      setVoiceMuted,
       unlockVoice,
+      voiceMuted,
+      voicePlaybackBlocked,
       voiceState,
       guestMode,
     ],
   );
 
-  return <PresenceContext.Provider value={value}>{children}</PresenceContext.Provider>;
+  return (
+    <PresenceContext.Provider value={value}>
+      {children}
+      <PersistentVoiceAudio audioRef={voiceAudioRef} />
+    </PresenceContext.Provider>
+  );
+
 }
 
 export function usePresence() {

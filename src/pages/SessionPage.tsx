@@ -49,18 +49,22 @@ const SessionPage = () => {
     startNewSessionFromEndedRoom,
     startVoiceChat,
     stopVoiceChat,
+    enableVoicePlayback,
+    setVoiceMuted,
     voiceState,
+    voiceMuted,
+    voicePlaybackBlocked,
   } = usePresence();
 
   const [draft, setDraft] = useState("");
-  const [muted, setMuted] = useState(false);
+
   const [sessionRemaining, setSessionRemaining] = useState(sessionDurationSeconds);
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const typingClearTimeoutRef = useRef<number | null>(null);
   const typingPublishTimeoutRef = useRef<number | null>(null);
@@ -199,12 +203,6 @@ const SessionPage = () => {
 
     shouldForceScrollRef.current = false;
   }, [room?.messages.length, recentMessageId]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.muted = muted;
-    }
-  }, [muted]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
@@ -405,22 +403,13 @@ const SessionPage = () => {
     }
 
     if (voiceState === "connected") {
-      setMuted((current) => {
-        const next = !current;
-        if (audioRef.current) {
-          audioRef.current.muted = next;
-        }
-        return next;
-      });
+      setVoiceMuted(!voiceMuted);
       return;
     }
 
-    if (audioRef.current) {
-      audioRef.current.muted = true;
-      void audioRef.current.play().catch(() => undefined);
-      await startVoiceChat(audioRef.current);
-      setMuted(false);
-    }
+    await startVoiceChat();
+    setVoiceMuted(false);
+
   };
 
   if (isEnded) {
@@ -687,8 +676,9 @@ const SessionPage = () => {
                     disabled={!voiceReady}
                     onClick={handleVoiceButton}
                   >
-                    {voiceState === "connected" ? muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {voiceState === "connected" ? voiceMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   </Button>
+
                   <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
                     {copy.session.send}
                   </Button>
@@ -743,8 +733,22 @@ const SessionPage = () => {
                                   ? "The mic opens when the timer hits zero."
                                   : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
                       </span>
+                      {voicePlaybackBlocked && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                          onClick={async () => {
+                            await enableVoicePlayback();
+                          }}
+                        >
+                          {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                        </Button>
+                      )}
 
                     </div>
+
                   )}
                 </div>
 
@@ -786,8 +790,6 @@ const SessionPage = () => {
           </div>
         </footer>
 
-        <audio ref={audioRef} className="pointer-events-none absolute h-px w-px opacity-0" autoPlay playsInline aria-hidden="true" />
-
       </div>
 
       <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
@@ -810,18 +812,24 @@ const SessionPage = () => {
               className="h-12 flex-1 rounded-full bg-amber-400 text-slate-950 transition-transform duration-150 active:scale-95 hover:bg-amber-300"
               onClick={async () => {
                 setVoiceUnlockPromptOpen(false);
-                if (audioRef.current) {
-                  audioRef.current.muted = true;
-                  void audioRef.current.play().catch(() => undefined);
-                  await startVoiceChat(audioRef.current);
-                  setMuted(false);
-                }
+                await enableVoicePlayback();
+                setVoiceMuted(false);
               }}
-
             >
               <Mic className="mr-2 h-4 w-4" />
               {language === "en" ? "Start Voice Chat" : "Έναρξη φωνητικής συνομιλίας"}
             </Button>
+            {voicePlaybackBlocked && (
+              <Button
+                variant="outline"
+                className="h-12 flex-1 rounded-full border-emerald-300/20 bg-emerald-300/10 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                onClick={async () => {
+                  await enableVoicePlayback();
+                }}
+              >
+                {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+              </Button>
+            )}
             <Button
               variant="outline"
               className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
