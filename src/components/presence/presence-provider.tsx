@@ -29,6 +29,7 @@ import {
   persistRating,
   persistReport,
   persistRoom,
+  persistRoomTyping,
   syncProfile,
   cleanupUserSession,
 } from "@/lib/presence-backend";
@@ -755,6 +756,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setTypingIndicator(null);
   }, []);
 
+  const syncTypingIndicatorFromRoom = useCallback(() => {
+    const currentRoom = roomSnapshotRef.current;
+    if (!currentRoom || currentRoom.status !== "active" || !currentRoom.typingUserId || currentRoom.typingUserId === userId) {
+      clearTypingIndicator();
+      return;
+    }
+
+    if (typingIndicatorTimeoutRef.current) {
+      window.clearTimeout(typingIndicatorTimeoutRef.current);
+    }
+
+    setTypingIndicator({
+      roomId: currentRoom.id,
+      senderId: currentRoom.typingUserId,
+      displayName: currentRoom.partner?.username ?? "Stranger",
+      updatedAt: currentRoom.typingUpdatedAt ?? new Date().toISOString(),
+    });
+
+    typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+      clearTypingIndicator();
+    }, 1800);
+  }, [clearTypingIndicator, userId]);
+
   const sendTypingState = useCallback((typing: boolean) => {
     const channel = roomChannelRef.current;
     const currentRoom = roomSnapshotRef.current;
@@ -767,6 +791,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     console.info(typing ? "[typing] broadcasting start" : "[typing] broadcasting stop", {
       roomId: currentRoom.id,
       userId: currentUser,
+    });
+
+    void persistRoomTyping(currentRoom, typing ? currentUser : null).catch((error) => {
+      console.info(typing ? "[typing] room typing update failed" : "[typing] room typing clear failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 
     if (typing) {
@@ -836,6 +868,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     stopVoiceChat();
   }, [room?.endedAt, stopVoiceChat]);
+
+  useEffect(() => {
+    syncTypingIndicatorFromRoom();
+  }, [room?.status, room?.typingUpdatedAt, room?.typingUserId, syncTypingIndicatorFromRoom]);
 
   useEffect(() => {
     setIsAdmin(profile?.role === "admin");
@@ -1576,6 +1612,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             rtcConnectionId: updated.rtc_connection_id,
             rtcUpdatedAt: updated.rtc_updated_at,
             voiceUnlockedAt: updated.voice_unlocked_at,
+            typingUserId: updated.typing_user_id,
+            typingUpdatedAt: updated.typing_updated_at,
             status: updated.ended_at ? "ended" : "active",
           };
         });
