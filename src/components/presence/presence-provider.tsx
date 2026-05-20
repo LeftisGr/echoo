@@ -38,7 +38,12 @@ import { getSessionProgression } from "@/lib/session-progression";
 import {
   MEDIA_UPLOAD_BUCKET,
   MEDIA_UPLOAD_COOLDOWN_MS,
+  MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
+  MAX_VIDEO_DURATION_SECONDS,
+  MAX_VIDEO_SIZE_BYTES,
+  isSupportedImageType,
+  isSupportedVideoType,
   sanitizeMediaFileName,
   type MediaPreviewData,
 } from "@/lib/session-media";
@@ -2047,7 +2052,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const isValidType = preview.kind === "image" ? isSupportedImageType(file.type) : isSupportedVideoType(file.type);
+    const isValidSize = preview.kind === "image" ? file.size <= MAX_IMAGE_SIZE_BYTES : file.size <= MAX_VIDEO_SIZE_BYTES;
+    const isValidDuration = preview.kind === "video" ? (preview.durationSeconds ?? 0) <= MAX_VIDEO_DURATION_SECONDS : true;
+
+    if (!isValidType || !isValidSize || !isValidDuration) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        reason: "validation",
+      });
+      throw new Error("Unsupported media file.");
+    }
+
     const now = Date.now();
+
     if (mediaUploadInFlightRef.current) {
       console.info("[media] upload failed", {
         roomId: currentRoom.id,

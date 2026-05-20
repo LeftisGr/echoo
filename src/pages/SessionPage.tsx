@@ -339,7 +339,13 @@ const SessionPage = () => {
 
   const isActive = room.status === "active";
   const isEnded = room.status === "ended";
-  const timerLabel = `${String(Math.floor(sessionProgression.secondsUntilMediaUnlock / 60)).padStart(2, "0")}:${String(sessionProgression.secondsUntilMediaUnlock % 60).padStart(2, "0")}`;
+  const secondsRemaining =
+    phase === "TEXT_PHASE"
+      ? sessionProgression.secondsUntilVoiceUnlock
+      : phase === "AUDIO_PHASE"
+        ? sessionProgression.secondsUntilMediaUnlock
+        : 0;
+  const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
 
@@ -373,7 +379,7 @@ const SessionPage = () => {
                   ? "Voice is ready"
                   : "Η φωνή είναι έτοιμη";
 
-  const timerUrgent = sessionProgression.secondsUntilMediaUnlock <= 60;
+  const timerUrgent = secondsRemaining <= 60;
 
   const timerToneClass =
     phase === "TEXT_PHASE"
