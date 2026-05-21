@@ -1224,15 +1224,25 @@ const SessionPage = () => {
                           !voiceReady && "cursor-not-allowed opacity-60",
                           "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                         )}
-                        onPointerDown={(event) => {
+                        onMouseDown={(event) => {
                           event.preventDefault();
-                          handlePushToTalkPress(event.pointerId);
+                          handlePushToTalkPress();
                         }}
-                        onPointerUp={(event) => {
-                          releasePushToTalk(event.pointerId);
+                        onMouseUp={() => {
+                          releasePushToTalk();
                         }}
-                        onPointerCancel={(event) => {
-                          releasePushToTalk(event.pointerId);
+                        onMouseLeave={() => {
+                          releasePushToTalk();
+                        }}
+                        onTouchStart={(event) => {
+                          event.preventDefault();
+                          handlePushToTalkPress();
+                        }}
+                        onTouchEnd={() => {
+                          releasePushToTalk();
+                        }}
+                        onTouchCancel={() => {
+                          releasePushToTalk();
                         }}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
