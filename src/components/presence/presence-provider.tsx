@@ -699,7 +699,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
   const voiceSessionTokenRef = useRef<string | null>(null);
   const voiceStartInFlightRef = useRef(false);
+  const voiceReconnectAttemptedRoomIdRef = useRef<string | null>(null);
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const queueTimersRef = useRef<number[]>([]);
   const typingIndicatorTimeoutRef = useRef<number | null>(null);
   const typingIndicatorLogRef = useRef<{ senderId: string | null; typing: boolean } | null>(null);
@@ -2302,6 +2304,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     },
     [copy.session.connected, copy.session.voiceStarting, hapticsEnabled, language, room, userId],
   );
+
+  useEffect(() => {
+    if (!room || !room.voiceEnabled || room.status !== "active") {
+      voiceReconnectAttemptedRoomIdRef.current = null;
+      return;
+    }
+
+    if (voiceControllerRef.current || voiceStartInFlightRef.current || voiceState !== "idle") {
+      return;
+    }
+
+    const shouldReconnect = room.rtcState === "connected" || room.rtcState === "connecting" || room.rtcState === "reconnecting";
+    if (!shouldReconnect || voiceReconnectAttemptedRoomIdRef.current === room.id) {
+      return;
+    }
+
+    voiceReconnectAttemptedRoomIdRef.current = room.id;
+    void startVoiceChat().catch(() => undefined);
+  }, [room, startVoiceChat, voiceState]);
 
   const leaveRoom = useCallback(
     (reason?: string) => {

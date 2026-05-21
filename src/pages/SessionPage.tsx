@@ -87,6 +87,8 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
+  const pttPointerIdRef = useRef<number | null>(null);
+  const pttStartedAtRef = useRef<number | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -220,6 +222,8 @@ const SessionPage = () => {
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
+
+
   useEffect(() => {
     if (room?.status === "ended") {
       stopTypingIndicator();
@@ -292,19 +296,39 @@ const SessionPage = () => {
     });
   }, [room?.id, typingIndicator]);
 
-  const releasePushToTalk = useCallback(() => {
-    setPushToTalkPressed(false);
-    setVoiceTransmissionEnabled(false);
-  }, [setVoiceTransmissionEnabled]);
+  function releasePushToTalk(pointerId?: number) {
+    if (pointerId !== undefined && pttPointerIdRef.current !== null && pointerId !== pttPointerIdRef.current) {
+      return;
+    }
 
-  const handlePushToTalkPress = useCallback(() => {
+    const startedAt = pttStartedAtRef.current ?? Date.now();
+    const minimumHoldMs = 220;
+    const elapsed = Date.now() - startedAt;
+    const release = () => {
+      pttPointerIdRef.current = null;
+      pttStartedAtRef.current = null;
+      setPushToTalkPressed(false);
+      setVoiceTransmissionEnabled(false);
+    };
+
+    if (elapsed < minimumHoldMs) {
+      window.setTimeout(release, minimumHoldMs - elapsed);
+      return;
+    }
+
+    release();
+  }
+
+  function handlePushToTalkPress(pointerId?: number) {
     if (!voiceReady || voiceState !== "connected") {
       return;
     }
 
+    pttPointerIdRef.current = pointerId ?? null;
+    pttStartedAtRef.current = Date.now();
     setPushToTalkPressed(true);
     setVoiceTransmissionEnabled(true);
-  }, [setVoiceTransmissionEnabled, voiceReady, voiceState]);
+  }
 
   useEffect(() => {
     const handleWindowBlur = () => {
@@ -860,15 +884,11 @@ const SessionPage = () => {
                           } catch {
                             /* noop */
                           }
-                          handlePushToTalkPress();
+                          handlePushToTalkPress(event.pointerId);
                         }}
-                        onPointerUp={releasePushToTalk}
-                        onPointerCancel={releasePushToTalk}
-                        onTouchEnd={releasePushToTalk}
-                        onTouchCancel={releasePushToTalk}
                         onContextMenu={(event) => event.preventDefault()}
-
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+
                       >
                         <Mic className={cn("h-5 w-5", pushToTalkPressed && "animate-pulse")} />
                       </Button>
