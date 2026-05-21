@@ -557,7 +557,6 @@ const SessionPage = () => {
 
   useEffect(() => {
     const handleWindowBlur = () => {
-      releasePushToTalk();
       stopTypingIndicator();
     };
 
@@ -565,7 +564,7 @@ const SessionPage = () => {
     return () => {
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [releasePushToTalk, stopTypingIndicator]);
+  }, [stopTypingIndicator]);
 
   useEffect(() => () => {
     clearPushToTalkReleaseTimeout();
