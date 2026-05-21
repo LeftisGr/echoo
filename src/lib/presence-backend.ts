@@ -287,7 +287,7 @@ export async function loadProfile(userId: string) {
 }
 
 export async function joinQueue(userId: string, filters: QueueFilters) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return createOfflineResult({ ok: true, userId, filters });
   }
 
@@ -310,7 +310,7 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
 }
 
 export async function cleanupUserSession(userId: string) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return createOfflineResult({ ok: true, userId });
   }
 
@@ -349,7 +349,7 @@ export async function cleanupUserSession(userId: string) {
 }
 
 export async function leaveQueue(userId: string) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return createOfflineResult({ ok: true, userId });
   }
 
@@ -366,7 +366,7 @@ export async function leaveQueue(userId: string) {
 }
 
 export async function matchQueueUser(userId: string, relaxed = false) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return createOfflineResult({ roomId: null as string | null, partnerId: null as string | null, createdRoom: false, alreadyMatched: false });
   }
 
