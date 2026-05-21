@@ -421,20 +421,8 @@ const SessionPage = () => {
           ? "text-amber-100"
           : "text-amber-50";
 
-  const progressSubtitle =
-    phase === "TEXT_PHASE"
-      ? language === "en"
-        ? "Text phase"
-        : "Φάση κειμένου"
-      : phase === "AUDIO_PHASE"
-        ? language === "en"
-          ? "Audio phase"
-          : "Φάση ήχου"
-        : language === "en"
-          ? "Media phase"
-          : "Φάση media";
-
   const composerShellClass =
+
     phase === "TEXT_PHASE"
       ? "border-white/10 bg-[#10182b]/92"
       : phase === "AUDIO_PHASE"
@@ -653,12 +641,13 @@ const SessionPage = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="mt-2 h-9 rounded-full border-white/10 bg-white/5 px-3 text-xs text-white/75 hover:bg-white/10 hover:text-white"
+                className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 hover:bg-white/10 hover:text-white"
                 onClick={() => setReportDialogOpen(true)}
               >
-                <Flag className="mr-2 h-3.5 w-3.5" />
-                {language === "en" ? "Report Stranger" : "Αναφορά αγνώστου"}
+                <Flag className="mr-1.5 h-3.5 w-3.5" />
+                {language === "en" ? "Report" : "Αναφορά"}
               </Button>
+
             </div>
 
             <div className="text-center">
@@ -668,7 +657,6 @@ const SessionPage = () => {
                 timerLabel={timerLabel}
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
-                subtitle={progressSubtitle}
               />
             </div>
 
@@ -876,10 +864,9 @@ const SessionPage = () => {
                         }}
                         onPointerUp={releasePushToTalk}
                         onPointerCancel={releasePushToTalk}
-                        onPointerLeave={releasePushToTalk}
-                        onLostPointerCapture={releasePushToTalk}
                         onTouchEnd={releasePushToTalk}
                         onTouchCancel={releasePushToTalk}
+
                         onBlur={releasePushToTalk}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
