@@ -142,10 +142,15 @@ async function cleanupExpiredMessages() {
     return createOfflineResult({ deletedCount: 0 });
   }
 
-  const { error } = await supabase.rpc("cleanup_expired_messages");
-
-  if (error) {
-    throw error;
+  try {
+    const { error } = await supabase.rpc("cleanup_expired_messages");
+    if (error) {
+      console.info("[media] cleanup skipped", { error: error.message });
+    }
+  } catch (error) {
+    console.info("[media] cleanup skipped", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   return { deletedCount: 0 };
