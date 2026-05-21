@@ -104,6 +104,14 @@ function writeGuestCredentials(credentials: { email: string; password: string } 
   window.localStorage.setItem(GUEST_PASSWORD_KEY, credentials.password);
 }
 
+function createAuthHeaders(key: string, accessToken?: string | null) {
+  return {
+    apikey: key,
+    Authorization: `Bearer ${accessToken ?? key}`,
+    "Content-Type": "application/json",
+  };
+}
+
 function createGuestCredentials() {
   const token = getUrlSafeRandom(16).toLowerCase();
   return {
@@ -115,10 +123,7 @@ function createGuestCredentials() {
 async function invokeEdgeFunction(baseUrl: string, key: string, name: string, body?: unknown) {
   const response = await fetch(`${baseUrl}/functions/v1/${name}`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      "Content-Type": "application/json",
-    },
+    headers: createAuthHeaders(key),
     body: JSON.stringify(body ?? {}),
   });
 
@@ -146,10 +151,7 @@ async function persistAuthResponse(response: Response) {
 async function refreshSession(baseUrl: string, key: string, session: StoredSession) {
   const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      "Content-Type": "application/json",
-    },
+    headers: createAuthHeaders(key, key),
     body: JSON.stringify({ refresh_token: session.refresh_token }),
   });
 
@@ -190,10 +192,7 @@ async function exchangeCodeForSession(baseUrl: string, key: string, code: string
 
   const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=pkce`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      "Content-Type": "application/json",
-    },
+    headers: createAuthHeaders(key, key),
     body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
   });
 
@@ -357,13 +356,7 @@ class QueryBuilder {
 
   private async execute(expectSingle = false) {
     const session = await ensureValidSession(this.url, this.key, this.session ?? readSession());
-    const headers: Record<string, string> = {
-      apikey: this.key,
-      "Content-Type": "application/json",
-    };
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`;
-    }
+    const headers: Record<string, string> = createAuthHeaders(this.key, session?.access_token);
 
     const url = new URL(`${this.url}/rest/v1/${this.table}`);
     if (this.method === "select") {
@@ -480,10 +473,7 @@ export function createClient(url: string, key: string) {
     async signUp({ email, password, options }: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
       const response = await fetch(`${url}/auth/v1/signup`, {
         method: "POST",
-        headers: {
-          apikey: key,
-          "Content-Type": "application/json",
-        },
+        headers: createAuthHeaders(key, key),
         body: JSON.stringify({
           email,
           password,
@@ -501,10 +491,7 @@ export function createClient(url: string, key: string) {
     async signInWithPassword({ email, password }: { email: string; password: string }) {
       const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
         method: "POST",
-        headers: {
-          apikey: key,
-          "Content-Type": "application/json",
-        },
+        headers: createAuthHeaders(key, key),
         body: JSON.stringify({ email, password }),
       });
 
@@ -523,10 +510,7 @@ export function createClient(url: string, key: string) {
 
       const signupResponse = await fetch(`${url}/auth/v1/signup`, {
         method: "POST",
-        headers: {
-          apikey: key,
-          "Content-Type": "application/json",
-        },
+        headers: createAuthHeaders(key, key),
         body: JSON.stringify({
           email: guestEmail,
           password: guestPassword,
@@ -590,13 +574,8 @@ export function createClient(url: string, key: string) {
         ) {
           const run = async () => {
             const session = await ensureValidSession(url, key, currentSession ?? readSession());
-            const headers: Record<string, string> = {
-              apikey: key,
-              "Content-Type": "application/json",
-            };
-            if (session?.access_token) {
-              headers.Authorization = `Bearer ${session.access_token}`;
-            }
+            const headers: Record<string, string> = createAuthHeaders(key, session?.access_token);
+
             const response = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
               method: "POST",
               headers,
@@ -616,13 +595,8 @@ export function createClient(url: string, key: string) {
     functions: {
       async invoke(functionName: string, options?: { body?: unknown }) {
         const session = await ensureValidSession(url, key, currentSession ?? readSession());
-        const headers: Record<string, string> = {
-          apikey: key,
-          "Content-Type": "application/json",
-        };
-        if (session?.access_token) {
-          headers.Authorization = `Bearer ${session.access_token}`;
-        }
+        const headers: Record<string, string> = createAuthHeaders(key, session?.access_token);
+
         const response = await fetch(`${url}/functions/v1/${functionName}`, {
           method: "POST",
           headers,
