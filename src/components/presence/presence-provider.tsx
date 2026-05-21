@@ -1310,29 +1310,31 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       profileForSession = readStoredGuestProfile() ?? createDefaultProfile(currentUserId);
       setIsAdmin(profileForSession.role === "admin");
       setProfile(profileForSession);
+      setQueue(createInitialQueue(profileForSession));
+      return;
+    }
+
+    const loadedProfile = await loadProfile(currentUserId);
+    profileForSession = loadedProfile ?? createDefaultProfile(currentUserId);
+
+    setIsAdmin(profileForSession.role === "admin");
+
+    if (loadedProfile) {
+      setProfile(loadedProfile);
+      setQueue((current) => ({
+        ...current,
+        filters: {
+          preference: loadedProfile.preference,
+          language: loadedProfile.language,
+        },
+      }));
     } else {
-
-      const loadedProfile = await loadProfile(currentUserId);
-      profileForSession = loadedProfile ?? createDefaultProfile(currentUserId);
-
-      setIsAdmin(profileForSession.role === "admin");
-
-      if (loadedProfile) {
-        setProfile(loadedProfile);
-        setQueue((current) => ({
-          ...current,
-          filters: {
-            preference: loadedProfile.preference,
-            language: loadedProfile.language,
-          },
-        }));
-      } else {
-        setProfile(profileForSession);
-        await syncProfile(profileForSession);
-      }
+      setProfile(profileForSession);
+      await syncProfile(profileForSession);
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+
     if (activeRoom) {
       const pendingMatch = readStoredMatchTransition();
       if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
