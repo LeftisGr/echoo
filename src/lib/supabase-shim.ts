@@ -416,23 +416,26 @@ class QueryBuilder {
 
 class ChannelShim {
   constructor(_topic: string, _key?: string) {}
-  on() {
+  on(..._args: unknown[]) {
     return this;
   }
-  subscribe() {
+  subscribe(_callback?: (status: string) => void) {
     return this;
   }
   unsubscribe() {
     return Promise.resolve();
   }
-  track() {
+  track(_payload?: unknown) {
     return Promise.resolve();
   }
   untrack() {
     return Promise.resolve();
   }
-  send() {
+  send(_payload?: unknown) {
     return Promise.resolve({});
+  }
+  presenceState() {
+    return {};
   }
 }
 
@@ -613,7 +616,7 @@ export function createClient(url: string, key: string) {
         return { data, error: response.ok ? null : new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})) };
       },
     },
-    channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
+    channel(topic?: string, options?: { config?: { presence?: { key?: string }; broadcast?: { self?: boolean; ack?: boolean } } }) {
       return new ChannelShim(topic ?? "default", options?.config?.presence?.key);
     },
   };
