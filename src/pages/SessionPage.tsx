@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { ArrowRight, Flag, Home, Info, Mic, PhoneOff, ShieldAlert } from "lucide-react";
+import { ArrowRight, Check, Film, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, ShieldAlert, Send, X } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -22,10 +22,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
-import { MediaComposer } from "@/components/session/media-composer";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_MEDIA_MESSAGES_PER_SESSION,
+  MAX_VIDEO_DURATION_SECONDS,
+  MAX_VIDEO_SIZE_BYTES,
+  MEDIA_UPLOAD_COOLDOWN_MS,
+  type MediaPreviewData,
+  prepareMediaUpload,
+} from "@/lib/session-media";
 import { cn } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -37,6 +45,14 @@ function getRoomDisplayName(roomId: string) {
     .reduce((value, char) => value + char.charCodeAt(0), 0);
 
   return `Room #${String(100 + (suffix % 900)).padStart(3, "0")}`;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 const SessionPage = () => {
@@ -78,9 +94,15 @@ const SessionPage = () => {
 
   const [draft, setDraft] = useState("");
   const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<MediaPreviewData | null>(null);
+  const [mediaCaption, setMediaCaption] = useState("");
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
+
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState("harassment");
   const [reportDetails, setReportDetails] = useState("");
@@ -89,9 +111,14 @@ const SessionPage = () => {
 
   const pttPointerIdRef = useRef<number | null>(null);
   const pttStartedAtRef = useRef<number | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaCooldownRef = useRef(0);
+  const mediaSendCountRef = useRef(0);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const shouldForceScrollRef = useRef(true);
@@ -137,6 +164,13 @@ const SessionPage = () => {
       setReportDialogOpen(false);
       setReportReason("harassment");
       setReportDetails("");
+      setAttachmentMenuOpen(false);
+      setSelectedMedia(null);
+      setMediaCaption("");
+      setMediaError(null);
+      setMediaBusy(false);
+      mediaCooldownRef.current = 0;
+      mediaSendCountRef.current = 0;
     }
 
     shouldForceScrollRef.current = true;
@@ -201,6 +235,19 @@ const SessionPage = () => {
   }, [appendSystemMessage, copy.session.mediaUnlocked, phase, room]);
 
   useEffect(() => {
+    if (phase === "MEDIA_PHASE") {
+      return;
+    }
+
+    setAttachmentMenuOpen(false);
+    setSelectedMedia(null);
+    setMediaCaption("");
+    setMediaError(null);
+    setMediaBusy(false);
+  }, [phase]);
+
+  useEffect(() => {
+
     const node = chatScrollRef.current;
 
     if (!node) {
@@ -289,8 +336,114 @@ const SessionPage = () => {
     }, 1500);
   }
 
+  function resetMediaSelection() {
+    if (selectedMedia?.previewUrl) {
+      URL.revokeObjectURL(selectedMedia.previewUrl);
+    }
+
+    setSelectedMedia(null);
+    setMediaCaption("");
+    setMediaError(null);
+    setMediaBusy(false);
+  }
+
+  async function handleMediaFileSelected(file: File) {
+    setMediaError(null);
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type) {
+      setMediaError(language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.");
+      return;
+    }
+
+    if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
+      setMediaError(language === "en" ? "Image is too large." : "Η εικόνα είναι πολύ μεγάλη.");
+      return;
+    }
+
+    if (file.type.startsWith("video/") && file.size > MAX_VIDEO_SIZE_BYTES) {
+      setMediaError(language === "en" ? "Video is too large." : "Το βίντεο είναι πολύ μεγάλο.");
+      return;
+    }
+
+    try {
+      const prepared = await prepareMediaUpload(file);
+
+      if (prepared.kind === "video" && (prepared.durationSeconds ?? 0) > MAX_VIDEO_DURATION_SECONDS) {
+        setMediaError(language === "en" ? "Video is longer than the allowed limit." : "Το βίντεο ξεπερνά το επιτρεπτό όριο.");
+        return;
+      }
+
+      const previewUrl = URL.createObjectURL(prepared.file);
+      setSelectedMedia((current) => {
+        if (current?.previewUrl) {
+          URL.revokeObjectURL(current.previewUrl);
+        }
+
+        return {
+          kind: prepared.kind,
+          file: prepared.file,
+          previewUrl,
+          displayName: prepared.displayName,
+          size: prepared.size,
+          durationSeconds: prepared.durationSeconds,
+          width: prepared.width,
+          height: prepared.height,
+        };
+      });
+      setAttachmentMenuOpen(false);
+    } catch (mediaError) {
+      setMediaError(mediaError instanceof Error ? mediaError.message : language === "en" ? "Could not read the file." : "Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
+    }
+  }
+
+  async function sendSelectedMedia() {
+    if (!selectedMedia || mediaBusy) {
+      return;
+    }
+
+    const now = Date.now();
+    if (mediaCooldownRef.current && now - mediaCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
+      setMediaError(language === "en" ? "Please wait a moment before sending another media item." : "Περίμενε λίγο πριν στείλεις άλλο media.");
+      return;
+    }
+
+    if (mediaSendCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
+      setMediaError(language === "en" ? "Media sharing limit reached for this session." : "Έφτασες το όριο media για αυτό το session.");
+      return;
+    }
+
+    setMediaBusy(true);
+    try {
+      await sendMediaMessage({
+        file: selectedMedia.file,
+        caption: mediaCaption.trim(),
+        preview: selectedMedia,
+      });
+      mediaCooldownRef.current = Date.now();
+      mediaSendCountRef.current += 1;
+      resetMediaSelection();
+    } catch (mediaSendError) {
+      setMediaError(mediaSendError instanceof Error ? mediaSendError.message : language === "en" ? "Upload failed." : "Η αποστολή απέτυχε.");
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (selectedMedia?.previewUrl) {
+        URL.revokeObjectURL(selectedMedia.previewUrl);
+      }
+    };
+  }, [selectedMedia?.previewUrl]);
+
   useEffect(() => {
     console.info("[typing] render state", {
+
       roomId: room?.id ?? null,
       remoteTyping: Boolean(typingIndicator),
     });
@@ -446,14 +599,26 @@ const SessionPage = () => {
           : "text-amber-50";
 
   const composerShellClass =
-
     phase === "TEXT_PHASE"
       ? "border-white/10 bg-[#10182b]/92"
       : phase === "AUDIO_PHASE"
         ? "border-emerald-300/12 bg-[#101f1a]/92"
-        : "border-amber-300/18 bg-[#1c1621]/92";
+        : "border-violet-300/18 bg-[#151826]/92";
+
+  const mediaHelperText = selectedMedia
+    ? selectedMedia.kind === "image"
+      ? language === "en"
+        ? `Images are compressed locally and limited to ${formatBytes(MAX_IMAGE_SIZE_BYTES)} before sending.`
+        : `Οι εικόνες συμπιέζονται τοπικά και περιορίζονται στα ${formatBytes(MAX_IMAGE_SIZE_BYTES)} πριν σταλούν.`
+      : language === "en"
+        ? `Short videos only, up to ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
+        : `Μόνο σύντομα βίντεο, έως ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
+    : language === "en"
+      ? `Images are compressed locally. Videos are capped at ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
+      : `Οι εικόνες συμπιέζονται τοπικά. Τα βίντεο περιορίζονται στα ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`;
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
+
   const visibleMessages = room.messages.filter((message) => {
     if (message.type === "system") {
       return true;
@@ -842,39 +1007,190 @@ const SessionPage = () => {
                   stopTypingIndicator();
                   await sendMessage(nextDraft);
                   setDraft("");
-
                 }}
               >
-                {phase === "MEDIA_PHASE" && (
-                  <div className="mb-3">
-                    <MediaComposer
-                      enabled={phase === "MEDIA_PHASE"}
-                      onSendMedia={async ({ file, caption, preview }) => {
-                        shouldForceScrollRef.current = isNearBottomRef.current;
-                        await sendMediaMessage({ file, caption, preview });
-                      }}
+                <div className="space-y-3">
+                  <div className="flex items-end gap-2 sm:gap-3">
+                    {phase === "MEDIA_PHASE" && (
+                      <div className="relative shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className={cn(
+                            "h-12 w-12 rounded-full border-white/10 bg-white/5 text-white/70 shadow-sm shadow-black/15 transition-all duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-95",
+                            attachmentMenuOpen && "border-violet-300/25 bg-violet-500/15 text-violet-50",
+                          )}
+                          onClick={() => setAttachmentMenuOpen((current) => !current)}
+                          aria-label={language === "en" ? "Attach media" : "Επισύναψη media"}
+                        >
+                          <Paperclip className="h-4 w-4" />
+                        </Button>
+
+                        {attachmentMenuOpen && (
+                          <div className="absolute bottom-full left-0 z-20 mb-2 w-44 overflow-hidden rounded-[22px] border border-white/10 bg-[#11192b] p-2 shadow-[0_20px_45px_rgba(0,0,0,0.35)]">
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-sm text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+                              onClick={() => {
+                                setAttachmentMenuOpen(false);
+                                imageInputRef.current?.click();
+                              }}
+                            >
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-500/15 text-violet-100">
+                                <ImagePlus className="h-4 w-4" />
+                              </span>
+                              <span>{language === "en" ? "Photo" : "Φωτο"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-sm text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+                              onClick={() => {
+                                setAttachmentMenuOpen(false);
+                                videoInputRef.current?.click();
+                              }}
+                            >
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500/15 text-sky-100">
+                                <Film className="h-4 w-4" />
+                              </span>
+                              <span>{language === "en" ? "Video" : "Βίντεο"}</span>
+                            </button>
+                          </div>
+                        )}
+
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            if (file) {
+                              await handleMediaFileSelected(file);
+                            }
+                          }}
+                        />
+                        <input
+                          ref={videoInputRef}
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            if (file) {
+                              await handleMediaFileSelected(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <Input
+                      value={draft}
+                      onKeyDown={handleDraftKeyDown}
+                      onChange={(event) => handleDraftChange(event.target.value)}
+                      onBlur={stopTypingIndicator}
+                      placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
+                      className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                     />
+
+                    <Button type="submit" className="h-14 shrink-0 rounded-full bg-violet-500 px-5 text-white shadow-md shadow-violet-500/20 transition-transform duration-150 hover:bg-violet-400 active:scale-95">
+                      <span className="hidden sm:inline">{copy.session.send}</span>
+                      <Send className="h-4 w-4 sm:ml-2" />
+                    </Button>
                   </div>
-                )}
 
-                <div className="flex items-end gap-3">
+                  {phase === "MEDIA_PHASE" && (
+                    <div className="space-y-3 rounded-[26px] border border-white/10 bg-[#0d1425] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-4">
+                      {selectedMedia ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
+                              {selectedMedia.kind === "image" ? (
+                                <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
+                              ) : (
+                                <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
+                              )}
+                            </div>
 
-                  <Input
-                    value={draft}
-                    onKeyDown={handleDraftKeyDown}
-                    onChange={(event) => handleDraftChange(event.target.value)}
-                    onBlur={stopTypingIndicator}
-                    placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
-                    className="h-14 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
-                  />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-white">{selectedMedia.displayName}</p>
+                                  <p className="text-xs text-white/45">
+                                    {selectedMedia.kind === "image"
+                                      ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
+                                      : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0 rounded-full text-white/60 hover:bg-white/10 hover:text-white"
+                                  onClick={resetMediaSelection}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <Input
+                                value={mediaCaption}
+                                onChange={(event) => setMediaCaption(event.target.value)}
+                                placeholder={language === "en" ? "Add a short caption (optional)" : "Πρόσθεσε λεζάντα (προαιρετικό)"}
+                                className="h-11 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                                maxLength={180}
+                              />
+                            </div>
+                          </div>
 
-                  <div className="flex items-center gap-2">
-                    {pushToTalkAvailable && (
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <Button
+                              type="button"
+                              className="h-11 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                              disabled={mediaBusy}
+                              onClick={() => {
+                                void sendSelectedMedia();
+                              }}
+                            >
+                              {mediaBusy ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
+                                  {language === "en" ? "Sending..." : "Αποστολή..."}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-2">
+                                  <Check className="h-4 w-4" />
+                                  {language === "en" ? "Send media" : "Αποστολή media"}
+                                </span>
+                              )}
+                            </Button>
+                            <div className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-white/50">
+                              {mediaHelperText}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-[22px] border border-dashed border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white/55">
+                          {language === "en"
+                            ? "Tap the attachment button to share a photo or short video when the media phase opens."
+                            : "Πάτησε το κουμπί επισύναψης για να στείλεις μια φωτογραφία ή ένα σύντομο βίντεο όταν ανοίξει το media phase."}
+                        </div>
+                      )}
+
+                      {mediaError && <p className="text-sm text-rose-200">{mediaError}</p>}
+                    </div>
+                  )}
+
+                  {voiceReady && (
+                    <div className="pt-1">
                       <Button
                         type="button"
                         className={cn(
-                          "h-14 w-14 rounded-full border border-white/10 bg-[#10182b] text-white shadow-lg shadow-black/20 transition-transform duration-150 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-95",
-                          pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-100",
+                          "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
+                          pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
                           "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                         )}
                         onPointerDown={(event) => {
@@ -888,85 +1204,88 @@ const SessionPage = () => {
                         }}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
-
                       >
-                        <Mic className={cn("h-5 w-5", pushToTalkPressed && "animate-pulse")} />
-                      </Button>
-                    )}
-
-                    <Button type="submit" className="h-14 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400">
-                      {copy.session.send}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex min-h-[2.75rem] items-center gap-3">
-                  <div className="min-h-[2.5rem]">
-                    {typingIndicator ? (
-                      <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                        <span className="truncate">Stranger is typing…</span>
-                        <span className="flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="h-[2.5rem]" aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
-
-                    <span
-                      className={cn(
-                        "rounded-full border px-3 py-1.5 font-medium tracking-wide",
-                        voiceState === "connected"
-                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                          : voiceState === "requesting-microphone" || voiceState === "connecting"
-                            ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
-                            : voiceState === "reconnecting"
-                              ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
-                              : voiceState === "failed" || voiceState === "error"
-                                ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
-                                : "border-white/10 bg-white/5 text-white/55",
-                      )}
-                    >
-                      {voiceStatusLabel}
-                    </span>
-                    <span>
-                      {voiceState === "connected"
-                        ? language === "en"
-                          ? "Use the mic button to mute or unmute."
-                          : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
-                        : voiceState === "error"
-                          ? language === "en"
-                            ? "Tap Start Voice Chat again to retry."
-                            : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
-                          : voiceState === "failed"
+                        <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
+                        <span className="text-sm font-semibold tracking-wide sm:text-base">
+                          {pushToTalkPressed
                             ? language === "en"
-                              ? "The connection needs another attempt."
-                              : "Η σύνδεση χρειάζεται νέα προσπάθεια."
-                            : voiceReady
-                              ? language === "en"
-                                ? "Voice is ready"
-                                : "Η φωνή είναι έτοιμη"
-                              : language === "en"
-                                ? "The mic opens when the timer hits zero."
-                                : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
-                    </span>
-                    {voicePlaybackBlocked && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
-                        onClick={async () => {
-                          await enableVoicePlayback();
-                        }}
-                      >
-                        {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                              ? "Talking..."
+                              : "Μιλάς..."
+                            : language === "en"
+                              ? "Hold to Talk"
+                              : "Κράτα για ομιλία"}
+                        </span>
                       </Button>
-                    )}
+                    </div>
+                  )}
+
+                  <div className="mt-1 flex min-h-[2.75rem] items-center gap-3">
+                    <div className="min-h-[2.5rem]">
+                      {typingIndicator ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
+                          <span className="truncate">Stranger is typing…</span>
+                          <span className="flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="h-[2.5rem]" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
+                      <span
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 font-medium tracking-wide",
+                          voiceState === "connected"
+                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                            : voiceState === "requesting-microphone" || voiceState === "connecting"
+                              ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
+                              : voiceState === "reconnecting"
+                                ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
+                                : voiceState === "failed" || voiceState === "error"
+                                  ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
+                                  : "border-white/10 bg-white/5 text-white/55",
+                        )}
+                      >
+                        {voiceStatusLabel}
+                      </span>
+                      <span>
+                        {voiceState === "connected"
+                          ? language === "en"
+                            ? "Use the mic button to mute or unmute."
+                            : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
+                          : voiceState === "error"
+                            ? language === "en"
+                              ? "Tap Start Voice Chat again to retry."
+                              : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
+                            : voiceState === "failed"
+                              ? language === "en"
+                                ? "The connection needs another attempt."
+                                : "Η σύνδεση χρειάζεται νέα προσπάθεια."
+                              : voiceReady
+                                ? language === "en"
+                                  ? "Voice is ready"
+                                  : "Η φωνή είναι έτοιμη"
+                                : language === "en"
+                                  ? "The mic opens when the timer hits zero."
+                                  : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
+                      </span>
+                      {voicePlaybackBlocked && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                          onClick={async () => {
+                            await enableVoicePlayback();
+                          }}
+                        >
+                          {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </form>
