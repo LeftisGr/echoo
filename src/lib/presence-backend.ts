@@ -9,7 +9,7 @@ import type {
 } from "@/lib/presence-types";
 
 export const hasSupabaseConfig = true;
-const MESSAGE_TTL_SECONDS = 15;
+const MESSAGE_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
@@ -138,22 +138,7 @@ function createOfflineResult<T>(value: T) {
 }
 
 async function cleanupExpiredMessages() {
-  if (!hasSupabaseConfig) {
-    return createOfflineResult({ deletedCount: 0 });
-  }
-
-  try {
-    const { error } = await supabase.rpc("cleanup_expired_messages");
-    if (error) {
-      console.info("[media] cleanup skipped", { error: error.message });
-    }
-  } catch (error) {
-    console.info("[media] cleanup skipped", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  return { deletedCount: 0 };
+  return createOfflineResult({ deletedCount: 0 });
 }
 
 function normalizeFilters(filters: QueueFilters) {
@@ -560,9 +545,8 @@ export async function loadRoomMessages(roomId: string) {
     return [] as ChatMessage[];
   }
 
-  await cleanupExpiredMessages();
-
   const { data, error } = await supabase
+
     .from("messages")
     .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, expires_at, created_at")
     .eq("room_id", roomId)
@@ -572,16 +556,12 @@ export async function loadRoomMessages(roomId: string) {
     throw error;
   }
 
-  const now = Date.now();
-
   return (data ?? [])
     .map((row) => {
       const message = row as unknown as LiveMessageRow & { expires_at: string | null };
-      if (message.expires_at && new Date(message.expires_at).getTime() <= now) {
-        return null;
-      }
 
       if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+
         return {
           id: message.id,
           roomId: message.room_id,
