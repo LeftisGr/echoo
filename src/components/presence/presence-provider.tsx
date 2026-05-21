@@ -1784,7 +1784,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const liveSearching = smoothedSearchingCount;
     const liveRooms = smoothedRoomCount;
 
-    if (!authenticated) {
+    if (!authenticated || profile?.role !== "admin") {
+      setAdminMetrics({
+        totalUsers: 0,
+        activeUsers: liveSearching + liveRooms,
+        queueCount: liveSearching,
+        activeRooms: liveRooms,
+        averageSessionDuration: 7,
+        reportsCount: reportsCount,
+        dailySignups: 73,
+        usersOnlineNow: liveUsers,
+        avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
+      });
       return;
     }
 

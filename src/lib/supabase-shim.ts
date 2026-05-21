@@ -516,15 +516,7 @@ export function createClient(url: string, key: string) {
       return { data: null, error: errorText ? new Error(errorText) : null };
     },
     async signInAnonymously() {
-      const credentials = readGuestCredentials();
-      if (credentials) {
-        const existingLogin = await auth.signInWithPassword(credentials);
-        if (existingLogin.data?.session) {
-          return existingLogin;
-        }
-
-        writeGuestCredentials(null);
-      }
+      writeGuestCredentials(null);
 
       const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
 
