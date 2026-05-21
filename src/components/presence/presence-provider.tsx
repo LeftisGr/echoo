@@ -1310,7 +1310,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       profileForSession = readStoredGuestProfile() ?? createDefaultProfile(currentUserId);
       setIsAdmin(profileForSession.role === "admin");
       setProfile(profileForSession);
-      await syncProfile(profileForSession);
     } else {
 
       const loadedProfile = await loadProfile(currentUserId);
