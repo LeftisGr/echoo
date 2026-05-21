@@ -62,7 +62,7 @@ create table if not exists public.messages (
   media_duration_seconds integer,
   media_width integer,
   media_height integer,
-  expires_at timestamptz not null default (now() + interval '15 seconds'),
+  expires_at timestamptz not null default (now() + interval '1 year'),
   created_at timestamptz not null default now()
 );
 

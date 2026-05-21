@@ -2035,7 +2035,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         senderId: profile.id,
         content: content.trim(),
         createdAt,
-        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
+        expiresAt: new Date(Date.parse(createdAt) + 31536000000).toISOString(),
         type: "text",
       };
 
@@ -2142,7 +2142,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         senderId: currentUser,
         content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
         createdAt,
-        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
+        expiresAt: new Date(Date.parse(createdAt) + 31536000000).toISOString(),
         type: "media",
         media: {
           url: publicUrlData.publicUrl,
