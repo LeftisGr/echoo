@@ -101,9 +101,9 @@ const SessionPage = () => {
   const [mediaBusy, setMediaBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
-
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
+  const voiceAutoStartRoomIdRef = useRef<string | null>(null);
   const [reportReason, setReportReason] = useState("harassment");
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -111,6 +111,7 @@ const SessionPage = () => {
 
   const pttPointerIdRef = useRef<number | null>(null);
   const pttStartedAtRef = useRef<number | null>(null);
+  const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const mediaCooldownRef = useRef(0);
@@ -159,8 +160,8 @@ const SessionPage = () => {
 
     if (room.id !== routeRoomId) {
       lastVoiceUnlockAtRef.current = null;
+      voiceAutoStartRoomIdRef.current = null;
       mediaUnlockMessageRoomIdRef.current = null;
-      setVoiceUnlockPromptOpen(false);
       setReportDialogOpen(false);
       setReportReason("harassment");
       setReportDetails("");
@@ -206,7 +207,6 @@ const SessionPage = () => {
     }
 
     unlockVoice();
-    setVoiceUnlockPromptOpen(true);
   }, [phase, room, unlockVoice]);
 
   useEffect(() => {
@@ -216,10 +216,14 @@ const SessionPage = () => {
 
     lastVoiceUnlockAtRef.current = room.voiceUnlockedAt;
     appendSystemMessage(copy.session.voiceUnlocked);
-    if (phase !== "TEXT_PHASE") {
-      setVoiceUnlockPromptOpen(true);
+
+    if (voiceAutoStartRoomIdRef.current === room.id) {
+      return;
     }
-  }, [appendSystemMessage, copy.session.voiceUnlocked, phase, room?.voiceUnlockedAt]);
+
+    voiceAutoStartRoomIdRef.current = room.id;
+    void startVoiceChat();
+  }, [appendSystemMessage, copy.session.voiceUnlocked, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
 
   useEffect(() => {
     if (!room || phase !== "MEDIA_PHASE") {
@@ -299,9 +303,7 @@ const SessionPage = () => {
   const voiceReady =
     room?.voiceEnabled &&
     phase !== "TEXT_PHASE" &&
-    voiceState !== "requesting-microphone" &&
-    voiceState !== "connecting" &&
-    voiceState !== "reconnecting";
+    voiceState === "connected";
 
   function stopTypingIndicator() {
     if (typingStopTimeoutRef.current) {
@@ -449,16 +451,28 @@ const SessionPage = () => {
     });
   }, [room?.id, typingIndicator]);
 
+  function clearPushToTalkReleaseTimeout() {
+    if (pttReleaseTimeoutRef.current !== null) {
+      window.clearTimeout(pttReleaseTimeoutRef.current);
+      pttReleaseTimeoutRef.current = null;
+    }
+  }
+
   function releasePushToTalk(pointerId?: number) {
-    if (pointerId !== undefined && pttPointerIdRef.current !== null && pointerId !== pttPointerIdRef.current) {
+    if (pointerId !== undefined && pttPointerIdRef.current !== pointerId) {
+      return;
+    }
+
+    if (!pushToTalkPressed && pttPointerIdRef.current === null) {
       return;
     }
 
     const startedAt = pttStartedAtRef.current ?? Date.now();
-    const minimumHoldMs = 420;
-
+    const minimumHoldMs = 250;
     const elapsed = Date.now() - startedAt;
-    const release = () => {
+
+    const commitRelease = () => {
+      clearPushToTalkReleaseTimeout();
       pttPointerIdRef.current = null;
       pttStartedAtRef.current = null;
       setPushToTalkPressed(false);
@@ -466,18 +480,22 @@ const SessionPage = () => {
     };
 
     if (elapsed < minimumHoldMs) {
-      window.setTimeout(release, minimumHoldMs - elapsed);
+      clearPushToTalkReleaseTimeout();
+      pttReleaseTimeoutRef.current = window.setTimeout(() => {
+        commitRelease();
+      }, minimumHoldMs - elapsed);
       return;
     }
 
-    release();
+    commitRelease();
   }
 
   function handlePushToTalkPress(pointerId?: number) {
-    if (!voiceReady || voiceState !== "connected") {
+    if (!voiceReady || voiceState !== "connected" || pttPointerIdRef.current !== null) {
       return;
     }
 
+    clearPushToTalkReleaseTimeout();
     pttPointerIdRef.current = pointerId ?? null;
     pttStartedAtRef.current = Date.now();
     setPushToTalkPressed(true);
@@ -490,26 +508,14 @@ const SessionPage = () => {
       stopTypingIndicator();
     };
 
-    const handleWindowPointerUp = (event: PointerEvent) => {
-      releasePushToTalk(event.pointerId);
-    };
-
-    const handleWindowPointerCancel = (event: PointerEvent) => {
-      releasePushToTalk(event.pointerId);
-    };
-
     window.addEventListener("blur", handleWindowBlur);
-    window.addEventListener("pointerup", handleWindowPointerUp);
-    window.addEventListener("pointercancel", handleWindowPointerCancel);
     return () => {
       window.removeEventListener("blur", handleWindowBlur);
-      window.removeEventListener("pointerup", handleWindowPointerUp);
-      window.removeEventListener("pointercancel", handleWindowPointerCancel);
     };
   }, [releasePushToTalk, stopTypingIndicator]);
 
   useEffect(() => () => {
-
+    clearPushToTalkReleaseTimeout();
     releasePushToTalk();
     stopTypingIndicator();
   }, [releasePushToTalk, stopTypingIndicator]);
@@ -839,6 +845,18 @@ const SessionPage = () => {
                       }}
                     >
                       {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                    </Button>
+                  )}
+                  {(voiceState === "idle" || voiceState === "failed" || voiceState === "error") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-7 rounded-full border-violet-300/20 bg-violet-300/10 px-2.5 text-[11px] text-violet-50 hover:bg-violet-300/15 hover:text-white"
+                      onClick={async () => {
+                        await startVoiceChat();
+                      }}
+                    >
+                      {language === "en" ? "Connect Voice" : "Σύνδεση φωνής"}
                     </Button>
                   )}
                 </div>
@@ -1218,17 +1236,7 @@ const SessionPage = () => {
                         onLostPointerCapture={(event) => {
                           releasePushToTalk(event.pointerId);
                         }}
-                        onTouchEnd={() => {
-                          releasePushToTalk();
-                        }}
-                        onTouchCancel={() => {
-                          releasePushToTalk();
-                        }}
-                        onMouseUp={() => {
-                          releasePushToTalk();
-                        }}
                         onContextMenu={(event) => event.preventDefault()}
-
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
                       >
 
@@ -1304,55 +1312,6 @@ const SessionPage = () => {
 
       </div>
 
-      <Dialog open={voiceUnlockPromptOpen} onOpenChange={setVoiceUnlockPromptOpen}>
-        <DialogContent className="border-amber-300/20 bg-[#10182b] text-white shadow-2xl shadow-black/40 sm:max-w-lg">
-          <DialogHeader>
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15 text-amber-100 ring-1 ring-amber-300/25">
-              <Mic className="h-6 w-6 animate-pulse" />
-            </div>
-            <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
-              {copy.session.voiceUnlocked}
-
-            </DialogTitle>
-            <DialogDescription className="text-center text-white/60">
-              {language === "en"
-                ? "You can switch from text to voice whenever you're ready."
-                : "Μπορείς να περάσεις από το κείμενο στη φωνή όποτε είσαι έτοιμος/η."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
-            <Button
-              className="h-12 flex-1 rounded-full bg-amber-400 text-slate-950 transition-transform duration-150 active:scale-95 hover:bg-amber-300"
-              onClick={async () => {
-                setVoiceUnlockPromptOpen(false);
-                await startVoiceChat();
-              }}
-            >
-
-              <Mic className="mr-2 h-4 w-4" />
-              {language === "en" ? "Start Voice Chat" : "Έναρξη φωνητικής συνομιλίας"}
-            </Button>
-            {voicePlaybackBlocked && (
-              <Button
-                variant="outline"
-                className="h-12 flex-1 rounded-full border-emerald-300/20 bg-emerald-300/10 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
-                onClick={async () => {
-                  await enableVoicePlayback();
-                }}
-              >
-                {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="h-12 flex-1 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={() => setVoiceUnlockPromptOpen(false)}
-            >
-              {language === "en" ? "Keep Text Only" : "Μόνο κείμενο"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
