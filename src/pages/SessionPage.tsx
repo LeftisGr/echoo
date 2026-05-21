@@ -110,7 +110,7 @@ const SessionPage = () => {
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
   const pttPointerIdRef = useRef<number | null>(null);
-  const pttActiveRef = useRef(false);
+  const isPressingRef = useRef(false);
   const pttStartedAtRef = useRef<number | null>(null);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -420,6 +420,14 @@ const SessionPage = () => {
     }
 
     setMediaBusy(true);
+    console.info("[media] send requested", {
+      roomId: room?.id ?? null,
+      phase,
+      kind: selectedMedia.kind,
+      fileName: selectedMedia.displayName,
+      fileSize: selectedMedia.size,
+      fileType: selectedMedia.file.type,
+    });
     try {
       await sendMediaMessage({
         file: selectedMedia.file,
@@ -428,8 +436,19 @@ const SessionPage = () => {
       });
       mediaCooldownRef.current = Date.now();
       mediaSendCountRef.current += 1;
+      console.info("[media] send completed", {
+        roomId: room?.id ?? null,
+        phase,
+        kind: selectedMedia.kind,
+        fileName: selectedMedia.displayName,
+      });
       resetMediaSelection();
     } catch (mediaSendError) {
+      console.info("[media] send failed", {
+        roomId: room?.id ?? null,
+        phase,
+        error: mediaSendError instanceof Error ? mediaSendError.message : String(mediaSendError),
+      });
       setMediaError(mediaSendError instanceof Error ? mediaSendError.message : language === "en" ? "Upload failed." : "Η αποστολή απέτυχε.");
     } finally {
       setMediaBusy(false);
@@ -446,11 +465,21 @@ const SessionPage = () => {
 
   useEffect(() => {
     console.info("[typing] render state", {
-
       roomId: room?.id ?? null,
       remoteTyping: Boolean(typingIndicator),
     });
   }, [room?.id, typingIndicator]);
+
+  useEffect(() => {
+    console.info("[ptt] component rerender", {
+      roomId: room?.id ?? null,
+      phase,
+      voiceState,
+      voiceReady,
+      isPressing: isPressingRef.current,
+      pressedState: pushToTalkPressed,
+    });
+  }, [phase, pushToTalkPressed, room?.id, voiceReady, voiceState]);
 
   const clearPushToTalkReleaseTimeout = useCallback(() => {
     if (pttReleaseTimeoutRef.current !== null) {
@@ -465,7 +494,7 @@ const SessionPage = () => {
         return;
       }
 
-      if (!pttActiveRef.current) {
+      if (!isPressingRef.current) {
         return;
       }
 
@@ -475,10 +504,20 @@ const SessionPage = () => {
 
       const commitRelease = () => {
         clearPushToTalkReleaseTimeout();
-        pttActiveRef.current = false;
+        isPressingRef.current = false;
         pttPointerIdRef.current = null;
         pttStartedAtRef.current = null;
+        console.info("[ptt] release committed", {
+          roomId: room?.id ?? null,
+          phase,
+          pointerId: pointerId ?? pttPointerIdRef.current,
+        });
         setPushToTalkPressed(false);
+        console.info("[ptt] track disabled requested", {
+          roomId: room?.id ?? null,
+          phase,
+          pointerId: pointerId ?? pttPointerIdRef.current,
+        });
         setVoiceTransmissionEnabled(false);
       };
 
@@ -492,23 +531,43 @@ const SessionPage = () => {
 
       commitRelease();
     },
-    [clearPushToTalkReleaseTimeout, setVoiceTransmissionEnabled],
+    [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled],
   );
 
   const handlePushToTalkPress = useCallback(
-    (pointerId?: number) => {
-      if (!voiceReady || voiceState !== "connected" || pttActiveRef.current) {
+    (pointerId: number) => {
+      if (!voiceReady || voiceState !== "connected" || isPressingRef.current) {
+        console.info("[ptt] pointerdown ignored", {
+          roomId: room?.id ?? null,
+          phase,
+          voiceState,
+          voiceReady,
+          pointerId,
+          alreadyPressing: isPressingRef.current,
+        });
         return;
       }
 
       clearPushToTalkReleaseTimeout();
-      pttActiveRef.current = true;
-      pttPointerIdRef.current = pointerId ?? null;
+      isPressingRef.current = true;
+      pttPointerIdRef.current = pointerId;
       pttStartedAtRef.current = Date.now();
+
+      console.info("[ptt] pointerdown", {
+        roomId: room?.id ?? null,
+        phase,
+        voiceState,
+        pointerId,
+      });
+      console.info("[ptt] track enabled requested", {
+        roomId: room?.id ?? null,
+        phase,
+        pointerId,
+      });
       setPushToTalkPressed(true);
       setVoiceTransmissionEnabled(true);
     },
-    [clearPushToTalkReleaseTimeout, setVoiceTransmissionEnabled, voiceReady, voiceState],
+    [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled, voiceReady, voiceState],
   );
 
   useEffect(() => {
@@ -1213,52 +1272,101 @@ const SessionPage = () => {
                     </div>
                   )}
 
-                  {phase !== "TEXT_PHASE" && (
+                  <div
+                    className={cn(
+                      "pt-1 transition-all duration-200",
+                      phase === "TEXT_PHASE" && "pointer-events-none h-0 overflow-hidden pt-0 opacity-0",
+                    )}
+                  >
+                    <Button
+                      type="button"
+                      disabled={phase === "TEXT_PHASE"}
+                      className={cn(
+                        "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
+                        pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
+                        !voiceReady && "cursor-not-allowed opacity-60",
+                        "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
+                      )}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        console.info("[ptt] pointerdown event", {
+                          roomId: room?.id ?? null,
+                          phase,
+                          pointerId: event.pointerId,
+                          button: event.button,
+                          pointerType: event.pointerType,
+                        });
+                        try {
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                          console.info("[ptt] pointer capture set", {
+                            roomId: room?.id ?? null,
+                            phase,
+                            pointerId: event.pointerId,
+                          });
+                        } catch (error) {
+                          console.info("[ptt] pointer capture failed", {
+                            roomId: room?.id ?? null,
+                            phase,
+                            pointerId: event.pointerId,
+                            error: error instanceof Error ? error.message : String(error),
+                          });
+                        }
+                        handlePushToTalkPress(event.pointerId);
+                      }}
+                      onPointerUp={(event) => {
+                        console.info("[ptt] pointerup event", {
+                          roomId: room?.id ?? null,
+                          phase,
+                          pointerId: event.pointerId,
+                        });
+                        try {
+                          event.currentTarget.releasePointerCapture(event.pointerId);
+                          console.info("[ptt] pointer capture released", {
+                            roomId: room?.id ?? null,
+                            phase,
+                            pointerId: event.pointerId,
+                          });
+                        } catch {
+                          /* noop */
+                        }
+                        releasePushToTalk(event.pointerId);
+                      }}
+                      onPointerCancel={(event) => {
+                        console.info("[ptt] pointercancel event", {
+                          roomId: room?.id ?? null,
+                          phase,
+                          pointerId: event.pointerId,
+                        });
+                        releasePushToTalk(event.pointerId);
+                      }}
+                      onPointerLeave={(event) => {
+                        const hasCapture = event.currentTarget.hasPointerCapture(event.pointerId);
+                        console.info("[ptt] pointerleave event", {
+                          roomId: room?.id ?? null,
+                          phase,
+                          pointerId: event.pointerId,
+                          hasCapture,
+                        });
+                        if (!hasCapture) {
+                          releasePushToTalk(event.pointerId);
+                        }
+                      }}
+                      onContextMenu={(event) => event.preventDefault()}
+                      aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+                    >
 
-                    <div className="pt-1">
-                      <Button
-                        type="button"
-                        className={cn(
-                          "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
-                          pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
-                          !voiceReady && "cursor-not-allowed opacity-60",
-                          "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
-                        )}
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          try {
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                          } catch {
-                            /* noop */
-                          }
-                          handlePushToTalkPress(event.pointerId);
-                        }}
-                        onPointerUp={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
-                        onPointerCancel={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
-                        onLostPointerCapture={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
-                        onContextMenu={(event) => event.preventDefault()}
-                        aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
-                      >
-
-                        <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
-                        <span className="text-sm font-semibold tracking-wide sm:text-base">
-                          {pushToTalkPressed
-                            ? language === "en"
-                              ? "Talking..."
-                              : "Μιλάς..."
-                            : language === "en"
-                              ? "Hold to Talk"
-                              : "Κράτα για ομιλία"}
-                        </span>
-                      </Button>
-                    </div>
-                  )}
+                      <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
+                      <span className="text-sm font-semibold tracking-wide sm:text-base">
+                        {pushToTalkPressed
+                          ? language === "en"
+                            ? "Talking..."
+                            : "Μιλάς..."
+                          : language === "en"
+                            ? "Hold to Talk"
+                            : "Κράτα για ομιλία"}
+                      </span>
+                    </Button>
+                  </div>
 
                   {typingIndicator && (
                     <div className="mt-1 inline-flex min-h-[2.5rem] items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
