@@ -1302,25 +1302,32 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string) {
-    const loadedProfile = await loadProfile(currentUserId);
-    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+    let profileForSession: PresenceProfile;
 
-    const effectiveProfile = loadedProfile ?? profileToUse;
-    setIsAdmin(effectiveProfile.role === "admin");
-
-    if (loadedProfile) {
-
-      setProfile(loadedProfile);
-      setQueue((current) => ({
-        ...current,
-        filters: {
-          preference: loadedProfile.preference,
-          language: loadedProfile.language,
-        },
-      }));
+    if (guestMode) {
+      profileForSession = readStoredGuestProfile() ?? createDefaultProfile(currentUserId);
+      setIsAdmin(profileForSession.role === "admin");
+      setProfile(profileForSession);
+      await syncProfile(profileForSession);
     } else {
-      setProfile(profileToUse);
-      await syncProfile(profileToUse);
+      const loadedProfile = await loadProfile(currentUserId);
+      profileForSession = loadedProfile ?? createDefaultProfile(currentUserId);
+
+      setIsAdmin(profileForSession.role === "admin");
+
+      if (loadedProfile) {
+        setProfile(loadedProfile);
+        setQueue((current) => ({
+          ...current,
+          filters: {
+            preference: loadedProfile.preference,
+            language: loadedProfile.language,
+          },
+        }));
+      } else {
+        setProfile(profileForSession);
+        await syncProfile(profileForSession);
+      }
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
@@ -1332,7 +1339,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredMatchTransition(null);
       }
       await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profileToUse));
+      setQueue(createInitialQueue(profileForSession));
       return;
     }
 
@@ -1349,7 +1356,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           typingUserId: fallbackRoom.typingUserId,
           typingUpdatedAt: fallbackRoom.typingUpdatedAt,
         });
-        setQueue(createInitialQueue(profileToUse));
+        setQueue(createInitialQueue(profileForSession));
         return;
       }
     }
@@ -1359,7 +1366,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       const legacyRoom = (await loadRoomById(legacyRoomId)) as RoomRecord | null;
       if (legacyRoom && !legacyRoom.endedAt && roomMatchesUser(legacyRoom, currentUserId)) {
         await openRoom(legacyRoom.id, currentUserId, legacyRoom);
-        setQueue(createInitialQueue(profileToUse));
+        setQueue(createInitialQueue(profileForSession));
         return;
       }
     }
@@ -1367,7 +1374,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopRoomSubscriptions();
     setRoom(null);
     writeStoredMatchTransition(null);
-    setQueue(storedQueue.active ? storedQueue : createInitialQueue(profileToUse));
+    setQueue(storedQueue.active ? storedQueue : createInitialQueue(profileForSession));
 
   }
 
@@ -1840,14 +1847,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: AuthMethod) => {
       if (method === "guest") {
+        setGuestMode(true);
+        writeStoredGuestSession(true);
+
         const { error } = await supabase.auth.signInAnonymously();
         if (error) {
+          setGuestMode(false);
+          writeStoredGuestSession(false);
           toast.error(error.message);
           return;
         }
 
-        setGuestMode(true);
-        writeStoredGuestSession(true);
         toast.success(language === "en" ? "Guest session ready." : "Η guest συνεδρία είναι έτοιμη.");
         return;
       }
