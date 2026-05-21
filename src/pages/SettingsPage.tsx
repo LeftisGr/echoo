@@ -38,7 +38,7 @@ const SettingsPage = () => {
     return (
       <PageShell className="space-y-6">
         <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title={copy.settings.title} body={language === "en" ? "Loading your settings..." : "Φορτώνουμε τις ρυθμίσεις σου..."} />
+          <SectionTitle title={copy.settings.title} body={copy.misc.loadingSettings} />
 
         </Surface>
       </PageShell>
@@ -99,7 +99,8 @@ const SettingsPage = () => {
               onCheckedChange={setHapticsEnabled}
             />
             <SwitchRow
-              label={language === "en" ? "Match found sound" : "Ήχος όταν βρεθεί match"}
+              label={language === "en" ? "Match sound" : "Ήχος match"}
+
               checked={matchSoundEnabled}
               onCheckedChange={setMatchSoundEnabled}
             />

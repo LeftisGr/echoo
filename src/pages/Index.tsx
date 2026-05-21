@@ -55,8 +55,9 @@ const Index = () => {
       title: language === "en" ? "Safer by design" : "Πιο ασφαλές by design",
       body:
         language === "en"
-          ? "No photos, no public profile browsing, and fast reporting tools."
-          : "Χωρίς φωτογραφίες, χωρίς δημόσια προβολή προφίλ και με γρήγορα εργαλεία αναφοράς.",
+          ? "No photos, no public profile browsing, and quick safety tools."
+          : "Χωρίς φωτογραφίες, χωρίς δημόσια προβολή προφίλ και με γρήγορα εργαλεία ασφάλειας.",
+
     },
     {
       title: language === "en" ? "Built for real conversation" : "Χτισμένο για αληθινή κουβέντα",

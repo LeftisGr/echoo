@@ -107,15 +107,15 @@ const QueuePage = () => {
   const currentMessage =
     phase === "loading"
       ? language === "en"
-        ? "Preparing your room..."
-        : "Προετοιμάζουμε το room σου..."
+        ? "Opening your room..."
+        : "Ανοίγουμε το room σου..."
+
       : phase === "searching"
         ? queue.softRelaxed
           ? copy.queue.relaxed
           : queueMessages[language][messageIndex]
-        : language === "en"
-          ? "Connection found"
-          : "Βρέθηκε σύνδεση";
+        : copy.queue.found;
+  
   const queueNotice = !online
     ? copy.queue.offline
     : phase === "searching" && queue.softRelaxed
@@ -228,9 +228,8 @@ const QueuePage = () => {
                     ? language === "en"
                       ? "Searching"
                       : "Γίνεται αναζήτηση"
-                    : language === "en"
-                      ? "Connection found"
-                      : "Βρέθηκε σύνδεση"}
+                    : copy.queue.found}
+  
               </p>
               <p className="mt-1 text-sm text-white/50">{secondsLeft}s</p>
             </div>
@@ -308,7 +307,8 @@ const QueuePage = () => {
                   <LoaderCircle className="h-9 w-9 animate-spin text-violet-100" />
                 </div>
               </div>
-              <p className="text-xs uppercase tracking-[0.32em] text-white/45">Connection Found</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.found}</p>
+
               <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
                 {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
               </h2>

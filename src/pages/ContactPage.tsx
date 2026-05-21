@@ -23,7 +23,6 @@ const ContactPage = () => {
             value={language === "en" ? "Safety team" : "Ομάδα ασφάλειας"}
           />
         </div>
-
       </Surface>
     </PageShell>
   );

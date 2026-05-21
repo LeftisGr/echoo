@@ -29,7 +29,7 @@ const AuthPage = () => {
     <PageShell className="space-y-6">
       <Surface className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <div className="space-y-5">
-          <SectionTitle eyebrow="Echoo" title={copy.auth.title} body={copy.auth.body} />
+          <SectionTitle eyebrow={copy.brand.name} title={copy.auth.title} body={copy.auth.body} />
 
           <div className="rounded-[28px] border border-violet-400/15 bg-violet-400/10 p-5 text-sm leading-7 text-violet-50">
             <p className="font-medium">{copy.auth.helper}</p>
@@ -147,11 +147,12 @@ const AuthPage = () => {
             <h2 className="text-2xl font-semibold text-white">{copy.brand.name}</h2>
             <p className="text-sm leading-7 text-white/65">
               {language === "en"
-                ? "Sign in to keep your profile, queue preferences, and room history in one place."
-                : "Συνδέσου για να κρατήσεις το προφίλ, τις προτιμήσεις της ουράς και το ιστορικό σου σε ένα μέρος."}
+                ? "Sign in to keep your profile, queue preferences, and room history together."
+                : "Συνδέσου για να κρατήσεις μαζί το προφίλ, τις προτιμήσεις ουράς και το ιστορικό σου."}
             </p>
 
           </Surface>
+
         )}
       </Surface>
     </PageShell>

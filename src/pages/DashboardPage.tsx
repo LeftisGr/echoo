@@ -22,7 +22,8 @@ const DashboardPage = () => {
         <Surface className="space-y-3 p-6 sm:p-8">
           <SectionTitle
             title={copy.dashboard.title}
-            body={language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."}
+            body={copy.misc.loadingProfile}
+
           />
         </Surface>
 
@@ -114,9 +115,10 @@ const DashboardPage = () => {
           title={language === "en" ? "Matching" : "Matchmaking"}
           body={
             language === "en"
-              ? "You can start a new conversation whenever you're ready."
-              : "Μπορείς να ξεκινήσεις νέα συνομιλία όποτε είσαι έτοιμος/η."
+              ? "Start a new conversation whenever it feels right."
+              : "Ξεκίνα νέα συνομιλία όποτε σου ταιριάζει."
           }
+
           to="/queue"
         />
       </section>

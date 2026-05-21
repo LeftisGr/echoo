@@ -24,8 +24,8 @@ export function PwaSplashScreen({ message }: { message: string }) {
           </h1>
           <p className="text-sm leading-6 text-white/55">
             {language === "en"
-              ? "Your installed app is restoring in standalone mode."
-              : "Η εγκατεστημένη εφαρμογή επανέρχεται σε standalone mode."}
+              ? "Your session is being restored quietly in the background."
+              : "Το session σου επανέρχεται ήσυχα στο παρασκήνιο."}
           </p>
 
         </div>

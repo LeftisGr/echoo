@@ -520,9 +520,8 @@ const SessionPage = () => {
       <PageShell className="flex items-center">
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
           <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">
-            {language === "en" ? "Loading your room..." : "Φορτώνουμε το room σου..."}
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">{copy.misc.loading}</h1>
+
         </Surface>
       </PageShell>
     );
@@ -548,8 +547,9 @@ const SessionPage = () => {
         <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
           <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
           <h1 className="text-3xl font-semibold tracking-tight text-white">
-            {language === "en" ? "Loading your profile..." : "Φορτώνουμε το προφίλ σου..."}
+            {copy.misc.loadingProfile}
           </h1>
+
         </Surface>
       </PageShell>
     );
@@ -1311,7 +1311,8 @@ const SessionPage = () => {
               <Mic className="h-6 w-6 animate-pulse" />
             </div>
             <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
-              {language === "en" ? "Voice is now available" : "Η φωνή είναι τώρα διαθέσιμη"}
+              {copy.session.voiceUnlocked}
+
             </DialogTitle>
             <DialogDescription className="text-center text-white/60">
               {language === "en"

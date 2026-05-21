@@ -45,7 +45,8 @@ function writeStoredRoute(route: string) {
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { appReady, initializing } = usePresence();
+  const { appReady, initializing, copy } = usePresence();
+
   const { isStandalone } = usePwaInstall();
   const initialRouteHandledRef = useRef(false);
 
@@ -69,15 +70,16 @@ function AppRoutes() {
 
   if (initializing || !appReady) {
     return isStandalone ? (
-      <PwaSplashScreen message="Restoring your session..." />
+      <PwaSplashScreen message={copy.misc.restoring} />
     ) : (
       <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.35em] text-white/35">Echoo</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Restoring your session...</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">{copy.misc.restoring}</h1>
         </div>
       </div>
     );
+
   }
 
   return (

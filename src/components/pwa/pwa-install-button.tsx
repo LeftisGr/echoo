@@ -52,8 +52,9 @@ export function PwaInstallButton({ compact = false, className }: { compact?: boo
         }}
       >
         <Download className="mr-2 h-4 w-4" />
-        {language === "en" ? "Install Echoo" : "Εγκατάσταση Echoo"}
+        {language === "en" ? "Add Echoo" : "Προσθήκη του Echoo"}
       </Button>
+
     );
   }
 
@@ -70,14 +71,15 @@ export function PwaInstallButton({ compact = false, className }: { compact?: boo
         onClick={() => setIosHelpOpen(true)}
       >
         <Smartphone className="mr-2 h-4 w-4" />
-        {language === "en" ? "Install Echoo" : "Εγκατάσταση Echoo"}
+        {language === "en" ? "Add Echoo" : "Προσθήκη του Echoo"}
       </Button>
 
       <Dialog open={iosHelpOpen} onOpenChange={setIosHelpOpen}>
         <DialogContent className="border-white/10 bg-[#0d1020] text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-left text-white">
-              {language === "en" ? "Add Echoo to your Home Screen" : "Πρόσθεσε το Echoo στην Αρχική οθόνη"}
+              {language === "en" ? "Add Echoo to your Home Screen" : "Προσθήκη του Echoo στην Αρχική οθόνη"}
+
             </DialogTitle>
             <DialogDescription className="text-left text-white/60">
               {language === "en"
@@ -107,8 +109,9 @@ export function PwaInstallButton({ compact = false, className }: { compact?: boo
               <p className="font-medium text-white">3. {language === "en" ? "Select Add to Home Screen" : "Επίλεξε Προσθήκη στην Αρχική"}</p>
               <p className="mt-1 text-white/60">
                 {language === "en"
-                  ? "Confirm to create the installed Echoo app on your device."
-                  : "Επιβεβαίωσε για να δημιουργηθεί η εγκατεστημένη εφαρμογή Echoo στη συσκευή σου."}
+                  ? "Confirm to add the Echoo app to your device."
+                  : "Επιβεβαίωσε για να προστεθεί η εφαρμογή Echoo στη συσκευή σου."}
+
               </p>
             </div>
           </div>

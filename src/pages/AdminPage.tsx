@@ -26,7 +26,7 @@ type ReportRow = {
 };
 
 const AdminPage = () => {
-  const { authenticated, adminMetrics, isAdmin, profile } = usePresence();
+  const { authenticated, adminMetrics, isAdmin, profile, copy, language } = usePresence();
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
 
@@ -56,7 +56,7 @@ const AdminPage = () => {
     return (
       <PageShell className="space-y-6">
         <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title="Echoo admin" body="Loading your profile..." />
+          <SectionTitle title="Echoo admin" body={copy.misc.loadingProfile} />
         </Surface>
       </PageShell>
     );
@@ -66,80 +66,79 @@ const AdminPage = () => {
     <PageShell className="space-y-6">
       <Surface className="space-y-4 p-6 sm:p-8">
         <SectionTitle
-          eyebrow="hidden route"
+          eyebrow={language === "en" ? "Hidden route" : "Κρυφή διαδρομή"}
           title="Echoo admin"
-          body="Lean operating dashboard for launch metrics, queue health, and trust & safety signals."
+          body={
+            language === "en"
+              ? "A quiet dashboard for launch metrics, queue health, and safety signals."
+              : "Ένα ήσυχο dashboard για metrics, υγεία της ουράς και σήματα ασφάλειας."
+          }
         />
 
-      <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
-        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/50">
-          {profile.role}
-        </div>
-        <p className="text-sm text-white/55">
-          {isAdmin
-            ? "Admin access is enabled for this profile."
-            : "This profile is a member. Change the role column in public.profiles to admin when you want to grant access."}
-        </p>
-        <div className="flex gap-2 sm:ml-auto">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-            onClick={() => void loadReports()}
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Link to="/">
-            <Button variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-              <Home className="mr-2 h-4 w-4" />
-              Home
+        <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
+          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/50">
+            {profile.role}
+          </div>
+          <p className="text-sm text-white/55">
+            {isAdmin
+              ? language === "en"
+                ? "Admin access is active on this profile."
+                : "Η πρόσβαση διαχείρισης είναι ενεργή σε αυτό το προφίλ."
+              : language === "en"
+                ? "This profile is still a member. Change the role in public.profiles to admin when you want to grant access."
+                : "Αυτό το προφίλ είναι ακόμα μέλος. Άλλαξε το role στο public.profiles σε admin όταν θέλεις να δώσεις πρόσβαση."}
+          </p>
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => void loadReports()}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {language === "en" ? "Refresh" : "Ανανέωση"}
             </Button>
-          </Link>
+            <Link to="/">
+              <Button variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Home className="mr-2 h-4 w-4" />
+                {copy.nav.home}
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
-
       </Surface>
 
       {isAdmin ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard icon={Users} label="Total users" value={adminMetrics.totalUsers.toString()} />
-            <MetricCard icon={Activity} label="Active users" value={adminMetrics.activeUsers.toString()} />
-            <MetricCard icon={Gauge} label="Queue count" value={adminMetrics.queueCount.toString()} />
-            <MetricCard icon={MessagesSquare} label="Active rooms" value={adminMetrics.activeRooms.toString()} />
-            <MetricCard icon={Flag} label="Reports count" value={adminMetrics.reportsCount.toString()} />
-            <MetricCard icon={UserPlus} label="Daily signups" value={adminMetrics.dailySignups.toString()} />
+            <MetricCard icon={Users} label={language === "en" ? "Total users" : "Σύνολο χρηστών"} value={adminMetrics.totalUsers.toString()} />
+            <MetricCard icon={Activity} label={language === "en" ? "Active users" : "Ενεργοί χρήστες"} value={adminMetrics.activeUsers.toString()} />
+            <MetricCard icon={Gauge} label={language === "en" ? "Queue size" : "Μέγεθος ουράς"} value={adminMetrics.queueCount.toString()} />
+            <MetricCard icon={MessagesSquare} label={language === "en" ? "Active rooms" : "Ενεργά rooms"} value={adminMetrics.activeRooms.toString()} />
+            <MetricCard icon={Flag} label={language === "en" ? "Reports" : "Αναφορές"} value={adminMetrics.reportsCount.toString()} />
+            <MetricCard icon={UserPlus} label={language === "en" ? "Daily signups" : "Ημερήσιες εγγραφές"} value={adminMetrics.dailySignups.toString()} />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <Surface className="p-5">
-              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">Sessions + reports</p>
+              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">
+                {language === "en" ? "Sessions + reports" : "Sessions + αναφορές"}
+              </p>
               <ChartContainer config={chartConfig} className="h-[280px] w-full">
                 <AreaChart data={adminChartData}>
                   <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
                   <XAxis dataKey="day" tickLine={false} axisLine={false} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="sessions"
-                    stroke="var(--color-sessions)"
-                    fill="var(--color-sessions)"
-                    fillOpacity={0.18}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="reports"
-                    stroke="var(--color-reports)"
-                    fill="var(--color-reports)"
-                    fillOpacity={0.14}
-                  />
+                  <Area type="monotone" dataKey="sessions" stroke="var(--color-sessions)" fill="var(--color-sessions)" fillOpacity={0.18} />
+                  <Area type="monotone" dataKey="reports" stroke="var(--color-reports)" fill="var(--color-reports)" fillOpacity={0.14} />
                 </AreaChart>
               </ChartContainer>
             </Surface>
 
             <Surface className="p-5">
-              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">Signups</p>
+              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">
+                {language === "en" ? "Signups" : "Εγγραφές"}
+              </p>
               <ChartContainer config={chartConfig} className="h-[280px] w-full">
                 <BarChart data={adminChartData}>
                   <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
@@ -154,24 +153,26 @@ const AdminPage = () => {
           <Surface className="space-y-5 p-5">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">Average session duration</p>
+                <p className="text-sm text-white/45">{language === "en" ? "Average session duration" : "Μέση διάρκεια session"}</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.averageSessionDuration} min</p>
               </div>
               <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">Average wait time</p>
+                <p className="text-sm text-white/45">{language === "en" ? "Average wait time" : "Μέσος χρόνος αναμονής"}</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
               </div>
               <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">Trust & safety state</p>
-                <p className="mt-2 text-2xl font-semibold text-white">Stable</p>
+                <p className="text-sm text-white/45">{language === "en" ? "Safety status" : "Κατάσταση ασφάλειας"}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{language === "en" ? "Stable" : "Σταθερή"}</p>
               </div>
             </div>
 
             <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">Recent reports</p>
-                  <p className="mt-1 text-sm text-white/55">Latest moderation signals from live users.</p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent reports" : "Πρόσφατες αναφορές"}</p>
+                  <p className="mt-1 text-sm text-white/55">
+                    {language === "en" ? "The latest moderation signals from live rooms." : "Τα πιο πρόσφατα σήματα moderation από live rooms."}
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -180,44 +181,59 @@ const AdminPage = () => {
                   onClick={() => void loadReports()}
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
-                  Reload
+                  {language === "en" ? "Reload" : "Επαναφόρτωση"}
                 </Button>
               </div>
 
               <div className="mt-4 space-y-3">
                 {loadingReports ? (
-                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">Loading reports...</div>
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                    {copy.misc.loading}
+                  </div>
                 ) : recentReports.length ? (
                   recentReports.map((report) => (
                     <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
-                        <span>Room {report.room_id.slice(0, 8)}</span>
+                        <span>
+                          {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
+                        </span>
                         <span>•</span>
                         <span>{new Date(report.created_at).toLocaleString()}</span>
                       </div>
                       <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">Reporter {report.reporter_id.slice(0, 8)}</span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">Reported {report.reported_user.slice(0, 8)}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                          {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                          {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
+                        </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">No recent reports.</div>
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                    {language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}
+                  </div>
+
                 )}
               </div>
             </div>
           </Surface>
-
         </>
       ) : (
         <Surface className="space-y-3 p-6 text-white/75">
-          <p className="text-sm uppercase tracking-[0.22em] text-white/40">Access restricted</p>
-          <h2 className="text-2xl font-semibold text-white">You do not have admin access yet.</h2>
+          <p className="text-sm uppercase tracking-[0.22em] text-white/40">
+            {language === "en" ? "Access restricted" : "Περιορισμένη πρόσβαση"}
+          </p>
+          <h2 className="text-2xl font-semibold text-white">
+            {language === "en" ? "You do not have admin access yet." : "Δεν έχεις ακόμη πρόσβαση διαχείρισης."}
+
+          </h2>
           <p className="text-sm leading-7 text-white/60">
-            Update the <code className="rounded bg-white/10 px-1.5 py-0.5 text-white/80">role</code> column in
-            <code className="rounded bg-white/10 px-1.5 py-0.5 text-white/80"> public.profiles</code> to <code className="rounded bg-white/10 px-1.5 py-0.5 text-white/80">admin</code>
-            for this account, then refresh the app.
+            {language === "en"
+              ? "Update the role column in public.profiles to admin for this account, then refresh the app."
+              : "Άλλαξε το role στο public.profiles σε admin για αυτόν τον λογαριασμό και μετά ανανέωσε την app."}
           </p>
         </Surface>
       )}

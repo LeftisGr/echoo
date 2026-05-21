@@ -12,16 +12,36 @@ const SafetyPage = () => {
         <SectionTitle title={copy.safety.title} body={copy.safety.body} />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { icon: ShieldCheck, title: copy.safety.actions[0], body: copy.landing.safetyBody },
-            { icon: ShieldAlert, title: copy.safety.actions[1], body: copy.session.block },
-            { icon: TimerReset, title: copy.safety.actions[2], body: copy.session.leave },
+            {
+              icon: ShieldCheck,
+              title: copy.safety.actions[0],
+              body:
+                language === "en"
+                  ? "Fast safety actions are always inside the room."
+                  : "Οι γρήγορες ενέργειες ασφάλειας είναι πάντα μέσα στο room.",
+            },
+            {
+              icon: ShieldAlert,
+              title: copy.safety.actions[1],
+              body:
+                language === "en"
+                  ? "Block someone instantly if you need to."
+                  : "Μπορείς να μπλοκάρεις κάποιον αμέσως όταν χρειάζεται.",
+            },
+            {
+              icon: TimerReset,
+              title: copy.safety.actions[2],
+              body:
+                language === "en"
+                  ? "Leave without friction. No awkward steps."
+                  : "Φεύγεις χωρίς τριβή. Χωρίς awkward βήματα.",
+            },
             {
               icon: HandHeart,
               title: language === "en" ? "Shared rules" : "Κοινές αρχές",
               body: copy.safety.rules[0],
             },
           ].map(({ icon: Icon, title, body }) => (
-
             <div key={title} className="rounded-[24px] border border-white/10 bg-black/20 p-5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/15 text-violet-100">
                 <Icon className="h-5 w-5" />
@@ -48,18 +68,18 @@ const SafetyPage = () => {
         </Surface>
         <Surface className="space-y-4 p-5">
           <p className="text-sm uppercase tracking-[0.22em] text-white/40">
-            {language === "en" ? "Safety loop" : "Κύκλος ασφάλειας"}
+            {language === "en" ? "Safety flow" : "Ροή ασφάλειας"}
           </p>
           {[
             language === "en"
-              ? "Respect notice appears before voice unlock."
-              : "Η υπενθύμιση σεβασμού εμφανίζεται πριν από το voice unlock.",
+              ? "Respect reminders appear before voice unlock."
+              : "Οι υπενθυμίσεις σεβασμού εμφανίζονται πριν από το voice unlock.",
             language === "en"
-              ? "Report and block actions are always inside the room."
-              : "Οι ενέργειες report και block υπάρχουν πάντα μέσα στο δωμάτιο.",
+              ? "Report and block stay inside every room."
+              : "Το report και το block μένουν πάντα μέσα στο room.",
             language === "en"
-              ? "Sessions can end instantly if behavior crosses the line."
-              : "Τα sessions μπορούν να τελειώσουν άμεσα αν η συμπεριφορά ξεπεράσει τα όρια.",
+              ? "Rooms can end instantly if behavior crosses the line."
+              : "Τα rooms μπορούν να κλείσουν αμέσως αν η συμπεριφορά ξεπεράσει τα όρια.",
           ].map((item) => (
             <div key={item} className="rounded-[22px] border border-white/10 bg-white/5 p-4 text-sm text-white/65">
               {item}
