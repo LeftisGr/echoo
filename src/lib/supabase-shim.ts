@@ -518,12 +518,34 @@ export function createClient(url: string, key: string) {
     async signInAnonymously() {
       writeGuestCredentials(null);
 
+      const guestEmail = `guest-${getUrlSafeRandom(16).toLowerCase()}@presence.local`;
+      const guestPassword = getUrlSafeRandom(32);
+
+      const signupResponse = await fetch(`${url}/auth/v1/signup`, {
+        method: "POST",
+        headers: {
+          apikey: key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: guestEmail,
+          password: guestPassword,
+          data: { is_guest: true },
+        }),
+      });
+
+      const { session: signupSession, errorText: signupErrorText } = await persistAuthResponse(signupResponse);
+      if (signupSession) {
+        writeGuestCredentials({ email: guestEmail, password: guestPassword });
+        return { data: { session: signupSession }, error: null };
+      }
+
       const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
 
       if (!response.ok) {
         return {
           data: null,
-          error: new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})),
+          error: new Error(signupErrorText ?? (typeof data === "string" ? data : JSON.stringify(data ?? {}))),
         };
       }
 
@@ -531,7 +553,7 @@ export function createClient(url: string, key: string) {
       if (!nextCredentials?.email || !nextCredentials.password) {
         return {
           data: null,
-          error: new Error("Guest bootstrap did not return credentials."),
+          error: new Error(signupErrorText ?? "Guest bootstrap did not return credentials."),
         };
       }
 
@@ -543,7 +565,7 @@ export function createClient(url: string, key: string) {
 
       return {
         data: null,
-        error: login.error ?? new Error("Guest sign-in is not available for this project."),
+        error: login.error ?? new Error(signupErrorText ?? "Guest sign-in is not available for this project."),
       };
     },
 

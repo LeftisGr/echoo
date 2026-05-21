@@ -236,7 +236,13 @@ export async function loadProfile(userId: string) {
     return null;
   }
 
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.access_token) {
+    return null;
+  }
+
   const { data, error } = await supabase
+
     .from("profiles")
     .select("id, username, age_range, gender, preference, language, interests, role, created_at")
     .eq("id", userId)
