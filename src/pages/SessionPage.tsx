@@ -455,7 +455,8 @@ const SessionPage = () => {
     }
 
     const startedAt = pttStartedAtRef.current ?? Date.now();
-    const minimumHoldMs = 220;
+    const minimumHoldMs = 420;
+
     const elapsed = Date.now() - startedAt;
     const release = () => {
       pttPointerIdRef.current = null;
@@ -613,18 +614,6 @@ const SessionPage = () => {
       : phase === "AUDIO_PHASE"
         ? "border-emerald-300/12 bg-[#101f1a]/92"
         : "border-violet-300/18 bg-[#151826]/92";
-
-  const mediaHelperText = selectedMedia
-    ? selectedMedia.kind === "image"
-      ? language === "en"
-        ? `Images are compressed locally and limited to ${formatBytes(MAX_IMAGE_SIZE_BYTES)} before sending.`
-        : `Οι εικόνες συμπιέζονται τοπικά και περιορίζονται στα ${formatBytes(MAX_IMAGE_SIZE_BYTES)} πριν σταλούν.`
-      : language === "en"
-        ? `Short videos only, up to ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
-        : `Μόνο σύντομα βίντεο, έως ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
-    : language === "en"
-      ? `Images are compressed locally. Videos are capped at ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
-      : `Οι εικόνες συμπιέζονται τοπικά. Τα βίντεο περιορίζονται στα ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`;
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
@@ -1193,14 +1182,12 @@ const SessionPage = () => {
                             </span>
                           )}
                         </Button>
-                        <div className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-white/50">
-                          {mediaHelperText}
-                        </div>
                       </div>
                     </div>
                   )}
 
                   {phase !== "TEXT_PHASE" && (
+
                     <div className="pt-1">
                       <Button
                         type="button"
@@ -1231,10 +1218,20 @@ const SessionPage = () => {
                         onLostPointerCapture={(event) => {
                           releasePushToTalk(event.pointerId);
                         }}
+                        onTouchEnd={() => {
+                          releasePushToTalk();
+                        }}
+                        onTouchCancel={() => {
+                          releasePushToTalk();
+                        }}
+                        onMouseUp={() => {
+                          releasePushToTalk();
+                        }}
                         onContextMenu={(event) => event.preventDefault()}
+
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
-                        disabled={!voiceReady}
                       >
+
                         <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
                         <span className="text-sm font-semibold tracking-wide sm:text-base">
                           {pushToTalkPressed
