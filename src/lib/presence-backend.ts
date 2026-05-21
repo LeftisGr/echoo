@@ -12,6 +12,15 @@ import type {
 
 export const hasSupabaseConfig = true;
 const MESSAGE_TTL_SECONDS = 15;
+const guestSessionStorageKey = "presence-mvp-guest-session";
+
+function isGuestSessionActive() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(guestSessionStorageKey) === "true";
+}
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
@@ -209,11 +218,12 @@ export function createQueueNote(source: PresenceProfile, candidate: PresenceProf
 }
 
 export async function syncProfile(profile: PresenceProfile) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return createOfflineResult({ ok: true, profile });
   }
 
   const { error } = await supabase.from("profiles").upsert({
+
     id: profile.id,
     username: profile.username,
     age_range: profile.ageRange,
@@ -232,11 +242,12 @@ export async function syncProfile(profile: PresenceProfile) {
 }
 
 export async function loadProfile(userId: string) {
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig || isGuestSessionActive()) {
     return null;
   }
 
   const { data: sessionData } = await supabase.auth.getSession();
+
   if (!sessionData.session?.access_token) {
     return null;
   }
