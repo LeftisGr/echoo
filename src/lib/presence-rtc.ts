@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface VoiceSessionController {
   stop: () => void;
-  setLocalAudioEnabled: (enabled: boolean) => void;
+  setLocalAudioEnabled: (enabled: boolean) => Promise<void>;
 }
 
 type VoiceSignalType = "offer" | "answer" | "ice";
@@ -23,8 +23,29 @@ type VoiceSignalRow = {
 
 type VoiceSessionState = "idle" | "requesting-microphone" | "connecting" | "connected" | "reconnecting" | "failed" | "error";
 
-function rtcLog(message: string, data?: Record<string, unknown>) {
-  if (data) {
+export interface VoiceTransmissionDiagnostics {
+  roomId: string;
+  sessionId: string;
+  connectionId: string | null;
+  isPressing: boolean;
+  transmitting: boolean;
+  localTrackEnabled: boolean;
+  localTrackReadyState: MediaStreamTrack["readyState"] | null;
+
+  localTrackMuted: boolean;
+  senderTrackEnabled: boolean | null;
+  senderTrackReadyState: MediaStreamTrack["readyState"] | null;
+
+  senderTrackMuted: boolean | null;
+  bytesSent: number;
+  packetsSent: number;
+  audioLevel: number | null;
+  remoteAudioDetected: boolean;
+  lastStatsAt: string | null;
+}
+
+function rtcLog(message: string, data?: unknown) {
+  if (data !== undefined) {
     console.info("[rtc]", message, data);
     return;
   }
@@ -125,6 +146,7 @@ export async function createPeerToPeerVoiceSession({
   onStateChange,
   onPlaybackFailure,
   isCurrentSession,
+  onDiagnosticsChange,
 }: {
   audioElement: HTMLAudioElement;
   roomId: string;
@@ -134,6 +156,7 @@ export async function createPeerToPeerVoiceSession({
   connectionId?: string | null;
   onStateChange?: (state: VoiceSessionState) => void;
   onPlaybackFailure?: () => void;
+  onDiagnosticsChange?: (diagnostics: VoiceTransmissionDiagnostics) => void;
   isCurrentSession?: () => boolean;
 }): Promise<VoiceSessionController> {
 
@@ -191,11 +214,7 @@ export async function createPeerToPeerVoiceSession({
     roomId,
     sessionId,
     constraints: {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+      audio: true,
       video: false,
     },
   });
@@ -203,13 +222,10 @@ export async function createPeerToPeerVoiceSession({
   let localStream: MediaStream;
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+      audio: true,
       video: false,
     });
+
     rtcLog("microphone permission granted", { roomId, sessionId });
   } catch (error) {
     rtcLog("microphone permission denied", {
@@ -237,6 +253,20 @@ export async function createPeerToPeerVoiceSession({
     throw error;
   }
 
+  const primaryLocalTrack = localAudioTracks[0];
+  rtcLog("primary local track ready", {
+    roomId,
+    sessionId,
+    ...trackSnapshot(primaryLocalTrack),
+  });
+
+  if (primaryLocalTrack.readyState !== "live") {
+    const error = new Error("Local microphone track is not live");
+    rtcLog("local audio capture failed", { roomId, sessionId, error: error.message, track: trackSnapshot(primaryLocalTrack) });
+    emitState("error");
+    throw error;
+  }
+
   localAudioTracks.forEach((track) => {
     track.enabled = false;
     rtcLog("local track muted", { roomId, sessionId, ...trackSnapshot(track) });
@@ -250,6 +280,15 @@ export async function createPeerToPeerVoiceSession({
   let currentConnectionId = isInitiator ? crypto.randomUUID() : initialConnectionId ?? null;
   let activePeer: RTCPeerConnection | null = null;
   let localAudioEnabled = false;
+  let isPressing = false;
+  let transmissionOperationId = 0;
+  let localAudioSender: RTCRtpSender | null = null;
+
+  let localAudioSenders: RTCRtpSender[] = [];
+  let transmissionWatchdogTimer: number | null = null;
+  let lastObservedBytesSent = 0;
+  let bytesFrozenCount = 0;
+  let remoteAudioDetected = false;
 
   let remoteStream = new MediaStream();
   let signalChannel: ReturnType<typeof supabase.channel> | null = null;
@@ -283,7 +322,66 @@ export async function createPeerToPeerVoiceSession({
     signalChannel = null;
   };
 
+  const clearTransmissionWatchdog = () => {
+    if (transmissionWatchdogTimer !== null) {
+      window.clearInterval(transmissionWatchdogTimer);
+      transmissionWatchdogTimer = null;
+    }
+  };
+
+  const emitDiagnostics = (next: VoiceTransmissionDiagnostics) => {
+    onDiagnosticsChange?.(next);
+    rtcLog("ptt diagnostics", next);
+  };
+
+  const syncDiagnostics = async (reason: string) => {
+
+    const sender = localAudioSender ?? null;
+    const senderTrack = sender?.track ?? null;
+    const senderStats = sender && typeof sender.getStats === "function" ? await sender.getStats() : null;
+    let bytesSent = 0;
+    let packetsSent = 0;
+    let audioLevel: number | null = null;
+
+    senderStats?.forEach((report) => {
+      if (report.type === "outbound-rtp" && (report as RTCOutboundRtpStreamStats).kind === "audio") {
+        bytesSent = report.bytesSent ?? bytesSent;
+        packetsSent = report.packetsSent ?? packetsSent;
+        const audioLevelValue = (report as RTCOutboundRtpStreamStats & { audioLevel?: number }).audioLevel;
+        if (typeof audioLevelValue === "number") {
+          audioLevel = audioLevelValue;
+        }
+      }
+    });
+
+    const next = {
+      roomId,
+      sessionId,
+      connectionId: currentConnectionId,
+      isPressing,
+      transmitting: localAudioEnabled,
+
+      localTrackEnabled: localAudioTracks[0]?.enabled ?? false,
+      localTrackReadyState: localAudioTracks[0]?.readyState ?? null,
+      localTrackMuted: localAudioTracks[0]?.muted ?? false,
+      senderTrackEnabled: senderTrack?.enabled ?? null,
+      senderTrackReadyState: senderTrack?.readyState ?? null,
+      senderTrackMuted: senderTrack?.muted ?? null,
+      bytesSent,
+      packetsSent,
+      audioLevel,
+      remoteAudioDetected,
+      lastStatsAt: new Date().toISOString(),
+    } satisfies VoiceTransmissionDiagnostics;
+
+    lastObservedBytesSent = bytesSent;
+    emitDiagnostics(next);
+    rtcLog("ptt stats snapshot", { reason, ...next });
+    return next;
+  };
+
   const ensureAudioPlayback = async (reason: string) => {
+
     if (stopped || !canContinue()) {
       return;
     }
@@ -411,28 +509,152 @@ export async function createPeerToPeerVoiceSession({
       track.stop();
     });
     remoteStream = new MediaStream();
+    remoteAudioDetected = false;
     rtcLog("remote stream reset", { roomId, sessionId });
   };
 
-  const setLocalAudioEnabled = (enabled: boolean) => {
+  const transmissionWatchdogTick = async () => {
+    if (stopped || !canContinue() || !isPressing || !localAudioSender) {
+      return;
+    }
+
+    const sender = localAudioSender;
+    const senderTrack = sender.track;
+    const stats = typeof sender.getStats === "function" ? await sender.getStats() : null;
+    let bytesSent = 0;
+    let packetsSent = 0;
+    let audioLevel: number | null = null;
+
+    stats?.forEach((report) => {
+      if (report.type === "outbound-rtp" && (report as RTCOutboundRtpStreamStats).kind === "audio") {
+        bytesSent = report.bytesSent ?? bytesSent;
+        packetsSent = report.packetsSent ?? packetsSent;
+        const audioLevelValue = (report as RTCOutboundRtpStreamStats & { audioLevel?: number }).audioLevel;
+        if (typeof audioLevelValue === "number") {
+          audioLevel = audioLevelValue;
+        }
+      }
+    });
+
+    rtcLog("ptt watchdog stats", {
+      roomId,
+      sessionId,
+      connectionId: currentConnectionId,
+      bytesSent,
+      packetsSent,
+      audioLevel,
+      senderTrack: senderTrack ? trackSnapshot(senderTrack) : null,
+      localTrack: localAudioTracks[0] ? trackSnapshot(localAudioTracks[0]) : null,
+    });
+
+    if (bytesSent > lastObservedBytesSent) {
+      lastObservedBytesSent = bytesSent;
+      bytesFrozenCount = 0;
+      await syncDiagnostics("watchdog-progress");
+      return;
+    }
+
+    bytesFrozenCount += 1;
+    await syncDiagnostics("watchdog-frozen");
+
+    if (bytesFrozenCount < 3) {
+      return;
+    }
+
+    bytesFrozenCount = 0;
+    rtcLog("ptt watchdog rebinding sender", {
+      roomId,
+      sessionId,
+      connectionId: currentConnectionId,
+      bytesSent,
+      senderTrack: senderTrack ? trackSnapshot(senderTrack) : null,
+    });
+
+    if (senderTrack) {
+      await sender.replaceTrack(null);
+      await sender.replaceTrack(localAudioTracks[0] ?? null);
+    } else {
+      await sender.replaceTrack(localAudioTracks[0] ?? null);
+    }
+
+    const transceiver = activePeer?.getTransceivers().find((item) => item.sender === sender) ?? null;
+    if (transceiver && transceiver.direction !== "sendrecv") {
+      transceiver.direction = "sendrecv";
+    }
+  };
+
+  const setLocalAudioEnabled = async (enabled: boolean) => {
     if (stopped || !canContinue()) {
       rtcLog("push-to-talk ignored for stale session", { roomId, sessionId, enabled });
       return;
     }
 
-    if (localAudioEnabled === enabled) {
+    const operationId = ++transmissionOperationId;
+    isPressing = enabled;
+
+    const localAudioTrack = localAudioTracks[0] ?? null;
+    if (!localAudioTrack) {
+      rtcLog("push-to-talk missing local audio track", { roomId, sessionId, enabled });
+      return;
+    }
+
+    if (localAudioEnabled === enabled && localAudioSender?.track === localAudioTrack) {
+      localAudioTrack.enabled = enabled;
+      await syncDiagnostics("noop-toggle");
       return;
     }
 
     localAudioEnabled = enabled;
-    localAudioTracks.forEach((track) => {
-      track.enabled = enabled;
-      rtcLog(enabled ? "local track enabled" : "local track muted", {
+    localAudioTrack.enabled = enabled;
+    rtcLog(enabled ? "local track enabled" : "local track muted", {
+      roomId,
+      sessionId,
+      ...trackSnapshot(localAudioTrack),
+    });
+
+    const activeSenders = localAudioSenders.length ? localAudioSenders : activePeer?.getSenders().filter((sender) => sender.track?.kind === "audio") ?? [];
+    localAudioSender = activeSenders[0] ?? null;
+    localAudioSenders = activeSenders;
+
+    for (const sender of activeSenders) {
+      if (operationId !== transmissionOperationId) {
+        rtcLog("ptt operation superseded", { roomId, sessionId, operationId, enabled });
+        return;
+      }
+
+      const senderTrack = sender.track;
+      rtcLog("sender snapshot", {
         roomId,
         sessionId,
-        ...trackSnapshot(track),
+        enabled,
+        hasSenderTrack: Boolean(senderTrack),
+        senderTrack: senderTrack ? trackSnapshot(senderTrack) : null,
       });
-    });
+
+      if (enabled) {
+        await sender.replaceTrack(localAudioTrack);
+        if (operationId !== transmissionOperationId) {
+          rtcLog("ptt operation superseded after replaceTrack", { roomId, sessionId, operationId, enabled });
+          return;
+        }
+        const transceiver = activePeer?.getTransceivers().find((item) => item.sender === sender) ?? null;
+        if (transceiver && transceiver.direction !== "sendrecv") {
+          transceiver.direction = "sendrecv";
+          rtcLog("transceiver direction updated", {
+            roomId,
+            sessionId,
+            direction: transceiver.direction,
+          });
+        }
+      } else if (sender.track) {
+        await sender.replaceTrack(null);
+      }
+    }
+
+    if (operationId !== transmissionOperationId) {
+      rtcLog("ptt operation superseded before commit", { roomId, sessionId, operationId, enabled });
+      return;
+    }
 
     rtcLog(enabled ? "push-to-talk pressed" : "push-to-talk released", {
       roomId,
@@ -440,6 +662,18 @@ export async function createPeerToPeerVoiceSession({
       enabled,
       trackCount: localAudioTracks.length,
     });
+
+    if (enabled) {
+      clearTransmissionWatchdog();
+      transmissionWatchdogTimer = window.setInterval(() => {
+        void transmissionWatchdogTick();
+      }, 300);
+      void transmissionWatchdogTick();
+    } else {
+      clearTransmissionWatchdog();
+    }
+
+    await syncDiagnostics(enabled ? "pressed" : "released");
   };
 
   const teardown = async (markIdle = true) => {
@@ -452,10 +686,14 @@ export async function createPeerToPeerVoiceSession({
     rtcLog("teardown requested", { roomId, sessionId, markIdle, connectionId: currentConnectionId });
     stopPolling();
     stopReconnectTimer();
+    clearTransmissionWatchdog();
     stopChannel();
     cleanupPeer();
+    localAudioSenders = [];
+    localAudioSender = null;
     audioElement.pause();
     audioElement.srcObject = null;
+
     Object.entries(audioEventHandlers).forEach(([eventName, handler]) => {
       audioElement.removeEventListener(eventName, handler);
     });
@@ -599,6 +837,7 @@ export async function createPeerToPeerVoiceSession({
       }
 
       remoteStream = receivedStream;
+      remoteAudioDetected = true;
 
       rtcLog("remote stream received", {
         roomId,
@@ -607,6 +846,7 @@ export async function createPeerToPeerVoiceSession({
         stream: streamSnapshot(remoteStream),
       });
 
+      void syncDiagnostics("remote-audio-detected");
       void ensureAudioPlayback("track");
 
     };
@@ -635,15 +875,45 @@ export async function createPeerToPeerVoiceSession({
       signalingState: peer.signalingState,
     });
 
-    localAudioTracks.forEach((track) => {
+    localAudioSenders = localAudioTracks.map((track) => {
       rtcLog("local track attached to peer", {
         roomId,
         sessionId,
         connectionId: currentConnectionId,
         ...trackSnapshot(track),
       });
-      peer.addTrack(track, localStream);
+
+      const sender = peer.addTrack(track, localStream);
+      const transceiver = peer.getTransceivers().find((item) => item.sender === sender) ?? null;
+      rtcLog("local sender created", {
+        roomId,
+        sessionId,
+        connectionId: currentConnectionId,
+        senderTrack: sender.track ? trackSnapshot(sender.track) : null,
+        transceiverDirection: transceiver?.direction ?? null,
+      });
+
+      if (transceiver && transceiver.direction !== "sendrecv") {
+        transceiver.direction = "sendrecv";
+        rtcLog("transceiver direction updated", {
+          roomId,
+          sessionId,
+          connectionId: currentConnectionId,
+          direction: transceiver.direction,
+        });
+      }
+
+      return sender;
     });
+    localAudioSender = localAudioSenders[0] ?? null;
+    if (localAudioSender) {
+      rtcLog("primary local sender ready", {
+        roomId,
+        sessionId,
+        connectionId: currentConnectionId,
+        senderTrack: localAudioSender.track ? trackSnapshot(localAudioSender.track) : null,
+      });
+    }
 
     attachPeerHandlers(peer);
 

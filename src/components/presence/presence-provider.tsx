@@ -33,7 +33,7 @@ import {
   syncProfile,
   cleanupUserSession,
 } from "@/lib/presence-backend";
-import { createPeerToPeerVoiceSession, type VoiceSessionController } from "@/lib/presence-rtc";
+import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
 import { getSessionProgression } from "@/lib/session-progression";
 import {
   MEDIA_UPLOAD_BUCKET,
@@ -117,7 +117,9 @@ interface PresenceContextValue {
   voiceState: VoiceState;
   voiceMuted: boolean;
   voicePlaybackBlocked: boolean;
+  voiceDiagnostics: VoiceTransmissionDiagnostics | null;
   typingIndicator: TypingIndicatorState | null;
+
   online: boolean;
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
@@ -666,6 +668,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [voiceMuted, setVoiceMutedState] = useState(false);
   const [voicePlaybackBlocked, setVoicePlaybackBlocked] = useState(false);
+  const [voiceDiagnostics, setVoiceDiagnostics] = useState<VoiceTransmissionDiagnostics | null>(null);
+
   const [typingIndicator, setTypingIndicator] = useState<TypingIndicatorState | null>(null);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
 
@@ -731,6 +735,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     voiceSessionTokenRef.current = null;
     voiceStartInFlightRef.current = false;
     setVoicePlaybackBlocked(false);
+    setVoiceDiagnostics(null);
     voiceControllerRef.current?.stop();
     voiceControllerRef.current = null;
     setVoiceState("idle");
@@ -765,7 +770,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setVoiceTransmissionEnabled = useCallback((enabled: boolean) => {
-    voiceControllerRef.current?.setLocalAudioEnabled(enabled);
+    const controller = voiceControllerRef.current;
+    if (!controller) {
+      return;
+    }
+
+    void controller.setLocalAudioEnabled(enabled).catch(() => undefined);
   }, []);
 
   const clearTypingIndicator = useCallback(() => {
@@ -1020,6 +1030,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setQueue(createInitialQueue(null));
         setMatchTransition(null);
         setVoiceState("idle");
+        setVoiceDiagnostics(null);
         setIsAdmin(false);
         writeStoredGuestSession(false);
         writeStoredGuestProfile(null);
@@ -1051,6 +1062,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setQueue(createInitialQueue(null));
         setMatchTransition(null);
         setVoiceState("idle");
+        setVoiceDiagnostics(null);
         setIsAdmin(false);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
@@ -1850,6 +1862,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setQueue(createInitialQueue(profile));
     setRoom(null);
     setVoiceState("idle");
+    setVoiceDiagnostics(null);
     setIsAdmin(false);
     setGuestMode(false);
     writeStoredGuestSession(false);
@@ -2216,6 +2229,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voiceControllerRef.current?.stop();
 
       voiceControllerRef.current = null;
+      setVoiceDiagnostics(null);
       setVoiceState("requesting-microphone");
 
       toast(copy.session.voiceStarting);
@@ -2263,6 +2277,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
             setVoicePlaybackBlocked(true);
           },
+          onDiagnosticsChange: (diagnostics) => {
+            if (voiceSessionTokenRef.current !== sessionToken) {
+              return;
+            }
+
+            setVoiceDiagnostics(diagnostics);
+          },
         });
 
         if (voiceSessionTokenRef.current !== sessionToken) {
@@ -2271,7 +2292,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
 
         voiceControllerRef.current = controller;
-        voiceControllerRef.current.setLocalAudioEnabled(false);
+        void voiceControllerRef.current.setLocalAudioEnabled(false).catch(() => undefined);
+
       } catch (error) {
 
         if (voiceSessionTokenRef.current !== sessionToken) {
@@ -2423,7 +2445,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voiceState,
       voiceMuted,
       voicePlaybackBlocked,
+      voiceDiagnostics,
       typingIndicator,
+
       online,
 
       hapticsEnabled,
@@ -2511,7 +2535,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       unlockVoice,
       voiceMuted,
       voicePlaybackBlocked,
+      voiceDiagnostics,
       typingIndicator,
+
       voiceState,
       guestMode,
       sendTypingState,

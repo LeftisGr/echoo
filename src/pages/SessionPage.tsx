@@ -90,6 +90,7 @@ const SessionPage = () => {
     typingIndicator,
     voiceState,
     voicePlaybackBlocked,
+    voiceDiagnostics,
   } = usePresence();
 
   const [draft, setDraft] = useState("");
@@ -498,38 +499,22 @@ const SessionPage = () => {
         return;
       }
 
-      const startedAt = pttStartedAtRef.current ?? Date.now();
-      const minimumHoldMs = 250;
-      const elapsed = Date.now() - startedAt;
-
-      const commitRelease = () => {
-        clearPushToTalkReleaseTimeout();
-        isPressingRef.current = false;
-        pttPointerIdRef.current = null;
-        pttStartedAtRef.current = null;
-        console.info("[ptt] release committed", {
-          roomId: room?.id ?? null,
-          phase,
-          pointerId: pointerId ?? pttPointerIdRef.current,
-        });
-        setPushToTalkPressed(false);
-        console.info("[ptt] track disabled requested", {
-          roomId: room?.id ?? null,
-          phase,
-          pointerId: pointerId ?? pttPointerIdRef.current,
-        });
-        setVoiceTransmissionEnabled(false);
-      };
-
-      if (elapsed < minimumHoldMs) {
-        clearPushToTalkReleaseTimeout();
-        pttReleaseTimeoutRef.current = window.setTimeout(() => {
-          commitRelease();
-        }, minimumHoldMs - elapsed);
-        return;
-      }
-
-      commitRelease();
+      clearPushToTalkReleaseTimeout();
+      isPressingRef.current = false;
+      pttPointerIdRef.current = null;
+      pttStartedAtRef.current = null;
+      console.info("[ptt] release committed", {
+        roomId: room?.id ?? null,
+        phase,
+        pointerId: pointerId ?? pttPointerIdRef.current,
+      });
+      setPushToTalkPressed(false);
+      console.info("[ptt] track disabled requested", {
+        roomId: room?.id ?? null,
+        phase,
+        pointerId: pointerId ?? pttPointerIdRef.current,
+      });
+      setVoiceTransmissionEnabled(false);
     },
     [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled],
   );
@@ -1278,6 +1263,13 @@ const SessionPage = () => {
                       phase === "TEXT_PHASE" && "pointer-events-none h-0 overflow-hidden pt-0 opacity-0",
                     )}
                   >
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.localTrackReadyState === "live" ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>MIC LIVE</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.transmitting ? "border-sky-300/30 bg-sky-500/15 text-sky-50" : "border-white/10 bg-white/5 text-white/60")}>TRANSMITTING</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", (voiceDiagnostics?.bytesSent ?? 0) > 0 ? "border-violet-300/30 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5 text-white/60")}>AUDIO BYTES SENT: {voiceDiagnostics?.bytesSent ?? 0}</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.remoteAudioDetected ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>REMOTE AUDIO DETECTED</div>
+                    </div>
+
                     <Button
                       type="button"
                       disabled={phase === "TEXT_PHASE"}
