@@ -2050,13 +2050,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     const progression = getSessionProgression(currentRoom.startedAt);
-    if (progression.phase !== "MEDIA_PHASE") {
+    if (progression.phase === "TEXT_PHASE") {
       console.info("[media] upload blocked", {
         roomId: currentRoom.id,
         userId: currentUser,
         phase: progression.phase,
       });
-      return;
+      throw new Error("Media sharing is not available yet.");
     }
 
     const isValidType = preview.kind === "image" ? isSupportedImageType(file.type) : isSupportedVideoType(file.type);

@@ -227,7 +227,7 @@ const SessionPage = () => {
   }, [appendSystemMessage, copy.session.voiceUnlocked, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
 
   useEffect(() => {
-    if (!room || phase !== "MEDIA_PHASE") {
+    if (!room || phase === "TEXT_PHASE") {
       return;
     }
 
@@ -241,7 +241,7 @@ const SessionPage = () => {
   }, [appendSystemMessage, copy.session.mediaUnlocked, phase, room]);
 
   useEffect(() => {
-    if (phase === "MEDIA_PHASE") {
+    if (phase !== "TEXT_PHASE") {
       return;
     }
 
@@ -1055,7 +1055,7 @@ const SessionPage = () => {
               >
                 <div className="space-y-3">
                   <div className="flex items-end gap-2 sm:gap-3">
-                    {phase === "MEDIA_PHASE" && (
+                    {phase !== "TEXT_PHASE" && (
                       <div className="relative shrink-0">
                         <Button
                           type="button"
@@ -1147,7 +1147,7 @@ const SessionPage = () => {
                     </Button>
                   </div>
 
-                  {phase === "MEDIA_PHASE" && selectedMedia && (
+                  {phase !== "TEXT_PHASE" && selectedMedia && (
                     <div className="space-y-3 rounded-[26px] border border-white/10 bg-[#0d1425] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-4">
                       <div className="flex items-start gap-3">
                         <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
@@ -1224,25 +1224,23 @@ const SessionPage = () => {
                           !voiceReady && "cursor-not-allowed opacity-60",
                           "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                         )}
-                        onMouseDown={(event) => {
+                        onPointerDown={(event) => {
                           event.preventDefault();
-                          handlePushToTalkPress();
+                          try {
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                          } catch {
+                            /* noop */
+                          }
+                          handlePushToTalkPress(event.pointerId);
                         }}
-                        onMouseUp={() => {
-                          releasePushToTalk();
+                        onPointerUp={(event) => {
+                          releasePushToTalk(event.pointerId);
                         }}
-                        onMouseLeave={() => {
-                          releasePushToTalk();
+                        onPointerCancel={(event) => {
+                          releasePushToTalk(event.pointerId);
                         }}
-                        onTouchStart={(event) => {
-                          event.preventDefault();
-                          handlePushToTalkPress();
-                        }}
-                        onTouchEnd={() => {
-                          releasePushToTalk();
-                        }}
-                        onTouchCancel={() => {
-                          releasePushToTalk();
+                        onLostPointerCapture={(event) => {
+                          releasePushToTalk(event.pointerId);
                         }}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
