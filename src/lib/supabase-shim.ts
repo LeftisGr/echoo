@@ -505,51 +505,31 @@ export function createClient(url: string, key: string) {
     async signInAnonymously() {
       writeGuestCredentials(null);
 
-      const guestEmail = `guest-${getUrlSafeRandom(16).toLowerCase()}@presence.local`;
-      const guestPassword = getUrlSafeRandom(32);
-
-      const signupResponse = await fetch(`${url}/auth/v1/signup`, {
-        method: "POST",
-        headers: createAuthHeaders(key, key),
-        body: JSON.stringify({
-          email: guestEmail,
-          password: guestPassword,
-          data: { is_guest: true },
-        }),
-      });
-
-      const { session: signupSession, errorText: signupErrorText } = await persistAuthResponse(signupResponse);
-      if (signupSession) {
-        writeGuestCredentials({ email: guestEmail, password: guestPassword });
-        return { data: { session: signupSession }, error: null };
-      }
-
       const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
 
       if (!response.ok) {
         return {
           data: null,
-          error: new Error(signupErrorText ?? (typeof data === "string" ? data : JSON.stringify(data ?? {}))),
+          error: new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})),
         };
       }
 
+      const nextSession = (data as { session?: StoredSession | null } | null)?.session ?? null;
       const nextCredentials = data as { email?: string; password?: string } | null;
-      if (!nextCredentials?.email || !nextCredentials.password) {
-        return {
-          data: null,
-          error: new Error(signupErrorText ?? "Guest bootstrap did not return credentials."),
-        };
+
+      if (nextCredentials?.email && nextCredentials.password) {
+        writeGuestCredentials({ email: nextCredentials.email, password: nextCredentials.password });
       }
 
-      writeGuestCredentials({ email: nextCredentials.email, password: nextCredentials.password });
-      const login = await auth.signInWithPassword({ email: nextCredentials.email, password: nextCredentials.password });
-      if (login.data?.session) {
-        return login;
+      if (nextSession?.access_token) {
+        writeSession(nextSession);
+        emit("SIGNED_IN", nextSession);
+        return { data: { session: nextSession }, error: null };
       }
 
       return {
         data: null,
-        error: login.error ?? new Error(signupErrorText ?? "Guest sign-in is not available for this project."),
+        error: new Error("Guest bootstrap did not return a session."),
       };
     },
 
