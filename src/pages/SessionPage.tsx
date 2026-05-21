@@ -215,10 +215,11 @@ const SessionPage = () => {
     }
 
     lastVoiceUnlockAtRef.current = room.voiceUnlockedAt;
+    appendSystemMessage(copy.session.voiceUnlocked);
     if (phase !== "TEXT_PHASE") {
       setVoiceUnlockPromptOpen(true);
     }
-  }, [phase, room?.voiceUnlockedAt]);
+  }, [appendSystemMessage, copy.session.voiceUnlocked, phase, room?.voiceUnlockedAt]);
 
   useEffect(() => {
     if (!room || phase !== "MEDIA_PHASE") {
@@ -301,7 +302,6 @@ const SessionPage = () => {
     voiceState !== "requesting-microphone" &&
     voiceState !== "connecting" &&
     voiceState !== "reconnecting";
-  const pushToTalkAvailable = voiceReady && voiceState === "connected";
 
   function stopTypingIndicator() {
     if (typingStopTimeoutRef.current) {
@@ -489,17 +489,26 @@ const SessionPage = () => {
       stopTypingIndicator();
     };
 
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      releasePushToTalk(event.pointerId);
+    };
+
+    const handleWindowPointerCancel = (event: PointerEvent) => {
+      releasePushToTalk(event.pointerId);
+    };
+
     window.addEventListener("blur", handleWindowBlur);
-    return () => window.removeEventListener("blur", handleWindowBlur);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerCancel);
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+    };
   }, [releasePushToTalk, stopTypingIndicator]);
 
-  useEffect(() => {
-    if (voiceState !== "connected" && pushToTalkPressed) {
-      releasePushToTalk();
-    }
-  }, [pushToTalkPressed, releasePushToTalk, voiceState]);
-
   useEffect(() => () => {
+
     releasePushToTalk();
     stopTypingIndicator();
   }, [releasePushToTalk, stopTypingIndicator]);
@@ -557,35 +566,35 @@ const SessionPage = () => {
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
 
-  const voiceStatusLabel =
-
-    voiceState === "requesting-microphone"
+  const voiceStatusInlineLabel =
+    voiceState === "connected"
       ? language === "en"
-        ? "Requesting microphone..."
-        : "Ζητείται πρόσβαση στο μικρόφωνο..."
-      : voiceState === "connecting"
+        ? "Connected"
+        : "Συνδέθηκε"
+      : voiceState === "connecting" || voiceState === "requesting-microphone"
         ? language === "en"
-          ? "Connecting voice..."
-          : "Σύνδεση φωνής..."
-        : voiceState === "connected"
+          ? "Connecting"
+          : "Σύνδεση"
+        : voiceState === "reconnecting"
           ? language === "en"
-            ? "Voice connected"
-            : "Η φωνή συνδέθηκε"
-          : voiceState === "reconnecting"
+            ? "Reconnecting"
+            : "Επανασύνδεση"
+          : voiceState === "failed" || voiceState === "error"
             ? language === "en"
-              ? "Reconnecting voice..."
-              : "Επανασύνδεση φωνής..."
-            : voiceState === "failed"
-              ? language === "en"
-                ? "Voice failed"
-                : "Η φωνή απέτυχε"
-              : voiceState === "error"
-                ? language === "en"
-                  ? "Playback or microphone setup failed. Tap voice again to retry."
-                  : "Η αναπαραγωγή ή το μικρόφωνο απέτυχαν. Πάτησε ξανά τη φωνή για επανάληψη."
-                : language === "en"
-                  ? "Voice is ready"
-                  : "Η φωνή είναι έτοιμη";
+              ? "Voice issue"
+              : "Πρόβλημα φωνής"
+            : null;
+
+  const voiceStatusInlineToneClass =
+    voiceState === "connected"
+      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+      : voiceState === "connecting" || voiceState === "requesting-microphone"
+        ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
+        : voiceState === "reconnecting"
+          ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
+          : voiceState === "failed" || voiceState === "error"
+            ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
+            : "border-white/10 bg-white/5 text-white/55";
 
   const timerUrgent = secondsRemaining <= 60;
 
@@ -827,7 +836,26 @@ const SessionPage = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+              {voiceStatusInlineLabel && (
+                <div className="mt-2 flex items-center gap-2 text-[11px] leading-none text-white/40">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", voiceState === "connected" ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" : voiceState === "reconnecting" ? "bg-sky-300 shadow-[0_0_0_4px_rgba(56,189,248,0.12)]" : voiceState === "failed" || voiceState === "error" ? "bg-rose-300 shadow-[0_0_0_4px_rgba(251,113,133,0.12)]" : "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]")} />
+                  <span className={cn("rounded-full border px-2.5 py-1 font-medium tracking-[0.18em] uppercase", voiceStatusInlineToneClass)}>{voiceStatusInlineLabel}</span>
+                  {voicePlaybackBlocked && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-7 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2.5 text-[11px] text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                      onClick={async () => {
+                        await enableVoicePlayback();
+                      }}
+                    >
+                      {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                    </Button>
+                  )}
+                </div>
+              )}
               <Button
+
                 type="button"
                 variant="outline"
                 className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 hover:bg-white/10 hover:text-white"
@@ -1103,98 +1131,90 @@ const SessionPage = () => {
                     </Button>
                   </div>
 
-                  {phase === "MEDIA_PHASE" && (
+                  {phase === "MEDIA_PHASE" && selectedMedia && (
                     <div className="space-y-3 rounded-[26px] border border-white/10 bg-[#0d1425] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-4">
-                      {selectedMedia ? (
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
-                              {selectedMedia.kind === "image" ? (
-                                <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
-                              ) : (
-                                <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
-                              )}
-                            </div>
+                      <div className="flex items-start gap-3">
+                        <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
+                          {selectedMedia.kind === "image" ? (
+                            <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
+                          )}
+                        </div>
 
-                            <div className="min-w-0 flex-1 space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-white">{selectedMedia.displayName}</p>
-                                  <p className="text-xs text-white/45">
-                                    {selectedMedia.kind === "image"
-                                      ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
-                                      : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
-                                  </p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 shrink-0 rounded-full text-white/60 hover:bg-white/10 hover:text-white"
-                                  onClick={resetMediaSelection}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <Input
-                                value={mediaCaption}
-                                onChange={(event) => setMediaCaption(event.target.value)}
-                                placeholder={language === "en" ? "Add a short caption (optional)" : "Πρόσθεσε λεζάντα (προαιρετικό)"}
-                                className="h-11 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
-                                maxLength={180}
-                              />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-white">{selectedMedia.displayName}</p>
+                              <p className="text-xs text-white/45">
+                                {selectedMedia.kind === "image"
+                                  ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
+                                  : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+                              </p>
                             </div>
-                          </div>
-
-                          <div className="flex flex-col gap-3 sm:flex-row">
                             <Button
                               type="button"
-                              className="h-11 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
-                              disabled={mediaBusy}
-                              onClick={() => {
-                                void sendSelectedMedia();
-                              }}
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 shrink-0 rounded-full text-white/60 hover:bg-white/10 hover:text-white"
+                              onClick={resetMediaSelection}
                             >
-                              {mediaBusy ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
-                                  {language === "en" ? "Sending..." : "Αποστολή..."}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-2">
-                                  <Check className="h-4 w-4" />
-                                  {language === "en" ? "Send media" : "Αποστολή media"}
-                                </span>
-                              )}
+                              <X className="h-4 w-4" />
                             </Button>
-                            <div className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-white/50">
-                              {mediaHelperText}
-                            </div>
                           </div>
+                          <Input
+                            value={mediaCaption}
+                            onChange={(event) => setMediaCaption(event.target.value)}
+                            placeholder={language === "en" ? "Add a short caption (optional)" : "Πρόσθεσε λεζάντα (προαιρετικό)"}
+                            className="h-11 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                            maxLength={180}
+                          />
                         </div>
-                      ) : (
-                        <div className="rounded-[22px] border border-dashed border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-white/55">
-                          {language === "en"
-                            ? "Tap the attachment button to share a photo or short video when the media phase opens."
-                            : "Πάτησε το κουμπί επισύναψης για να στείλεις μια φωτογραφία ή ένα σύντομο βίντεο όταν ανοίξει το media phase."}
-                        </div>
-                      )}
+                      </div>
 
-                      {mediaError && <p className="text-sm text-rose-200">{mediaError}</p>}
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button
+                          type="button"
+                          className="h-11 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
+                          disabled={mediaBusy}
+                          onClick={() => {
+                            void sendSelectedMedia();
+                          }}
+                        >
+                          {mediaBusy ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
+                              {language === "en" ? "Sending..." : "Αποστολή..."}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-2">
+                              <Check className="h-4 w-4" />
+                              {language === "en" ? "Send media" : "Αποστολή media"}
+                            </span>
+                          )}
+                        </Button>
+                        <div className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-white/50">
+                          {mediaHelperText}
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  {voiceReady && (
+                  {phase !== "TEXT_PHASE" && (
                     <div className="pt-1">
                       <Button
                         type="button"
                         className={cn(
                           "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
                           pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
+                          !voiceReady && "cursor-not-allowed opacity-60",
                           "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                         )}
                         onPointerDown={(event) => {
                           event.preventDefault();
+                          if (!voiceReady) {
+                            return;
+                          }
                           try {
                             event.currentTarget.setPointerCapture(event.pointerId);
                           } catch {
@@ -1202,8 +1222,18 @@ const SessionPage = () => {
                           }
                           handlePushToTalkPress(event.pointerId);
                         }}
+                        onPointerUp={(event) => {
+                          releasePushToTalk(event.pointerId);
+                        }}
+                        onPointerCancel={(event) => {
+                          releasePushToTalk(event.pointerId);
+                        }}
+                        onLostPointerCapture={(event) => {
+                          releasePushToTalk(event.pointerId);
+                        }}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+                        disabled={!voiceReady}
                       >
                         <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
                         <span className="text-sm font-semibold tracking-wide sm:text-base">
@@ -1234,59 +1264,8 @@ const SessionPage = () => {
                         <div className="h-[2.5rem]" aria-hidden="true" />
                       )}
                     </div>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-white/35 transition-opacity duration-150">
-                      <span
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 font-medium tracking-wide",
-                          voiceState === "connected"
-                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                            : voiceState === "requesting-microphone" || voiceState === "connecting"
-                              ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
-                              : voiceState === "reconnecting"
-                                ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
-                                : voiceState === "failed" || voiceState === "error"
-                                  ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
-                                  : "border-white/10 bg-white/5 text-white/55",
-                        )}
-                      >
-                        {voiceStatusLabel}
-                      </span>
-                      <span>
-                        {voiceState === "connected"
-                          ? language === "en"
-                            ? "Use the mic button to mute or unmute."
-                            : "Χρησιμοποίησε το κουμπί μικροφώνου για σίγαση ή ήχο."
-                          : voiceState === "error"
-                            ? language === "en"
-                              ? "Tap Start Voice Chat again to retry."
-                              : "Πάτησε ξανά την έναρξη φωνής για επανάληψη."
-                            : voiceState === "failed"
-                              ? language === "en"
-                                ? "The connection needs another attempt."
-                                : "Η σύνδεση χρειάζεται νέα προσπάθεια."
-                              : voiceReady
-                                ? language === "en"
-                                  ? "Voice is ready"
-                                  : "Η φωνή είναι έτοιμη"
-                                : language === "en"
-                                  ? "The mic opens when the timer hits zero."
-                                  : "Το μικρόφωνο ανοίγει όταν ο χρόνος μηδενιστεί."}
-                      </span>
-                      {voicePlaybackBlocked && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 rounded-full border-emerald-300/20 bg-emerald-300/10 px-3 text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
-                          onClick={async () => {
-                            await enableVoicePlayback();
-                          }}
-                        >
-                          {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
-                        </Button>
-                      )}
-                    </div>
                   </div>
+
                 </div>
               </form>
 
