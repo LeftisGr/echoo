@@ -1254,22 +1254,16 @@ const SessionPage = () => {
                     </div>
                   )}
 
-                  <div className="mt-1 flex min-h-[2.75rem] items-center gap-3">
-                    <div className="min-h-[2.5rem]">
-                      {typingIndicator ? (
-                        <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                          <span className="truncate">Stranger is typing…</span>
-                          <span className="flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
-                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
-                            <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="h-[2.5rem]" aria-hidden="true" />
-                      )}
+                  {typingIndicator && (
+                    <div className="mt-1 inline-flex min-h-[2.5rem] items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
+                      <span className="truncate">Stranger is typing…</span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
+                      </span>
                     </div>
-                  </div>
+                  )}
 
                 </div>
               </form>
