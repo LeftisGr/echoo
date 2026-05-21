@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { ArrowRight, Check, Film, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, ShieldAlert, Send, X } from "lucide-react";
 
@@ -110,6 +110,7 @@ const SessionPage = () => {
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
   const pttPointerIdRef = useRef<number | null>(null);
+  const pttActiveRef = useRef(false);
   const pttStartedAtRef = useRef<number | null>(null);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -451,56 +452,64 @@ const SessionPage = () => {
     });
   }, [room?.id, typingIndicator]);
 
-  function clearPushToTalkReleaseTimeout() {
+  const clearPushToTalkReleaseTimeout = useCallback(() => {
     if (pttReleaseTimeoutRef.current !== null) {
       window.clearTimeout(pttReleaseTimeoutRef.current);
       pttReleaseTimeoutRef.current = null;
     }
-  }
+  }, []);
 
-  function releasePushToTalk(pointerId?: number) {
-    if (pointerId !== undefined && pttPointerIdRef.current !== pointerId) {
-      return;
-    }
+  const releasePushToTalk = useCallback(
+    (pointerId?: number) => {
+      if (pointerId !== undefined && pttPointerIdRef.current !== pointerId) {
+        return;
+      }
 
-    if (!pushToTalkPressed && pttPointerIdRef.current === null) {
-      return;
-    }
+      if (!pttActiveRef.current) {
+        return;
+      }
 
-    const startedAt = pttStartedAtRef.current ?? Date.now();
-    const minimumHoldMs = 250;
-    const elapsed = Date.now() - startedAt;
+      const startedAt = pttStartedAtRef.current ?? Date.now();
+      const minimumHoldMs = 250;
+      const elapsed = Date.now() - startedAt;
 
-    const commitRelease = () => {
+      const commitRelease = () => {
+        clearPushToTalkReleaseTimeout();
+        pttActiveRef.current = false;
+        pttPointerIdRef.current = null;
+        pttStartedAtRef.current = null;
+        setPushToTalkPressed(false);
+        setVoiceTransmissionEnabled(false);
+      };
+
+      if (elapsed < minimumHoldMs) {
+        clearPushToTalkReleaseTimeout();
+        pttReleaseTimeoutRef.current = window.setTimeout(() => {
+          commitRelease();
+        }, minimumHoldMs - elapsed);
+        return;
+      }
+
+      commitRelease();
+    },
+    [clearPushToTalkReleaseTimeout, setVoiceTransmissionEnabled],
+  );
+
+  const handlePushToTalkPress = useCallback(
+    (pointerId?: number) => {
+      if (!voiceReady || voiceState !== "connected" || pttActiveRef.current) {
+        return;
+      }
+
       clearPushToTalkReleaseTimeout();
-      pttPointerIdRef.current = null;
-      pttStartedAtRef.current = null;
-      setPushToTalkPressed(false);
-      setVoiceTransmissionEnabled(false);
-    };
-
-    if (elapsed < minimumHoldMs) {
-      clearPushToTalkReleaseTimeout();
-      pttReleaseTimeoutRef.current = window.setTimeout(() => {
-        commitRelease();
-      }, minimumHoldMs - elapsed);
-      return;
-    }
-
-    commitRelease();
-  }
-
-  function handlePushToTalkPress(pointerId?: number) {
-    if (!voiceReady || voiceState !== "connected" || pttPointerIdRef.current !== null) {
-      return;
-    }
-
-    clearPushToTalkReleaseTimeout();
-    pttPointerIdRef.current = pointerId ?? null;
-    pttStartedAtRef.current = Date.now();
-    setPushToTalkPressed(true);
-    setVoiceTransmissionEnabled(true);
-  }
+      pttActiveRef.current = true;
+      pttPointerIdRef.current = pointerId ?? null;
+      pttStartedAtRef.current = Date.now();
+      setPushToTalkPressed(true);
+      setVoiceTransmissionEnabled(true);
+    },
+    [clearPushToTalkReleaseTimeout, setVoiceTransmissionEnabled, voiceReady, voiceState],
+  );
 
   useEffect(() => {
     const handleWindowBlur = () => {
@@ -518,7 +527,7 @@ const SessionPage = () => {
     clearPushToTalkReleaseTimeout();
     releasePushToTalk();
     stopTypingIndicator();
-  }, [releasePushToTalk, stopTypingIndicator]);
+  }, [clearPushToTalkReleaseTimeout, releasePushToTalk, stopTypingIndicator]);
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
 
@@ -1217,23 +1226,12 @@ const SessionPage = () => {
                         )}
                         onPointerDown={(event) => {
                           event.preventDefault();
-                          if (!voiceReady) {
-                            return;
-                          }
-                          try {
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                          } catch {
-                            /* noop */
-                          }
                           handlePushToTalkPress(event.pointerId);
                         }}
                         onPointerUp={(event) => {
                           releasePushToTalk(event.pointerId);
                         }}
                         onPointerCancel={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
-                        onLostPointerCapture={(event) => {
                           releasePushToTalk(event.pointerId);
                         }}
                         onContextMenu={(event) => event.preventDefault()}
