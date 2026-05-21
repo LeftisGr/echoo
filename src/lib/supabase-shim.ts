@@ -104,14 +104,6 @@ function writeGuestCredentials(credentials: { email: string; password: string } 
   window.localStorage.setItem(GUEST_PASSWORD_KEY, credentials.password);
 }
 
-function createAuthHeaders(key: string, accessToken?: string | null) {
-  return {
-    apikey: key,
-    Authorization: `Bearer ${accessToken ?? key}`,
-    "Content-Type": "application/json",
-  };
-}
-
 function createGuestCredentials() {
   const token = getUrlSafeRandom(16).toLowerCase();
   return {
@@ -123,7 +115,10 @@ function createGuestCredentials() {
 async function invokeEdgeFunction(baseUrl: string, key: string, name: string, body?: unknown) {
   const response = await fetch(`${baseUrl}/functions/v1/${name}`, {
     method: "POST",
-    headers: createAuthHeaders(key),
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(body ?? {}),
   });
 
@@ -151,7 +146,10 @@ async function persistAuthResponse(response: Response) {
 async function refreshSession(baseUrl: string, key: string, session: StoredSession) {
   const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
-    headers: createAuthHeaders(key, key),
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ refresh_token: session.refresh_token }),
   });
 
@@ -192,7 +190,10 @@ async function exchangeCodeForSession(baseUrl: string, key: string, code: string
 
   const response = await fetch(`${baseUrl}/auth/v1/token?grant_type=pkce`, {
     method: "POST",
-    headers: createAuthHeaders(key, key),
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
   });
 
@@ -356,7 +357,13 @@ class QueryBuilder {
 
   private async execute(expectSingle = false) {
     const session = await ensureValidSession(this.url, this.key, this.session ?? readSession());
-    const headers: Record<string, string> = createAuthHeaders(this.key, session?.access_token);
+    const headers: Record<string, string> = {
+      apikey: this.key,
+      "Content-Type": "application/json",
+    };
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
 
     const url = new URL(`${this.url}/rest/v1/${this.table}`);
     if (this.method === "select") {
@@ -409,26 +416,23 @@ class QueryBuilder {
 
 class ChannelShim {
   constructor(_topic: string, _key?: string) {}
-  on(..._args: unknown[]) {
+  on() {
     return this;
   }
-  subscribe(_callback?: (status: string) => void) {
+  subscribe() {
     return this;
   }
   unsubscribe() {
     return Promise.resolve();
   }
-  track(_payload?: unknown) {
+  track() {
     return Promise.resolve();
   }
   untrack() {
     return Promise.resolve();
   }
-  send(_payload?: unknown) {
+  send() {
     return Promise.resolve({});
-  }
-  presenceState() {
-    return {};
   }
 }
 
@@ -473,7 +477,10 @@ export function createClient(url: string, key: string) {
     async signUp({ email, password, options }: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
       const response = await fetch(`${url}/auth/v1/signup`, {
         method: "POST",
-        headers: createAuthHeaders(key, key),
+        headers: {
+          apikey: key,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           email,
           password,
@@ -491,7 +498,10 @@ export function createClient(url: string, key: string) {
     async signInWithPassword({ email, password }: { email: string; password: string }) {
       const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
         method: "POST",
-        headers: createAuthHeaders(key, key),
+        headers: {
+          apikey: key,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -503,10 +513,15 @@ export function createClient(url: string, key: string) {
       return { data: null, error: errorText ? new Error(errorText) : null };
     },
     async signInAnonymously() {
-      writeGuestCredentials(null);
+      const credentials = readGuestCredentials();
+      if (credentials) {
+        const existingLogin = await auth.signInWithPassword(credentials);
+        if (existingLogin.data?.session) {
+          return existingLogin;
+        }
+      }
 
       const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
-
       if (!response.ok) {
         return {
           data: null,
@@ -514,22 +529,23 @@ export function createClient(url: string, key: string) {
         };
       }
 
-      const nextSession = (data as { session?: StoredSession | null } | null)?.session ?? null;
       const nextCredentials = data as { email?: string; password?: string } | null;
-
-      if (nextCredentials?.email && nextCredentials.password) {
-        writeGuestCredentials({ email: nextCredentials.email, password: nextCredentials.password });
+      if (!nextCredentials?.email || !nextCredentials.password) {
+        return {
+          data: null,
+          error: new Error("Guest bootstrap did not return credentials."),
+        };
       }
 
-      if (nextSession?.access_token) {
-        writeSession(nextSession);
-        emit("SIGNED_IN", nextSession);
-        return { data: { session: nextSession }, error: null };
+      writeGuestCredentials({ email: nextCredentials.email, password: nextCredentials.password });
+      const login = await auth.signInWithPassword({ email: nextCredentials.email, password: nextCredentials.password });
+      if (login.data?.session) {
+        return login;
       }
 
       return {
         data: null,
-        error: new Error("Guest bootstrap did not return a session."),
+        error: login.error ?? new Error("Guest sign-in is not available for this project."),
       };
     },
 
@@ -554,8 +570,13 @@ export function createClient(url: string, key: string) {
         ) {
           const run = async () => {
             const session = await ensureValidSession(url, key, currentSession ?? readSession());
-            const headers: Record<string, string> = createAuthHeaders(key, session?.access_token);
-
+            const headers: Record<string, string> = {
+              apikey: key,
+              "Content-Type": "application/json",
+            };
+            if (session?.access_token) {
+              headers.Authorization = `Bearer ${session.access_token}`;
+            }
             const response = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
               method: "POST",
               headers,
@@ -575,8 +596,13 @@ export function createClient(url: string, key: string) {
     functions: {
       async invoke(functionName: string, options?: { body?: unknown }) {
         const session = await ensureValidSession(url, key, currentSession ?? readSession());
-        const headers: Record<string, string> = createAuthHeaders(key, session?.access_token);
-
+        const headers: Record<string, string> = {
+          apikey: key,
+          "Content-Type": "application/json",
+        };
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`;
+        }
         const response = await fetch(`${url}/functions/v1/${functionName}`, {
           method: "POST",
           headers,
@@ -587,7 +613,7 @@ export function createClient(url: string, key: string) {
         return { data, error: response.ok ? null : new Error(typeof data === "string" ? data : JSON.stringify(data ?? {})) };
       },
     },
-    channel(topic?: string, options?: { config?: { presence?: { key?: string }; broadcast?: { self?: boolean; ack?: boolean } } }) {
+    channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
       return new ChannelShim(topic ?? "default", options?.config?.presence?.key);
     },
   };

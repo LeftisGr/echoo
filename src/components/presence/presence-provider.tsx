@@ -13,7 +13,6 @@ import {
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { deleteMediaMessage, uploadMedia } from "@/lib/media-service";
 import { getCopy, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
   endRoom,
@@ -37,6 +36,7 @@ import {
 import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
 import { getSessionProgression } from "@/lib/session-progression";
 import {
+  MEDIA_UPLOAD_BUCKET,
   MEDIA_UPLOAD_COOLDOWN_MS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
@@ -44,6 +44,7 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   isSupportedImageType,
   isSupportedVideoType,
+  sanitizeMediaFileName,
   type MediaPreviewData,
 } from "@/lib/session-media";
 
@@ -144,9 +145,7 @@ interface PresenceContextValue {
   unlockVoice: () => void;
   sendMessage: (content: string) => Promise<void>;
   sendMediaMessage: (input: { file: File; caption: string; preview: MediaPreviewData }) => Promise<void>;
-  consumeMediaMessage: (message: ChatMessage) => Promise<void>;
   leaveRoom: (reason?: string) => void;
-
   rateRoom: (score: RatingScore) => Promise<void>;
   reportCurrentRoom: (reason: string) => Promise<void>;
   blockCurrentPartner: () => void;
@@ -1001,22 +1000,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: { id: string; email?: string | null; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) => {
+    const initializeSession = async (sessionUser: { id: string } | null) => {
       setInitializing(true);
       setAppReady(false);
       setAuthLoaded(false);
       setRoomLoaded(false);
       setSessionReady(false);
 
-      const isGuestSession = Boolean(sessionUser?.user_metadata?.is_guest ?? sessionUser?.app_metadata?.is_guest ?? sessionUser?.email?.includes("@presence.local"));
-
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
-      setGuestMode(isGuestSession);
 
-      if (sessionUser && !isGuestSession) {
-        writeStoredGuestSession(false);
-        writeStoredGuestProfile(null);
+      if (sessionUser) {
+        if (!guestMode) {
+          writeStoredGuestSession(false);
+          writeStoredGuestProfile(null);
+        }
       }
 
       if (!sessionUser) {
@@ -1024,10 +1022,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         stopQueueSubscriptions();
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
-        if (!isGuestSession) {
+        if (!guestMode) {
           setGuestMode(false);
         }
-
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
@@ -1050,7 +1047,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id, isGuestSession);
+          await hydrateAuthenticatedUser(sessionUser.id);
         }
       } catch {
         hydratedSessionUserIdRef.current = null;
@@ -1303,23 +1300,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession = false) {
-    let profileForSession: PresenceProfile;
-
-    if (isGuestSession) {
-      profileForSession = readStoredGuestProfile() ?? createDefaultProfile(currentUserId);
-      setIsAdmin(profileForSession.role === "admin");
-      setProfile(profileForSession);
-      setQueue(createInitialQueue(profileForSession));
-      return;
-    }
-
+  async function hydrateAuthenticatedUser(currentUserId: string) {
     const loadedProfile = await loadProfile(currentUserId);
-    profileForSession = loadedProfile ?? createDefaultProfile(currentUserId);
+    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
 
-    setIsAdmin(profileForSession.role === "admin");
+    const effectiveProfile = loadedProfile ?? profileToUse;
+    setIsAdmin(effectiveProfile.role === "admin");
 
     if (loadedProfile) {
+
       setProfile(loadedProfile);
       setQueue((current) => ({
         ...current,
@@ -1329,12 +1318,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         },
       }));
     } else {
-      setProfile(profileForSession);
-      await syncProfile(profileForSession);
+      setProfile(profileToUse);
+      await syncProfile(profileToUse);
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
-
     if (activeRoom) {
       const pendingMatch = readStoredMatchTransition();
       if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
@@ -1343,7 +1331,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredMatchTransition(null);
       }
       await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profileForSession));
+      setQueue(createInitialQueue(profileToUse));
       return;
     }
 
@@ -1360,7 +1348,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           typingUserId: fallbackRoom.typingUserId,
           typingUpdatedAt: fallbackRoom.typingUpdatedAt,
         });
-        setQueue(createInitialQueue(profileForSession));
+        setQueue(createInitialQueue(profileToUse));
         return;
       }
     }
@@ -1370,7 +1358,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       const legacyRoom = (await loadRoomById(legacyRoomId)) as RoomRecord | null;
       if (legacyRoom && !legacyRoom.endedAt && roomMatchesUser(legacyRoom, currentUserId)) {
         await openRoom(legacyRoom.id, currentUserId, legacyRoom);
-        setQueue(createInitialQueue(profileForSession));
+        setQueue(createInitialQueue(profileToUse));
         return;
       }
     }
@@ -1378,7 +1366,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     stopRoomSubscriptions();
     setRoom(null);
     writeStoredMatchTransition(null);
-    setQueue(storedQueue.active ? storedQueue : createInitialQueue(profileForSession));
+    setQueue(storedQueue.active ? storedQueue : createInitialQueue(profileToUse));
 
   }
 
@@ -1795,23 +1783,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const liveSearching = smoothedSearchingCount;
     const liveRooms = smoothedRoomCount;
 
-    if (!authenticated || profile?.role !== "admin") {
-      setAdminMetrics({
-        totalUsers: 0,
-        activeUsers: liveSearching + liveRooms,
-        queueCount: liveSearching,
-        activeRooms: liveRooms,
-        averageSessionDuration: 7,
-        reportsCount: reportsCount,
-        dailySignups: 73,
-        usersOnlineNow: liveUsers,
-        avgWaitTimeSeconds: queue.active ? queue.estimatedWaitSeconds : 22,
-      });
-      return;
-    }
-
     if (!hasSupabaseConfig) {
-
       setAdminMetrics({
         totalUsers: 1842,
         activeUsers: liveSearching + liveRooms,
@@ -1851,17 +1823,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (method: AuthMethod) => {
       if (method === "guest") {
-        setGuestMode(true);
-        writeStoredGuestSession(true);
-
         const { error } = await supabase.auth.signInAnonymously();
         if (error) {
-          setGuestMode(false);
-          writeStoredGuestSession(false);
           toast.error(error.message);
           return;
         }
 
+        setGuestMode(true);
+        writeStoredGuestSession(true);
         toast.success(language === "en" ? "Guest session ready." : "Η guest συνεδρία είναι έτοιμη.");
         return;
       }
@@ -1985,14 +1954,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setMatchTransition(null);
     setRoom(null);
 
-    try {
-      await cleanupUserSession(activeProfile.id);
-    } catch (error) {
-      console.info("[queue] cleanup failed, continuing to matchmaking", {
-        userId: activeProfile.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    await cleanupUserSession(activeProfile.id);
 
     const nextQueue: QueueState = {
       active: true,
@@ -2162,20 +2124,38 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     mediaUploadInFlightRef.current = true;
     try {
-      const mediaMessage = await uploadMedia({
-        roomId: currentRoom.id,
-        userId: currentUser,
-        file,
-        caption: caption.trim(),
-        preview,
+      const uploadPath = `${currentUser}/${currentRoom.id}/${Date.now()}-${sanitizeMediaFileName(preview.displayName)}`;
+      const { error: uploadError } = await supabase.storage.from(MEDIA_UPLOAD_BUCKET).upload(uploadPath, file, {
+        contentType: file.type,
+        upsert: false,
       });
 
-      console.info("[media] upload produced message", {
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from(MEDIA_UPLOAD_BUCKET).getPublicUrl(uploadPath);
+      const createdAt = new Date().toISOString();
+      const mediaMessage: ChatMessage = {
+        id: createId(),
         roomId: currentRoom.id,
-        userId: currentUser,
-        messageId: mediaMessage.id,
-        mediaPath: mediaMessage.media.path,
-      });
+        senderId: currentUser,
+        content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
+        createdAt,
+        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
+        type: "media",
+        media: {
+          url: publicUrlData.publicUrl,
+          path: uploadPath,
+          mimeType: file.type,
+          name: preview.displayName,
+          size: file.size,
+          kind: preview.kind,
+          durationSeconds: preview.durationSeconds,
+          width: preview.width,
+          height: preview.height,
+        },
+      };
 
       setRoom((current) =>
         current && current.id === currentRoom.id
@@ -2195,8 +2175,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       console.info("[media] upload completed", {
         roomId: currentRoom.id,
         userId: currentUser,
-        messageId: mediaMessage.id,
-        mediaPath: mediaMessage.media.path,
+        fileName: preview.displayName,
+        mediaType: preview.kind,
       });
 
     } catch (error) {
@@ -2209,57 +2189,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     } finally {
       mediaUploadInFlightRef.current = false;
     }
-  }, [userId]);
-
-  const consumeMediaMessage = useCallback(async (message: ChatMessage) => {
-    const currentRoom = roomSnapshotRef.current;
-    const currentUser = userId;
-
-    if (!currentRoom || !currentUser || message.type !== "media" || !message.media) {
-      return;
-    }
-
-    console.info("[media] consume requested", {
-      roomId: currentRoom.id,
-      userId: currentUser,
-      messageId: message.id,
-      mediaPath: message.media.path,
-    });
-
-    setRoom((current) => {
-      if (!current || current.id !== currentRoom.id) {
-        return current;
-      }
-
-      return {
-        ...current,
-        messages: current.messages.filter((entry) => entry.id !== message.id),
-      };
-    });
-
-    try {
-      await deleteMediaMessage({
-        roomId: currentRoom.id,
-        messageId: message.id,
-        mediaPath: message.media.path,
-        reason: "viewed",
-      });
-    } catch (error) {
-      console.info("[media] consume delete failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        messageId: message.id,
-        mediaPath: message.media.path,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    console.info("[media] consume completed", {
-      roomId: currentRoom.id,
-      userId: currentUser,
-      messageId: message.id,
-      mediaPath: message.media.path,
-    });
   }, [userId]);
 
   const appendSystemMessage = useCallback((content: string) => {
@@ -2543,10 +2472,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       unlockVoice,
       sendMessage,
       sendMediaMessage,
-      consumeMediaMessage,
       leaveRoom,
       rateRoom,
-
       reportCurrentRoom,
       blockCurrentPartner,
       setQueueFilters,
@@ -2592,9 +2519,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId,
       sendMessage,
       sendMediaMessage,
-      consumeMediaMessage,
       sessionReady,
-
       setLanguage,
       setQueueFilters,
       setHapticsEnabled,
