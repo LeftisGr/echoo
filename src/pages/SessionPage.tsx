@@ -109,6 +109,7 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
+  const pttButtonRef = useRef<HTMLButtonElement | null>(null);
   const pttPointerIdRef = useRef<number | null>(null);
   const pttActiveRef = useRef(false);
   const pttStartedAtRef = useRef<number | null>(null);
@@ -512,16 +513,41 @@ const SessionPage = () => {
   );
 
   useEffect(() => {
-    const handleWindowBlur = () => {
+    const buttonElement = pttButtonRef.current;
+    if (!buttonElement) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      event.preventDefault();
+      handlePushToTalkPress(event.pointerId);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      releasePushToTalk(event.pointerId);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      releasePushToTalk(event.pointerId);
+    };
+
+    const handleBlur = () => {
       releasePushToTalk();
       stopTypingIndicator();
     };
 
-    window.addEventListener("blur", handleWindowBlur);
+    buttonElement.addEventListener("pointerdown", handlePointerDown);
+    buttonElement.addEventListener("pointerup", handlePointerUp);
+    buttonElement.addEventListener("pointercancel", handlePointerCancel);
+    window.addEventListener("blur", handleBlur);
+
     return () => {
-      window.removeEventListener("blur", handleWindowBlur);
+      buttonElement.removeEventListener("pointerdown", handlePointerDown);
+      buttonElement.removeEventListener("pointerup", handlePointerUp);
+      buttonElement.removeEventListener("pointercancel", handlePointerCancel);
+      window.removeEventListener("blur", handleBlur);
     };
-  }, [releasePushToTalk, stopTypingIndicator]);
+  }, [handlePushToTalkPress, releasePushToTalk, stopTypingIndicator]);
 
   useEffect(() => () => {
     clearPushToTalkReleaseTimeout();
@@ -1217,6 +1243,7 @@ const SessionPage = () => {
 
                     <div className="pt-1">
                       <Button
+                        ref={pttButtonRef}
                         type="button"
                         className={cn(
                           "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
@@ -1224,16 +1251,6 @@ const SessionPage = () => {
                           !voiceReady && "cursor-not-allowed opacity-60",
                           "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                         )}
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          handlePushToTalkPress(event.pointerId);
-                        }}
-                        onPointerUp={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
-                        onPointerCancel={(event) => {
-                          releasePushToTalk(event.pointerId);
-                        }}
                         onContextMenu={(event) => event.preventDefault()}
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
                       >
