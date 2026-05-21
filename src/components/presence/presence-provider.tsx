@@ -1001,21 +1001,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: { id: string } | null) => {
+    const initializeSession = async (sessionUser: { id: string; email?: string | null; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) => {
       setInitializing(true);
       setAppReady(false);
       setAuthLoaded(false);
       setRoomLoaded(false);
       setSessionReady(false);
 
+      const isGuestSession = Boolean(sessionUser?.user_metadata?.is_guest ?? sessionUser?.app_metadata?.is_guest ?? sessionUser?.email?.includes("@presence.local"));
+
       setAuthenticated(Boolean(sessionUser));
       setUserId(sessionUser?.id ?? null);
+      setGuestMode(isGuestSession);
 
-      if (sessionUser) {
-        if (!guestMode) {
-          writeStoredGuestSession(false);
-          writeStoredGuestProfile(null);
-        }
+      if (sessionUser && !isGuestSession) {
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
       }
 
       if (!sessionUser) {
@@ -1023,9 +1024,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         stopQueueSubscriptions();
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
-        if (!guestMode) {
+        if (!isGuestSession) {
           setGuestMode(false);
         }
+
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
@@ -1048,7 +1050,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id);
+          await hydrateAuthenticatedUser(sessionUser.id, isGuestSession);
         }
       } catch {
         hydratedSessionUserIdRef.current = null;
@@ -1301,15 +1303,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string) {
+  async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession = false) {
     let profileForSession: PresenceProfile;
 
-    if (guestMode) {
+    if (isGuestSession) {
       profileForSession = readStoredGuestProfile() ?? createDefaultProfile(currentUserId);
       setIsAdmin(profileForSession.role === "admin");
       setProfile(profileForSession);
       await syncProfile(profileForSession);
     } else {
+
       const loadedProfile = await loadProfile(currentUserId);
       profileForSession = loadedProfile ?? createDefaultProfile(currentUserId);
 
