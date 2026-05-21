@@ -866,9 +866,8 @@ const SessionPage = () => {
                         onPointerCancel={releasePushToTalk}
                         onTouchEnd={releasePushToTalk}
                         onTouchCancel={releasePushToTalk}
-
-                        onBlur={releasePushToTalk}
                         onContextMenu={(event) => event.preventDefault()}
+
                         aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
                       >
                         <Mic className={cn("h-5 w-5", pushToTalkPressed && "animate-pulse")} />
