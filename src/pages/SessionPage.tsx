@@ -76,8 +76,10 @@ const SessionPage = () => {
     unlockVoice,
     sendMessage,
     sendMediaMessage,
+    consumeMediaMessage,
     appendSystemMessage,
     leaveRoom,
+
     rateRoom,
     reportCurrentRoom,
     startNewSessionFromEndedRoom,
@@ -1044,7 +1046,7 @@ const SessionPage = () => {
                         <span>•</span>
                         <span>{timestamp}</span>
                       </div>
-                      <SessionMediaMessage message={message} isSelf={isSelf} />
+                      <SessionMediaMessage message={message} isSelf={isSelf} onViewed={() => void consumeMediaMessage(message)} />
 
                     </div>
                   </div>

@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getEphemeralSignedUrl } from "@/lib/media-service";
+import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 import type {
   ChatMessage,
   PresenceProfile,
@@ -56,6 +58,8 @@ create table if not exists public.messages (
   type text not null default 'text',
   media_url text,
   media_path text,
+  media_bucket text not null default 'echoo-media',
+  media_consumed_at timestamptz,
   media_mime_type text,
   media_name text,
   media_size bigint,
@@ -116,6 +120,8 @@ interface LiveMessageRow {
   type: "text" | "system" | "media";
   media_url: string | null;
   media_path: string | null;
+  media_bucket: string | null;
+  media_consumed_at: string | null;
   media_mime_type: string | null;
   media_name: string | null;
   media_size: number | null;
@@ -550,7 +556,6 @@ export async function loadRoomById(roomId: string) {
 }
 
 export async function loadRoomMessages(roomId: string) {
-
   if (!hasSupabaseConfig) {
     return [] as ChatMessage[];
   }
@@ -559,7 +564,7 @@ export async function loadRoomMessages(roomId: string) {
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, expires_at, created_at")
+    .select("id, room_id, sender_id, content, type, media_url, media_path, media_bucket, media_consumed_at, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, expires_at, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
 
@@ -568,15 +573,25 @@ export async function loadRoomMessages(roomId: string) {
   }
 
   const now = Date.now();
-
-  return (data ?? [])
-    .map((row) => {
+  const messages = await Promise.all(
+    (data ?? []).map(async (row) => {
       const message = row as unknown as LiveMessageRow & { expires_at: string | null };
       if (message.expires_at && new Date(message.expires_at).getTime() <= now) {
         return null;
       }
 
-      if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+      if (message.type === "media" && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null && !message.media_consumed_at) {
+        const mediaBucket = message.media_bucket ?? "echoo-media";
+        const signedUrl = await getEphemeralSignedUrl(message.media_path, 18, mediaBucket).catch((signedUrlError) => {
+          console.info("[media] signed url refresh failed", {
+            roomId,
+            mediaBucket,
+            mediaPath: message.media_path,
+            error: signedUrlError instanceof Error ? signedUrlError.message : String(signedUrlError),
+          });
+          return message.media_url ?? "";
+        });
+
         return {
           id: message.id,
           roomId: message.room_id,
@@ -586,7 +601,7 @@ export async function loadRoomMessages(roomId: string) {
           expiresAt: message.expires_at ?? undefined,
           type: "media" as const,
           media: {
-            url: message.media_url,
+            url: signedUrl,
             path: message.media_path,
             mimeType: message.media_mime_type,
             name: message.media_name,
@@ -608,8 +623,10 @@ export async function loadRoomMessages(roomId: string) {
         expiresAt: message.expires_at ?? undefined,
         type: (message.type as "text" | "system") ?? "text",
       };
-    })
-    .filter((message): message is ChatMessage => Boolean(message));
+    }),
+  );
+
+  return messages.filter((message): message is ChatMessage => Boolean(message));
 }
 
 export async function persistRoom(room: RoomSession) {
@@ -665,7 +682,7 @@ export async function persistMessage(message: ChatMessage) {
   }
 
   const createdAt = new Date(message.createdAt);
-  const expiresAt = new Date(createdAt.getTime() + MESSAGE_TTL_SECONDS * 1000).toISOString();
+  const expiresAt = message.expiresAt ?? new Date(createdAt.getTime() + MESSAGE_TTL_SECONDS * 1000).toISOString();
 
   const { error } = await supabase.from("messages").insert({
     id: message.id,
@@ -675,6 +692,8 @@ export async function persistMessage(message: ChatMessage) {
     type: message.type,
     media_url: message.type === "media" ? message.media.url : null,
     media_path: message.type === "media" ? message.media.path : null,
+    media_bucket: message.type === "media" ? MEDIA_UPLOAD_BUCKET : null,
+    media_consumed_at: null,
     media_mime_type: message.type === "media" ? message.media.mimeType : null,
     media_name: message.type === "media" ? message.media.name : null,
     media_size: message.type === "media" ? message.media.size : null,

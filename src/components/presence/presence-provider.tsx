@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { deleteMediaMessage, uploadMedia } from "@/lib/media-service";
 import { getCopy, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
   endRoom,
@@ -36,7 +37,6 @@ import {
 import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
 import { getSessionProgression } from "@/lib/session-progression";
 import {
-  MEDIA_UPLOAD_BUCKET,
   MEDIA_UPLOAD_COOLDOWN_MS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
@@ -44,7 +44,6 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   isSupportedImageType,
   isSupportedVideoType,
-  sanitizeMediaFileName,
   type MediaPreviewData,
 } from "@/lib/session-media";
 
@@ -145,7 +144,9 @@ interface PresenceContextValue {
   unlockVoice: () => void;
   sendMessage: (content: string) => Promise<void>;
   sendMediaMessage: (input: { file: File; caption: string; preview: MediaPreviewData }) => Promise<void>;
+  consumeMediaMessage: (message: ChatMessage) => Promise<void>;
   leaveRoom: (reason?: string) => void;
+
   rateRoom: (score: RatingScore) => Promise<void>;
   reportCurrentRoom: (reason: string) => Promise<void>;
   blockCurrentPartner: () => void;
@@ -2124,38 +2125,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     mediaUploadInFlightRef.current = true;
     try {
-      const uploadPath = `${currentUser}/${currentRoom.id}/${Date.now()}-${sanitizeMediaFileName(preview.displayName)}`;
-      const { error: uploadError } = await supabase.storage.from(MEDIA_UPLOAD_BUCKET).upload(uploadPath, file, {
-        contentType: file.type,
-        upsert: false,
+      const mediaMessage = await uploadMedia({
+        roomId: currentRoom.id,
+        userId: currentUser,
+        file,
+        caption: caption.trim(),
+        preview,
       });
 
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data: publicUrlData } = supabase.storage.from(MEDIA_UPLOAD_BUCKET).getPublicUrl(uploadPath);
-      const createdAt = new Date().toISOString();
-      const mediaMessage: ChatMessage = {
-        id: createId(),
+      console.info("[media] upload produced message", {
         roomId: currentRoom.id,
-        senderId: currentUser,
-        content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
-        createdAt,
-        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
-        type: "media",
-        media: {
-          url: publicUrlData.publicUrl,
-          path: uploadPath,
-          mimeType: file.type,
-          name: preview.displayName,
-          size: file.size,
-          kind: preview.kind,
-          durationSeconds: preview.durationSeconds,
-          width: preview.width,
-          height: preview.height,
-        },
-      };
+        userId: currentUser,
+        messageId: mediaMessage.id,
+        mediaPath: mediaMessage.media.path,
+      });
 
       setRoom((current) =>
         current && current.id === currentRoom.id
@@ -2175,8 +2158,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       console.info("[media] upload completed", {
         roomId: currentRoom.id,
         userId: currentUser,
-        fileName: preview.displayName,
-        mediaType: preview.kind,
+        messageId: mediaMessage.id,
+        mediaPath: mediaMessage.media.path,
       });
 
     } catch (error) {
@@ -2189,6 +2172,57 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     } finally {
       mediaUploadInFlightRef.current = false;
     }
+  }, [userId]);
+
+  const consumeMediaMessage = useCallback(async (message: ChatMessage) => {
+    const currentRoom = roomSnapshotRef.current;
+    const currentUser = userId;
+
+    if (!currentRoom || !currentUser || message.type !== "media" || !message.media) {
+      return;
+    }
+
+    console.info("[media] consume requested", {
+      roomId: currentRoom.id,
+      userId: currentUser,
+      messageId: message.id,
+      mediaPath: message.media.path,
+    });
+
+    setRoom((current) => {
+      if (!current || current.id !== currentRoom.id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        messages: current.messages.filter((entry) => entry.id !== message.id),
+      };
+    });
+
+    try {
+      await deleteMediaMessage({
+        roomId: currentRoom.id,
+        messageId: message.id,
+        mediaPath: message.media.path,
+        reason: "viewed",
+      });
+    } catch (error) {
+      console.info("[media] consume delete failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        messageId: message.id,
+        mediaPath: message.media.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    console.info("[media] consume completed", {
+      roomId: currentRoom.id,
+      userId: currentUser,
+      messageId: message.id,
+      mediaPath: message.media.path,
+    });
   }, [userId]);
 
   const appendSystemMessage = useCallback((content: string) => {
@@ -2472,8 +2506,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       unlockVoice,
       sendMessage,
       sendMediaMessage,
+      consumeMediaMessage,
       leaveRoom,
       rateRoom,
+
       reportCurrentRoom,
       blockCurrentPartner,
       setQueueFilters,
@@ -2519,7 +2555,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId,
       sendMessage,
       sendMediaMessage,
+      consumeMediaMessage,
       sessionReady,
+
       setLanguage,
       setQueueFilters,
       setHapticsEnabled,

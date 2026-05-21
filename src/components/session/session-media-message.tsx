@@ -1,9 +1,44 @@
 import { Play, Video } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/presence-types";
 
-export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage; isSelf: boolean }) {
+export function SessionMediaMessage({
+  message,
+  isSelf,
+  onViewed,
+}: {
+  message: ChatMessage;
+  isSelf: boolean;
+  onViewed?: () => void;
+}) {
+  const viewedRef = useRef(false);
+  const viewTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (viewTimerRef.current !== null) {
+        window.clearTimeout(viewTimerRef.current);
+        viewTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const scheduleViewed = () => {
+    if (viewedRef.current || !onViewed) {
+      return;
+    }
+
+    viewedRef.current = true;
+    if (viewTimerRef.current !== null) {
+      window.clearTimeout(viewTimerRef.current);
+    }
+
+    viewTimerRef.current = window.setTimeout(() => {
+      onViewed();
+    }, 8000);
+  };
 
   if (message.type !== "media" || !message.media) {
     return null;
@@ -26,7 +61,9 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
           loading="lazy"
           decoding="async"
           draggable={false}
+          onDragStart={(event) => event.preventDefault()}
           onContextMenu={(event) => event.preventDefault()}
+          onLoad={scheduleViewed}
         />
       ) : (
         <video
@@ -37,6 +74,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
           controlsList="nodownload noplaybackrate noremoteplayback"
           disablePictureInPicture
           className="max-h-[24rem] w-full bg-black object-cover"
+          onLoadedData={scheduleViewed}
           onContextMenu={(event) => event.preventDefault()}
         />
       )}
@@ -48,5 +86,4 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
       )}
     </div>
   );
-
 }
