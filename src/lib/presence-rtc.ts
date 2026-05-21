@@ -292,21 +292,15 @@ export async function createPeerToPeerVoiceSession({
 
   let remoteStream = new MediaStream();
   let signalChannel: ReturnType<typeof supabase.channel> | null = null;
-  let pollTimer: number | null = null;
   let reconnectTimer: number | null = null;
+
   let remoteDescriptionReady = false;
   let restarting = false;
   const processedSignalIds = new Set<string>();
   const pendingCandidates: RTCIceCandidateInit[] = [];
 
-  const stopPolling = () => {
-    if (pollTimer !== null) {
-      window.clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  };
-
   const stopReconnectTimer = () => {
+
     if (reconnectTimer !== null) {
       window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
@@ -684,8 +678,8 @@ export async function createPeerToPeerVoiceSession({
 
     stopped = true;
     rtcLog("teardown requested", { roomId, sessionId, markIdle, connectionId: currentConnectionId });
-    stopPolling();
     stopReconnectTimer();
+
     clearTransmissionWatchdog();
     stopChannel();
     cleanupPeer();
@@ -1214,11 +1208,6 @@ export async function createPeerToPeerVoiceSession({
       });
 
     await fetchPendingSignals();
-
-    stopPolling();
-    pollTimer = window.setInterval(() => {
-      void fetchPendingSignals();
-    }, 1200);
   };
 
   const handleReconnect = async (state: RTCPeerConnectionState | RTCIceConnectionState) => {
