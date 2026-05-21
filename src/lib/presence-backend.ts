@@ -9,9 +9,11 @@ import type {
 } from "@/lib/presence-types";
 
 export const hasSupabaseConfig = true;
+const MESSAGE_TTL_SECONDS = 15;
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
+
   id uuid not null references auth.users(id) on delete cascade,
   username text not null unique,
   age_range text not null,
@@ -60,6 +62,7 @@ create table if not exists public.messages (
   media_duration_seconds integer,
   media_width integer,
   media_height integer,
+  expires_at timestamptz not null default (now() + interval '15 seconds'),
   created_at timestamptz not null default now()
 );
 
@@ -119,6 +122,7 @@ interface LiveMessageRow {
   media_duration_seconds: number | null;
   media_width: number | null;
   media_height: number | null;
+  expires_at: string | null;
   created_at: string;
 }
 
@@ -133,7 +137,22 @@ function createOfflineResult<T>(value: T) {
   return Promise.resolve(value);
 }
 
+async function cleanupExpiredMessages() {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ deletedCount: 0 });
+  }
+
+  const { error } = await supabase.rpc("cleanup_expired_messages");
+
+  if (error) {
+    throw error;
+  }
+
+  return { deletedCount: 0 };
+}
+
 function normalizeFilters(filters: QueueFilters) {
+
   return {
     preference: filters.preference,
     language: filters.language,
@@ -536,9 +555,11 @@ export async function loadRoomMessages(roomId: string) {
     return [] as ChatMessage[];
   }
 
+  await cleanupExpiredMessages();
+
   const { data, error } = await supabase
     .from("messages")
-    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, created_at")
+    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, expires_at, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
 
@@ -546,39 +567,49 @@ export async function loadRoomMessages(roomId: string) {
     throw error;
   }
 
-  return (data ?? []).map((row) => {
-    const message = row as unknown as LiveMessageRow;
-    if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+  const now = Date.now();
+
+  return (data ?? [])
+    .map((row) => {
+      const message = row as unknown as LiveMessageRow & { expires_at: string | null };
+      if (message.expires_at && new Date(message.expires_at).getTime() <= now) {
+        return null;
+      }
+
+      if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+        return {
+          id: message.id,
+          roomId: message.room_id,
+          senderId: message.sender_id,
+          content: message.content,
+          createdAt: message.created_at,
+          expiresAt: message.expires_at ?? undefined,
+          type: "media" as const,
+          media: {
+            url: message.media_url,
+            path: message.media_path,
+            mimeType: message.media_mime_type,
+            name: message.media_name,
+            size: Number(message.media_size),
+            kind: message.media_mime_type.startsWith("video/") ? "video" : "image",
+            durationSeconds: message.media_duration_seconds ?? undefined,
+            width: message.media_width ?? undefined,
+            height: message.media_height ?? undefined,
+          },
+        };
+      }
+
       return {
         id: message.id,
         roomId: message.room_id,
         senderId: message.sender_id,
         content: message.content,
         createdAt: message.created_at,
-        type: "media" as const,
-        media: {
-          url: message.media_url,
-          path: message.media_path,
-          mimeType: message.media_mime_type,
-          name: message.media_name,
-          size: Number(message.media_size),
-          kind: message.media_mime_type.startsWith("video/") ? "video" : "image",
-          durationSeconds: message.media_duration_seconds ?? undefined,
-          width: message.media_width ?? undefined,
-          height: message.media_height ?? undefined,
-        },
+        expiresAt: message.expires_at ?? undefined,
+        type: (message.type as "text" | "system") ?? "text",
       };
-    }
-
-    return {
-      id: message.id,
-      roomId: message.room_id,
-      senderId: message.sender_id,
-      content: message.content,
-      createdAt: message.created_at,
-      type: (message.type as "text" | "system") ?? "text",
-    };
-  });
+    })
+    .filter((message): message is ChatMessage => Boolean(message));
 }
 
 export async function persistRoom(room: RoomSession) {
@@ -633,6 +664,9 @@ export async function persistMessage(message: ChatMessage) {
     return createOfflineResult({ ok: true, message });
   }
 
+  const createdAt = new Date(message.createdAt);
+  const expiresAt = new Date(createdAt.getTime() + MESSAGE_TTL_SECONDS * 1000).toISOString();
+
   const { error } = await supabase.from("messages").insert({
     id: message.id,
     room_id: message.roomId,
@@ -647,6 +681,7 @@ export async function persistMessage(message: ChatMessage) {
     media_duration_seconds: message.type === "media" ? message.media.durationSeconds ?? null : null,
     media_width: message.type === "media" ? message.media.width ?? null : null,
     media_height: message.type === "media" ? message.media.height ?? null : null,
+    expires_at: expiresAt,
     created_at: message.createdAt,
   });
 

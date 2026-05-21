@@ -19,9 +19,26 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
       </div>
 
       {message.media.kind === "image" ? (
-        <img src={message.media.url} alt={message.media.name} className="max-h-[24rem] w-full object-cover" loading="lazy" decoding="async" />
+        <img
+          src={message.media.url}
+          alt={message.media.name}
+          className="max-h-[24rem] w-full select-none object-cover"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onContextMenu={(event) => event.preventDefault()}
+        />
       ) : (
-        <video src={message.media.url} controls playsInline preload="metadata" controlsList="nodownload noplaybackrate" className="max-h-[24rem] w-full bg-black object-cover" />
+        <video
+          src={message.media.url}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload noplaybackrate noremoteplayback"
+          disablePictureInPicture
+          className="max-h-[24rem] w-full bg-black object-cover"
+          onContextMenu={(event) => event.preventDefault()}
+        />
       )}
 
       {(message.content || message.media.name) && (

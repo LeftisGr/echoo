@@ -35,6 +35,9 @@ function MenuSheet() {
           <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
         </SheetHeader>
         <div className="mt-8 space-y-3">
+          <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3">
+            <PwaInstallButton className="w-full justify-center" />
+          </div>
           {links.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -58,6 +61,7 @@ function MenuSheet() {
             {copy.nav.admin}
           </Link>
         </div>
+
       </SheetContent>
     </Sheet>
   );
@@ -127,7 +131,6 @@ export function PageShell({
             <PresenceLogo />
           </Link>
           <div className="flex items-center gap-2">
-            <PwaInstallButton compact />
             <LanguageToggle />
             <ProfileButton />
           </div>

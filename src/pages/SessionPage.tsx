@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { ArrowRight, Home, Mic, PhoneOff, ShieldAlert } from "lucide-react";
+import { ArrowRight, Flag, Home, Info, Mic, PhoneOff, ShieldAlert } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -16,8 +16,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { MediaComposer } from "@/components/session/media-composer";
@@ -27,7 +29,18 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { cn } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
+function getRoomDisplayName(roomId: string) {
+  const suffix = roomId
+    .replace(/-/g, "")
+    .slice(0, 8)
+    .split("")
+    .reduce((value, char) => value + char.charCodeAt(0), 0);
+
+  return `Room #${String(100 + (suffix % 900)).padStart(3, "0")}`;
+}
+
 const SessionPage = () => {
+
   const navigate = useNavigate();
   const { roomId: routeRoomId } = useParams();
   const {
@@ -50,7 +63,9 @@ const SessionPage = () => {
     appendSystemMessage,
     leaveRoom,
     rateRoom,
+    reportCurrentRoom,
     startNewSessionFromEndedRoom,
+
     startVoiceChat,
     stopVoiceChat,
     enableVoicePlayback,
@@ -63,8 +78,13 @@ const SessionPage = () => {
 
   const [draft, setDraft] = useState("");
   const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const [voiceUnlockPromptOpen, setVoiceUnlockPromptOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("harassment");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +116,14 @@ const SessionPage = () => {
   }, []);
 
   useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (!room) {
       return;
     }
@@ -104,6 +132,9 @@ const SessionPage = () => {
       lastVoiceUnlockAtRef.current = null;
       mediaUnlockMessageRoomIdRef.current = null;
       setVoiceUnlockPromptOpen(false);
+      setReportDialogOpen(false);
+      setReportReason("harassment");
+      setReportDetails("");
     }
 
     shouldForceScrollRef.current = true;
@@ -411,6 +442,37 @@ const SessionPage = () => {
         : "border-amber-300/18 bg-[#1c1621]/92";
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
+  const visibleMessages = room.messages.filter((message) => {
+    if (message.type === "system") {
+      return true;
+    }
+
+    const expiresAt = message.expiresAt ? new Date(message.expiresAt).getTime() : new Date(message.createdAt).getTime() + 15_000;
+    return expiresAt > now;
+  });
+  const roomDisplayName = getRoomDisplayName(room.id);
+
+  const reportReasonOptions = [
+    { value: "harassment", label: language === "en" ? "Harassment or abuse" : "Παρενόχληση ή κακοποίηση" },
+    { value: "threats", label: language === "en" ? "Threats or hate speech" : "Απειλές ή λόγος μίσους" },
+    { value: "spam", label: language === "en" ? "Spam or unsolicited content" : "Spam ή ανεπιθύμητο περιεχόμενο" },
+  ];
+
+  const submitRoomReport = async () => {
+    const shortDetails = reportDetails.trim();
+    const selectedLabel = reportReasonOptions.find((option) => option.value === reportReason)?.label ?? reportReason;
+    const reason = shortDetails ? `${selectedLabel}: ${shortDetails}` : selectedLabel;
+
+    setReportSubmitting(true);
+    try {
+      await reportCurrentRoom(reason);
+      setReportDialogOpen(false);
+      setReportReason("harassment");
+      setReportDetails("");
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
 
   const sessionBanner = !online
 
@@ -560,11 +622,47 @@ const SessionPage = () => {
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-              <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{copy.session.title}</h1>
-
+              <div className="mt-1 flex items-center gap-2">
+                <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                      aria-label={language === "en" ? "Why report this room?" : "Γιατί να αναφέρεις αυτό το room;"}
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle className="text-left text-white">
+                        {language === "en" ? "Why report a stranger?" : "Γιατί να αναφέρεις έναν άγνωστο;"}
+                      </DialogTitle>
+                      <DialogDescription className="text-left text-white/60">
+                        {language === "en"
+                          ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review bad behavior in the admin panel and keep Echoo safer."
+                          : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του δωματίου. Οι αναφορές βοηθούν να ελέγχουμε κακή συμπεριφορά από το admin panel και να κρατάμε το Echoo πιο ασφαλές."}
+                      </DialogDescription>
+                    </DialogHeader>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 h-9 rounded-full border-white/10 bg-white/5 px-3 text-xs text-white/75 hover:bg-white/10 hover:text-white"
+                onClick={() => setReportDialogOpen(true)}
+              >
+                <Flag className="mr-2 h-3.5 w-3.5" />
+                {language === "en" ? "Report Stranger" : "Αναφορά αγνώστου"}
+              </Button>
             </div>
 
             <div className="text-center">
+
               <SessionProgressHeader
                 phase={phase}
                 timerLabel={timerLabel}
@@ -646,7 +744,8 @@ const SessionPage = () => {
         >
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-10 sm:pb-12">
 
-            {room.messages.map((message) => {
+            {visibleMessages.map((message) => {
+
               const isSelf = message.senderId === profile.id;
               const isSystem = message.type === "system";
               const timestamp = new Date(message.createdAt).toLocaleTimeString([], {
@@ -948,6 +1047,79 @@ const SessionPage = () => {
               onClick={() => setVoiceUnlockPromptOpen(false)}
             >
               {language === "en" ? "Keep Text Only" : "Μόνο κείμενο"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-left text-white">
+              {language === "en" ? "Report Stranger" : "Αναφορά αγνώστου"}
+            </DialogTitle>
+            <DialogDescription className="text-left text-white/60">
+              {language === "en"
+                ? "Choose the reason that best fits what happened. Your report will show up in the admin panel for review."
+                : "Επίλεξε τον λόγο που ταιριάζει καλύτερα. Η αναφορά θα εμφανιστεί στο admin panel για έλεγχο."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-1">
+            <div className="grid gap-2 sm:grid-cols-3">
+              {reportReasonOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "h-auto rounded-2xl border-white/10 px-3 py-3 text-left text-xs leading-5 text-white/75 hover:bg-white/10 hover:text-white",
+                    reportReason === option.value && "border-rose-300/30 bg-rose-500/15 text-rose-50",
+                  )}
+                  onClick={() => setReportReason(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+
+            <Textarea
+              value={reportDetails}
+              onChange={(event) => setReportDetails(event.target.value)}
+              placeholder={language === "en" ? "Add a short note (optional)" : "Πρόσθεσε μια σύντομη σημείωση (προαιρετικό)"}
+              className="min-h-28 rounded-3xl border-white/10 bg-white/5 text-white placeholder:text-white/35"
+              maxLength={240}
+            />
+          </div>
+
+          <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+              onClick={() => setReportDialogOpen(false)}
+            >
+              {language === "en" ? "Cancel" : "Ακύρωση"}
+            </Button>
+            <Button
+              type="button"
+              className="h-12 rounded-full bg-rose-500 text-white hover:bg-rose-400"
+              onClick={() => {
+                void submitRoomReport();
+              }}
+              disabled={reportSubmitting}
+            >
+              {reportSubmitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
+                  {language === "en" ? "Sending..." : "Αποστολή..."}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <Flag className="h-4 w-4" />
+                  {language === "en" ? "Submit report" : "Υποβολή report"}
+                </span>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

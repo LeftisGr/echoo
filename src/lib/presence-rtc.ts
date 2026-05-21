@@ -182,15 +182,9 @@ export async function createPeerToPeerVoiceSession({
 
   audioElement.autoplay = true;
   audioElement.muted = true;
+  audioElement.volume = 0;
   audioElement.setAttribute("playsinline", "true");
   audioElement.setAttribute("autoplay", "true");
-  void audioElement.play().catch((error) => {
-    rtcLog("audio element priming failed", {
-      roomId,
-      sessionId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
 
   emitState("requesting-microphone");
   rtcLog("requesting microphone", {
@@ -322,6 +316,8 @@ export async function createPeerToPeerVoiceSession({
 
     try {
       await audioElement.play();
+      audioElement.muted = false;
+      audioElement.volume = 1;
       rtcLog("audio playback success", {
         roomId,
         sessionId,
@@ -331,6 +327,7 @@ export async function createPeerToPeerVoiceSession({
       });
       return;
     } catch (error) {
+
       rtcLog("audio playback failure", {
         roomId,
         sessionId,
@@ -349,8 +346,11 @@ export async function createPeerToPeerVoiceSession({
         muted: audioElement.muted,
       });
       audioElement.muted = false;
+      audioElement.volume = 1;
+      await audioElement.play().catch(() => undefined);
       return;
     } catch (error) {
+
       rtcLog("autoplay fallback failed", {
         roomId,
         sessionId,

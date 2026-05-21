@@ -749,7 +749,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     console.info("[rtc] manual audio enable requested");
     try {
+      setVoiceMutedState(false);
       audioElement.muted = false;
+      audioElement.volume = 1;
       await audioElement.play();
       setVoicePlaybackBlocked(false);
       console.info("[rtc] manual audio enable success");
@@ -862,6 +864,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (voiceAudioRef.current) {
       voiceAudioRef.current.muted = voiceMuted;
+      voiceAudioRef.current.volume = voiceMuted ? 0 : 1;
     }
   }, [voiceMuted]);
 
@@ -2010,12 +2013,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const createdAt = new Date().toISOString();
       const userMessage: ChatMessage = {
         id: createId(),
         roomId: room.id,
         senderId: profile.id,
         content: content.trim(),
-        createdAt: new Date().toISOString(),
+        createdAt,
+        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
         type: "text",
       };
 
@@ -2115,12 +2120,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       const { data: publicUrlData } = supabase.storage.from(MEDIA_UPLOAD_BUCKET).getPublicUrl(uploadPath);
+      const createdAt = new Date().toISOString();
       const mediaMessage: ChatMessage = {
         id: createId(),
         roomId: currentRoom.id,
         senderId: currentUser,
         content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
-        createdAt: new Date().toISOString(),
+        createdAt,
+        expiresAt: new Date(Date.parse(createdAt) + 15_000).toISOString(),
         type: "media",
         media: {
           url: publicUrlData.publicUrl,
@@ -2203,10 +2210,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voiceSessionTokenRef.current = sessionToken;
       voiceStartInFlightRef.current = true;
       setVoicePlaybackBlocked(false);
+      setVoiceMutedState(false);
       voiceControllerRef.current?.stop();
 
       voiceControllerRef.current = null;
       setVoiceState("requesting-microphone");
+
       toast(copy.session.voiceStarting);
 
       try {

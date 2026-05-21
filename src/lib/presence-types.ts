@@ -64,6 +64,7 @@ interface ChatMessageBase {
   senderId: string;
   content: string;
   createdAt: string;
+  expiresAt?: string;
 }
 
 export interface TextChatMessage extends ChatMessageBase {
