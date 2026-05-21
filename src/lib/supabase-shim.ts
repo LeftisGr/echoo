@@ -522,9 +522,12 @@ export function createClient(url: string, key: string) {
         if (existingLogin.data?.session) {
           return existingLogin;
         }
+
+        writeGuestCredentials(null);
       }
 
       const { response, data } = await invokeEdgeFunction(url, key, "guest-bootstrap");
+
       if (!response.ok) {
         return {
           data: null,

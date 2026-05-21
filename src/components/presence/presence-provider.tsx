@@ -1784,7 +1784,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const liveSearching = smoothedSearchingCount;
     const liveRooms = smoothedRoomCount;
 
+    if (!authenticated) {
+      return;
+    }
+
     if (!hasSupabaseConfig) {
+
       setAdminMetrics({
         totalUsers: 1842,
         activeUsers: liveSearching + liveRooms,
