@@ -1985,7 +1985,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setMatchTransition(null);
     setRoom(null);
 
-    await cleanupUserSession(activeProfile.id);
+    try {
+      await cleanupUserSession(activeProfile.id);
+    } catch (error) {
+      console.info("[queue] cleanup failed, continuing to matchmaking", {
+        userId: activeProfile.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     const nextQueue: QueueState = {
       active: true,
