@@ -47,12 +47,13 @@ export interface PartnerProfile {
 }
 
 export interface MediaMessagePayload {
-  url: string;
+  url: string | null;
   path: string;
+  bucket: string;
   mimeType: string;
   name: string;
   size: number;
-  kind: "image" | "video";
+  kind: "image" | "audio" | "video";
   durationSeconds?: number;
   width?: number;
   height?: number;
@@ -77,6 +78,7 @@ export interface SystemChatMessage extends ChatMessageBase {
 
 export interface MediaChatMessage extends ChatMessageBase {
   type: "media";
+  mediaConsumedAt?: string | null;
   media: MediaMessagePayload;
 }
 

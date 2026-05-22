@@ -1,5 +1,6 @@
 export const MEDIA_UPLOAD_BUCKET = "echoo-media";
 export const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+export const MAX_AUDIO_SIZE_BYTES = 12 * 1024 * 1024;
 export const MAX_VIDEO_SIZE_BYTES = 28 * 1024 * 1024;
 export const MAX_VIDEO_DURATION_SECONDS = 20;
 export const MAX_MEDIA_MESSAGES_PER_SESSION = 4;
@@ -7,7 +8,7 @@ export const MEDIA_UPLOAD_COOLDOWN_MS = 15000;
 export const MAX_IMAGE_EDGE_PX = 1600;
 export const IMAGE_QUALITY = 0.82;
 
-export type MediaKind = "image" | "video";
+export type MediaKind = "image" | "audio" | "video";
 
 export interface MediaPreviewData {
   kind: MediaKind;
@@ -32,10 +33,15 @@ export interface PreparedMediaUpload {
 }
 
 const supportedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const supportedAudioTypes = new Set(["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg"]);
 const supportedVideoTypes = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
 export function isSupportedImageType(type: string) {
   return supportedImageTypes.has(type);
+}
+
+export function isSupportedAudioType(type: string) {
+  return supportedAudioTypes.has(type);
 }
 
 export function isSupportedVideoType(type: string) {
@@ -43,12 +49,16 @@ export function isSupportedVideoType(type: string) {
 }
 
 export function isSupportedMediaFile(file: File) {
-  return isSupportedImageType(file.type) || isSupportedVideoType(file.type);
+  return isSupportedImageType(file.type) || isSupportedAudioType(file.type) || isSupportedVideoType(file.type);
 }
 
 export function getMediaKind(file: File): MediaKind | null {
   if (isSupportedImageType(file.type)) {
     return "image";
+  }
+
+  if (isSupportedAudioType(file.type)) {
+    return "audio";
   }
 
   if (isSupportedVideoType(file.type)) {
@@ -170,6 +180,33 @@ export function getVideoMetadata(file: File) {
   });
 }
 
+export function getAudioMetadata(file: File) {
+  return new Promise<{ durationSeconds: number }>((resolve, reject) => {
+    const audio = document.createElement("audio");
+    const objectUrl = URL.createObjectURL(file);
+
+    audio.preload = "metadata";
+    audio.src = objectUrl;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      audio.removeAttribute("src");
+      audio.load();
+    };
+
+    audio.onloadedmetadata = () => {
+      const durationSeconds = Number.isFinite(audio.duration) ? Math.max(1, Math.round(audio.duration)) : 0;
+      resolve({ durationSeconds });
+      cleanup();
+    };
+
+    audio.onerror = () => {
+      cleanup();
+      reject(new Error("Unable to read audio metadata."));
+    };
+  });
+}
+
 export async function prepareMediaUpload(file: File): Promise<PreparedMediaUpload> {
   const kind = getMediaKind(file);
   if (!kind) {
@@ -186,6 +223,18 @@ export async function prepareMediaUpload(file: File): Promise<PreparedMediaUploa
       size: compressed.file.size,
       width: compressed.width,
       height: compressed.height,
+    };
+  }
+
+  if (kind === "audio") {
+    const metadata = await getAudioMetadata(file);
+    return {
+      file,
+      kind,
+      contentType: file.type,
+      displayName: sanitizeMediaFileName(file.name),
+      size: file.size,
+      durationSeconds: metadata.durationSeconds,
     };
   }
 

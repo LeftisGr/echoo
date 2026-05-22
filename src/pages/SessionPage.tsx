@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { ArrowRight, Check, Film, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, ShieldAlert, Send, X } from "lucide-react";
+import { ArrowRight, Check, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -25,12 +25,14 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
+import { EPHEMERAL_CONTENT_TTL_MS } from "@/lib/ephemeral-content";
 import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
   MAX_VIDEO_DURATION_SECONDS,
   MAX_VIDEO_SIZE_BYTES,
   MEDIA_UPLOAD_COOLDOWN_MS,
+  isSupportedAudioType,
   type MediaPreviewData,
   prepareMediaUpload,
 } from "@/lib/session-media";
@@ -115,7 +117,8 @@ const SessionPage = () => {
   const pttStartedAtRef = useRef<number | null>(null);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
+
   const mediaCooldownRef = useRef(0);
   const mediaSendCountRef = useRef(0);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -363,8 +366,19 @@ const SessionPage = () => {
       return;
     }
 
+    if (!file.type.startsWith("image/") && !isSupportedAudioType(file.type) && !file.type.startsWith("video/")) {
+      setMediaError(language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.");
+      return;
+    }
+
     if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
+
       setMediaError(language === "en" ? "Image is too large." : "Η εικόνα είναι πολύ μεγάλη.");
+      return;
+    }
+
+    if (file.type.startsWith("audio/") && file.size > 12 * 1024 * 1024) {
+      setMediaError(language === "en" ? "Audio is too large." : "Το ηχητικό είναι πολύ μεγάλο.");
       return;
     }
 
@@ -421,7 +435,8 @@ const SessionPage = () => {
     }
 
     setMediaBusy(true);
-    console.info("[media] send requested", {
+    console.info("[content] send requested", {
+
       roomId: room?.id ?? null,
       phase,
       kind: selectedMedia.kind,
@@ -437,7 +452,8 @@ const SessionPage = () => {
       });
       mediaCooldownRef.current = Date.now();
       mediaSendCountRef.current += 1;
-      console.info("[media] send completed", {
+      console.info("[content] send completed", {
+
         roomId: room?.id ?? null,
         phase,
         kind: selectedMedia.kind,
@@ -445,7 +461,8 @@ const SessionPage = () => {
       });
       resetMediaSelection();
     } catch (mediaSendError) {
-      console.info("[media] send failed", {
+      console.info("[content] send failed", {
+
         roomId: room?.id ?? null,
         phase,
         error: mediaSendError instanceof Error ? mediaSendError.message : String(mediaSendError),
@@ -678,7 +695,8 @@ const SessionPage = () => {
       return true;
     }
 
-    const expiresAt = message.expiresAt ? new Date(message.expiresAt).getTime() : new Date(message.createdAt).getTime() + 15_000;
+    const expiresAt = message.expiresAt ? new Date(message.expiresAt).getTime() : new Date(message.createdAt).getTime() + EPHEMERAL_CONTENT_TTL_MS;
+
     return expiresAt > now;
   });
   const roomDisplayName = getRoomDisplayName(room.id);
@@ -1136,14 +1154,15 @@ const SessionPage = () => {
                               className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-sm text-white/80 transition-colors hover:bg-white/8 hover:text-white"
                               onClick={() => {
                                 setAttachmentMenuOpen(false);
-                                videoInputRef.current?.click();
+                                audioInputRef.current?.click();
                               }}
                             >
                               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500/15 text-sky-100">
-                                <Film className="h-4 w-4" />
+                                <Play className="h-4 w-4" />
                               </span>
-                              <span>{language === "en" ? "Video" : "Βίντεο"}</span>
+                              <span>{language === "en" ? "Audio" : "Ήχος"}</span>
                             </button>
+
                           </div>
                         )}
 
@@ -1162,9 +1181,9 @@ const SessionPage = () => {
                           }}
                         />
                         <input
-                          ref={videoInputRef}
+                          ref={audioInputRef}
                           type="file"
-                          accept="video/*"
+                          accept="audio/*"
                           className="hidden"
                           onChange={async (event) => {
                             const file = event.target.files?.[0];
@@ -1174,6 +1193,7 @@ const SessionPage = () => {
                             }
                           }}
                         />
+
                       </div>
                     )}
 
@@ -1199,6 +1219,10 @@ const SessionPage = () => {
                         <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
                           {selectedMedia.kind === "image" ? (
                             <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
+                          ) : selectedMedia.kind === "audio" ? (
+                            <div className="flex h-full w-full items-center justify-center bg-sky-500/10 text-sky-100">
+                              <Play className="h-6 w-6" />
+                            </div>
                           ) : (
                             <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
                           )}
@@ -1211,8 +1235,11 @@ const SessionPage = () => {
                               <p className="text-xs text-white/45">
                                 {selectedMedia.kind === "image"
                                   ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
-                                  : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+                                  : selectedMedia.kind === "audio"
+                                    ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s audio`
+                                    : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
                               </p>
+
                             </div>
                             <Button
                               type="button"

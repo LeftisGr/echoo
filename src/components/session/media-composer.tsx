@@ -1,4 +1,5 @@
-import { Camera, Check, ImagePlus, Film, X } from "lucide-react";
+import { Camera, Check, ImagePlus, Play, X } from "lucide-react";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,8 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
   const { language, copy } = usePresence();
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
+
   const cooldownRef = useRef(0);
   const sendCountRef = useRef(0);
   const [selectedMedia, setSelectedMedia] = useState<MediaPreviewData | null>(null);
@@ -51,8 +53,9 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
   const helperText = useMemo(() => {
     if (!selectedMedia) {
       return language === "en"
-        ? `Photos are compressed locally. Videos are limited to ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
-        : `Οι φωτογραφίες συμπιέζονται τοπικά. Τα βίντεο περιορίζονται στα ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`;
+        ? `Photos are compressed locally. Audio clips are limited to ${formatBytes(12 * 1024 * 1024)}.`
+        : `Οι φωτογραφίες συμπιέζονται τοπικά. Τα ηχητικά περιορίζονται στα ${formatBytes(12 * 1024 * 1024)}.`;
+
     }
 
     if (selectedMedia.kind === "image") {
@@ -61,9 +64,14 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
         : `Οι φωτογραφίες συμπιέζονται τοπικά και περιορίζονται στα ${formatBytes(MAX_IMAGE_SIZE_BYTES)} πριν σταλούν.`;
     }
 
-    return language === "en"
-      ? `Short videos only, up to ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
-      : `Μόνο σύντομα βίντεο, έως ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`;
+    return selectedMedia.kind === "audio"
+      ? language === "en"
+        ? `Short audio only, up to ${formatBytes(12 * 1024 * 1024)}.`
+        : `Μόνο σύντομα ηχητικά, έως ${formatBytes(12 * 1024 * 1024)}.`
+      : language === "en"
+        ? `Short videos only, up to ${MAX_VIDEO_DURATION_SECONDS}s and ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`
+        : `Μόνο σύντομα βίντεο, έως ${MAX_VIDEO_DURATION_SECONDS}s και ${formatBytes(MAX_VIDEO_SIZE_BYTES)}.`;
+
   }, [language, selectedMedia]);
 
   const handleFileSelected = async (file: File) => {
@@ -80,6 +88,11 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
 
     if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
       setError(language === "en" ? "That photo is too large." : "Η φωτογραφία είναι πολύ μεγάλη.");
+      return;
+    }
+
+    if (file.type.startsWith("audio/") && file.size > 12 * 1024 * 1024) {
+      setError(language === "en" ? "That audio is too large." : "Το ηχητικό είναι πολύ μεγάλο.");
       return;
     }
 
@@ -187,10 +200,11 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
             <ImagePlus className="mr-2 h-4 w-4" />
             {language === "en" ? "Photo" : "Φωτο"}
           </Button>
-          <Button type="button" variant="outline" className="h-10 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white" onClick={() => videoInputRef.current?.click()}>
-            <Film className="mr-2 h-4 w-4" />
-            {language === "en" ? "Clip" : "Clip"}
+          <Button type="button" variant="outline" className="h-10 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white" onClick={() => audioInputRef.current?.click()}>
+            <Play className="mr-2 h-4 w-4" />
+            {language === "en" ? "Audio" : "Ήχος"}
           </Button>
+
           <Button type="button" variant="outline" className="h-10 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white" onClick={() => imageInputRef.current?.click()}>
             <Camera className="mr-2 h-4 w-4" />
             {language === "en" ? "Camera" : "Κάμερα"}
@@ -205,7 +219,7 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
           await handleFileSelected(file);
         }
       }} />
-      <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={async (event) => {
+      <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={async (event) => {
         const file = event.target.files?.[0];
         event.target.value = "";
         if (file) {
@@ -223,10 +237,15 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
             <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
               {selectedMedia.kind === "image" ? (
                 <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
+              ) : selectedMedia.kind === "audio" ? (
+                <div className="flex h-full w-full items-center justify-center bg-sky-500/10 text-sky-100">
+                  <Play className="h-6 w-6" />
+                </div>
               ) : (
                 <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
               )}
             </div>
+
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -234,8 +253,11 @@ export function MediaComposer({ enabled, onSendMedia }: MediaComposerProps) {
                   <p className="text-xs text-white/45">
                     {selectedMedia.kind === "image"
                       ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
-                      : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+                      : selectedMedia.kind === "audio"
+                        ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s audio`
+                        : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
                   </p>
+
                 </div>
                 <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full text-white/60 hover:bg-white/10 hover:text-white" onClick={resetSelection}>
                   <X className="h-4 w-4" />

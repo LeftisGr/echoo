@@ -34,6 +34,9 @@ import {
   cleanupUserSession,
 } from "@/lib/presence-backend";
 import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
+import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
+import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
+
 import { getSessionProgression } from "@/lib/session-progression";
 import {
   MEDIA_UPLOAD_BUCKET,
@@ -42,6 +45,7 @@ import {
   MAX_MEDIA_MESSAGES_PER_SESSION,
   MAX_VIDEO_DURATION_SECONDS,
   MAX_VIDEO_SIZE_BYTES,
+  isSupportedAudioType,
   isSupportedImageType,
   isSupportedVideoType,
   sanitizeMediaFileName,
@@ -712,6 +716,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const mediaUploadCooldownRef = useRef(0);
   const mediaUploadCountRef = useRef(0);
   const mediaUploadInFlightRef = useRef(false);
+  const contentCleanupIntervalRef = useRef<number | null>(null);
+  const contentCleanupInFlightRef = useRef(false);
 
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -1236,6 +1242,44 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [copy.misc.noUsers, language, queue.active]);
 
   useEffect(() => {
+    if (!authenticated || !sessionReady || !userId) {
+      if (contentCleanupIntervalRef.current) {
+        window.clearInterval(contentCleanupIntervalRef.current);
+        contentCleanupIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const runCleanup = () => {
+      if (contentCleanupInFlightRef.current) {
+        return;
+      }
+
+      contentCleanupInFlightRef.current = true;
+      void cleanupExpiredEphemeralContent()
+        .then((result) => {
+          if (result) {
+            console.info("[content] cleanup complete", result);
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          contentCleanupInFlightRef.current = false;
+        });
+    };
+
+    runCleanup();
+    contentCleanupIntervalRef.current = window.setInterval(runCleanup, EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS);
+
+    return () => {
+      if (contentCleanupIntervalRef.current) {
+        window.clearInterval(contentCleanupIntervalRef.current);
+        contentCleanupIntervalRef.current = null;
+      }
+    };
+  }, [authenticated, sessionReady, userId]);
+
+  useEffect(() => {
     return () => {
       stopQueueSubscriptions();
       stopRoomSubscriptions();
@@ -1596,6 +1640,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           sender_id: string;
           content: string;
           created_at: string;
+          type: "text" | "system" | "media";
+          media_url: string | null;
+          media_path: string | null;
+          media_bucket: string | null;
+          media_mime_type: string | null;
+          media_name: string | null;
+          media_size: number | null;
+          media_duration_seconds: number | null;
+          media_width: number | null;
+          media_height: number | null;
+          expires_at: string | null;
+          media_consumed_at: string | null;
         };
 
         setRoom((current) => {
@@ -1605,6 +1661,42 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
           if (current.messages.some((message) => message.id === inserted.id)) {
             return current;
+          }
+
+          if (inserted.type === "media" && inserted.media_path && inserted.media_mime_type && inserted.media_name && inserted.media_size !== null) {
+            return {
+              ...current,
+              messages: [
+                ...current.messages,
+                {
+                  id: inserted.id,
+                  roomId: inserted.room_id,
+                  senderId: inserted.sender_id,
+                  content: inserted.content,
+                  createdAt: inserted.created_at,
+                  expiresAt: inserted.expires_at ?? undefined,
+                  type: "media",
+                  mediaConsumedAt: inserted.media_consumed_at ?? undefined,
+                  media: {
+                    url: inserted.media_url,
+                    path: inserted.media_path,
+                    bucket: inserted.media_bucket ?? MEDIA_UPLOAD_BUCKET,
+                    mimeType: inserted.media_mime_type,
+                    name: inserted.media_name,
+                    size: Number(inserted.media_size),
+                    kind: (inserted.media_mime_type.startsWith("audio/")
+                      ? "audio"
+                      : inserted.media_mime_type.startsWith("video/")
+                        ? "video"
+                        : "image") as "image" | "audio" | "video",
+
+                    durationSeconds: inserted.media_duration_seconds ?? undefined,
+                    width: inserted.media_width ?? undefined,
+                    height: inserted.media_height ?? undefined,
+                  },
+                },
+              ],
+            };
           }
 
           return {
@@ -1617,13 +1709,105 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 senderId: inserted.sender_id,
                 content: inserted.content,
                 createdAt: inserted.created_at,
-                type: "text",
+                expiresAt: inserted.expires_at ?? undefined,
+                type: (inserted.type as "text" | "system") ?? "text",
               },
             ],
           };
         });
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
+        const updated = payload.new as {
+          id: string;
+          room_id: string;
+          sender_id: string;
+          content: string;
+          created_at: string;
+          type: "text" | "system" | "media";
+          media_url: string | null;
+          media_path: string | null;
+          media_bucket: string | null;
+          media_mime_type: string | null;
+          media_name: string | null;
+          media_size: number | null;
+          media_duration_seconds: number | null;
+          media_width: number | null;
+          media_height: number | null;
+          expires_at: string | null;
+          media_consumed_at: string | null;
+        };
+
+        setRoom((current) => {
+          if (!current || current.id !== roomId) {
+            return current;
+          }
+
+          const nextMessages = current.messages.map((message) => {
+            if (message.id !== updated.id) {
+              return message;
+            }
+
+            if (updated.type === "media" && updated.media_path && updated.media_mime_type && updated.media_name && updated.media_size !== null) {
+              return {
+                ...message,
+                content: updated.content,
+                createdAt: updated.created_at,
+                expiresAt: updated.expires_at ?? undefined,
+                mediaConsumedAt: updated.media_consumed_at ?? undefined,
+                media: {
+                  url: updated.media_url ?? (message.type === "media" ? message.media.url : null),
+
+                  path: updated.media_path,
+                  bucket: updated.media_bucket ?? MEDIA_UPLOAD_BUCKET,
+                  mimeType: updated.media_mime_type,
+                  name: updated.media_name,
+                  size: Number(updated.media_size),
+                  kind: (updated.media_mime_type.startsWith("audio/")
+                    ? "audio"
+                    : updated.media_mime_type.startsWith("video/")
+                      ? "video"
+                      : "image") as "image" | "audio" | "video",
+
+                  durationSeconds: updated.media_duration_seconds ?? undefined,
+                  width: updated.media_width ?? undefined,
+                  height: updated.media_height ?? undefined,
+                },
+              };
+            }
+
+            return {
+              ...message,
+              content: updated.content,
+              createdAt: updated.created_at,
+              expiresAt: updated.expires_at ?? undefined,
+            };
+          });
+
+          return {
+            ...current,
+            messages: nextMessages,
+          };
+        });
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
+        const deleted = payload.old as { id?: string } | null;
+        if (!deleted?.id) {
+          return;
+        }
+
+        setRoom((current) => {
+          if (!current || current.id !== roomId) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: current.messages.filter((message) => message.id !== deleted.id),
+          };
+        });
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
+
         const updated = payload.new as {
           id: string;
           user_a: string;
@@ -2035,7 +2219,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         senderId: profile.id,
         content: content.trim(),
         createdAt,
-        expiresAt: new Date(Date.parse(createdAt) + 31536000000).toISOString(),
+        expiresAt: getEphemeralContentExpiresAt(createdAt),
         type: "text",
       };
 
@@ -2055,7 +2239,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   );
 
   const sendMediaMessage = useCallback(async ({ file, caption, preview }: { file: File; caption: string; preview: MediaPreviewData }) => {
-
     const currentRoom = roomSnapshotRef.current;
     const currentUser = userId;
     if (!currentRoom || !currentUser) {
@@ -2064,7 +2247,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const progression = getSessionProgression(currentRoom.startedAt);
     if (progression.phase === "TEXT_PHASE") {
-      console.info("[media] upload blocked", {
+      console.info("[content] upload blocked", {
         roomId: currentRoom.id,
         userId: currentUser,
         phase: progression.phase,
@@ -2072,12 +2255,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       throw new Error("Media sharing is not available yet.");
     }
 
-    const isValidType = preview.kind === "image" ? isSupportedImageType(file.type) : isSupportedVideoType(file.type);
-    const isValidSize = preview.kind === "image" ? file.size <= MAX_IMAGE_SIZE_BYTES : file.size <= MAX_VIDEO_SIZE_BYTES;
+    const isValidType = preview.kind === "image"
+      ? isSupportedImageType(file.type)
+      : preview.kind === "audio"
+        ? isSupportedAudioType(file.type)
+        : isSupportedVideoType(file.type);
+    const isValidSize = preview.kind === "image"
+      ? file.size <= MAX_IMAGE_SIZE_BYTES
+      : preview.kind === "audio"
+        ? file.size <= 12 * 1024 * 1024
+        : file.size <= MAX_VIDEO_SIZE_BYTES;
     const isValidDuration = preview.kind === "video" ? (preview.durationSeconds ?? 0) <= MAX_VIDEO_DURATION_SECONDS : true;
 
     if (!isValidType || !isValidSize || !isValidDuration) {
-      console.info("[media] upload failed", {
+      console.info("[content] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "validation",
@@ -2088,7 +2279,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
 
     if (mediaUploadInFlightRef.current) {
-      console.info("[media] upload failed", {
+      console.info("[content] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "in-flight",
@@ -2097,7 +2288,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCooldownRef.current && now - mediaUploadCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
-      console.info("[media] upload failed", {
+      console.info("[content] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "cooldown",
@@ -2106,7 +2297,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
-      console.info("[media] upload failed", {
+      console.info("[content] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "limit-reached",
@@ -2114,12 +2305,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       throw new Error("Media sharing limit reached for this session.");
     }
 
-    console.info("[media] upload started", {
+    console.info("[content] upload start", {
       roomId: currentRoom.id,
       userId: currentUser,
       fileName: file.name,
       fileType: file.type,
       fileSize: file.size,
+      kind: preview.kind,
     });
 
     mediaUploadInFlightRef.current = true;
@@ -2134,19 +2326,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         throw uploadError;
       }
 
-      const { data: publicUrlData } = supabase.storage.from(MEDIA_UPLOAD_BUCKET).getPublicUrl(uploadPath);
+      const localPreviewUrl = URL.createObjectURL(file);
       const createdAt = new Date().toISOString();
       const mediaMessage: ChatMessage = {
         id: createId(),
         roomId: currentRoom.id,
         senderId: currentUser,
-        content: caption.trim() || (preview.kind === "image" ? "Photo" : "Video"),
+        content: caption.trim() || (preview.kind === "image" ? "Photo" : preview.kind === "audio" ? "Audio" : "Video"),
         createdAt,
-        expiresAt: new Date(Date.parse(createdAt) + 31536000000).toISOString(),
+        expiresAt: getEphemeralContentExpiresAt(createdAt),
         type: "media",
+        mediaConsumedAt: null,
         media: {
-          url: publicUrlData.publicUrl,
+          url: localPreviewUrl,
           path: uploadPath,
+          bucket: MEDIA_UPLOAD_BUCKET,
           mimeType: file.type,
           name: preview.displayName,
           size: file.size,
@@ -2172,15 +2366,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       mediaUploadCooldownRef.current = Date.now();
       mediaUploadCountRef.current += 1;
 
-      console.info("[media] upload completed", {
+      console.info("[content] upload success", {
         roomId: currentRoom.id,
         userId: currentUser,
-        fileName: preview.displayName,
-        mediaType: preview.kind,
+        messageId: mediaMessage.id,
+        kind: preview.kind,
       });
-
     } catch (error) {
-      console.info("[media] upload failed", {
+      console.info("[content] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         error: error instanceof Error ? error.message : String(error),
