@@ -674,7 +674,8 @@ export async function persistMessage(message: ChatMessage) {
     type: message.type,
     media_url: message.type === "media" ? message.media.url : null,
     media_path: message.type === "media" ? message.media.path : null,
-    media_bucket: message.type === "media" ? message.media.bucket : null,
+    media_bucket: message.type === "media" ? message.media.bucket : MEDIA_UPLOAD_BUCKET,
+
     media_mime_type: message.type === "media" ? message.media.mimeType : null,
     media_name: message.type === "media" ? message.media.name : null,
     media_size: message.type === "media" ? message.media.size : null,
