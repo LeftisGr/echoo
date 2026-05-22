@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { EPHEMERAL_MEDIA_TTL_SECONDS, MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 import type {
   ChatMessage,
   PresenceProfile,
@@ -9,7 +10,7 @@ import type {
 } from "@/lib/presence-types";
 
 export const hasSupabaseConfig = true;
-const MESSAGE_TTL_SECONDS = 60 * 60 * 24 * 365;
+const MESSAGE_TTL_SECONDS = EPHEMERAL_MEDIA_TTL_SECONDS;
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
@@ -62,7 +63,9 @@ create table if not exists public.messages (
   media_duration_seconds integer,
   media_width integer,
   media_height integer,
-  expires_at timestamptz not null default (now() + interval '1 year'),
+  media_bucket text not null default 'echoo-media',
+  media_consumed_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '18 seconds'),
   created_at timestamptz not null default now()
 );
 
@@ -122,6 +125,8 @@ interface LiveMessageRow {
   media_duration_seconds: number | null;
   media_width: number | null;
   media_height: number | null;
+  media_bucket: string | null;
+  media_consumed_at: string | null;
   expires_at: string | null;
   created_at: string;
 }
@@ -137,8 +142,48 @@ function createOfflineResult<T>(value: T) {
   return Promise.resolve(value);
 }
 
+export interface EphemeralMediaOpenResult {
+  signedUrl: string;
+  signedUrlExpiresAt: string;
+  consumedAt: string;
+  messageId: string;
+}
+
 async function cleanupExpiredMessages() {
-  return createOfflineResult({ deletedCount: 0 });
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ deletedCount: 0 });
+  }
+
+  const { data, error } = await supabase.rpc("cleanup_expired_messages");
+  if (error) {
+    throw error;
+  }
+
+  return { deletedCount: typeof data === "number" ? data : Number(data ?? 0) };
+}
+
+export async function openEphemeralMediaMessage(roomId: string, messageId: string) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult<EphemeralMediaOpenResult | null>(null);
+  }
+
+  const { data, error } = await supabase.functions.invoke<EphemeralMediaOpenResult>("ephemeral-media", {
+    body: {
+      action: "open",
+      roomId,
+      messageId,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? null;
+}
+
+export async function cleanupExpiredMedia() {
+  return cleanupExpiredMessages();
 }
 
 function normalizeFilters(filters: QueueFilters) {
@@ -548,7 +593,7 @@ export async function loadRoomMessages(roomId: string) {
   const { data, error } = await supabase
 
     .from("messages")
-    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, expires_at, created_at")
+    .select("id, room_id, sender_id, content, type, media_url, media_path, media_mime_type, media_name, media_size, media_duration_seconds, media_width, media_height, media_bucket, media_consumed_at, expires_at, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
 
@@ -560,7 +605,7 @@ export async function loadRoomMessages(roomId: string) {
     .map((row) => {
       const message = row as unknown as LiveMessageRow & { expires_at: string | null };
 
-      if (message.type === "media" && message.media_url && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
+      if (message.type === "media" && message.media_path && message.media_mime_type && message.media_name && message.media_size !== null) {
 
         return {
           id: message.id,
@@ -570,8 +615,9 @@ export async function loadRoomMessages(roomId: string) {
           createdAt: message.created_at,
           expiresAt: message.expires_at ?? undefined,
           type: "media" as const,
+          mediaConsumedAt: message.media_consumed_at ?? null,
           media: {
-            url: message.media_url,
+            url: null,
             path: message.media_path,
             mimeType: message.media_mime_type,
             name: message.media_name,
@@ -580,6 +626,8 @@ export async function loadRoomMessages(roomId: string) {
             durationSeconds: message.media_duration_seconds ?? undefined,
             width: message.media_width ?? undefined,
             height: message.media_height ?? undefined,
+            bucket: message.media_bucket ?? MEDIA_UPLOAD_BUCKET,
+            signedUrlExpiresAt: null,
           },
         };
       }
@@ -658,7 +706,7 @@ export async function persistMessage(message: ChatMessage) {
     sender_id: message.senderId,
     content: message.content,
     type: message.type,
-    media_url: message.type === "media" ? message.media.url : null,
+    media_url: message.type === "media" ? null : null,
     media_path: message.type === "media" ? message.media.path : null,
     media_mime_type: message.type === "media" ? message.media.mimeType : null,
     media_name: message.type === "media" ? message.media.name : null,
@@ -666,6 +714,8 @@ export async function persistMessage(message: ChatMessage) {
     media_duration_seconds: message.type === "media" ? message.media.durationSeconds ?? null : null,
     media_width: message.type === "media" ? message.media.width ?? null : null,
     media_height: message.type === "media" ? message.media.height ?? null : null,
+    media_bucket: message.type === "media" ? message.media.bucket ?? MEDIA_UPLOAD_BUCKET : MEDIA_UPLOAD_BUCKET,
+    media_consumed_at: message.type === "media" ? null : null,
     expires_at: expiresAt,
     created_at: message.createdAt,
   });

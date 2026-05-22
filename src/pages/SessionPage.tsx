@@ -25,7 +25,9 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
+import { cleanupExpiredMedia, openEphemeralMediaMessage } from "@/lib/presence-backend";
 import {
+  EPHEMERAL_MEDIA_TTL_SECONDS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
   MAX_VIDEO_DURATION_SECONDS,
@@ -34,6 +36,7 @@ import {
   type MediaPreviewData,
   prepareMediaUpload,
 } from "@/lib/session-media";
+
 import { cn } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -100,6 +103,7 @@ const SessionPage = () => {
   const [mediaCaption, setMediaCaption] = useState("");
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [openingMediaMessageId, setOpeningMediaMessageId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -118,6 +122,8 @@ const SessionPage = () => {
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const mediaCooldownRef = useRef(0);
   const mediaSendCountRef = useRef(0);
+  const mediaOpenTimersRef = useRef<Map<string, number>>(new Map());
+  const mediaOpenStateRef = useRef<Map<string, { url: string; signedUrlExpiresAt: string }>>(new Map());
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -156,6 +162,32 @@ const SessionPage = () => {
   }, []);
 
   useEffect(() => {
+    if (!authenticated || !room?.id) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void cleanupExpiredMedia()
+        .then(({ deletedCount }) => {
+          if (deletedCount > 0) {
+            console.info("[content] cleanup complete", {
+              roomId: room.id,
+              deletedCount,
+            });
+          }
+        })
+        .catch((error) => {
+          console.info("[content] cleanup failed", {
+            roomId: room.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [authenticated, room?.id]);
+
+  useEffect(() => {
     if (!room) {
       return;
     }
@@ -172,11 +204,17 @@ const SessionPage = () => {
       setMediaCaption("");
       setMediaError(null);
       setMediaBusy(false);
+      setOpeningMediaMessageId(null);
       mediaCooldownRef.current = 0;
       mediaSendCountRef.current = 0;
+      mediaOpenTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      mediaOpenTimersRef.current.clear();
+      mediaOpenStateRef.current.clear();
+
     }
 
     shouldForceScrollRef.current = true;
+
     isNearBottomRef.current = true;
   }, [room?.id, routeRoomId]);
 
@@ -276,9 +314,18 @@ const SessionPage = () => {
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
+  useEffect(
+    () => () => {
+      mediaOpenTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      mediaOpenTimersRef.current.clear();
+      mediaOpenStateRef.current.clear();
+    },
 
+    [],
+  );
 
   useEffect(() => {
+
     if (room?.status === "ended") {
       stopTypingIndicator();
     }
@@ -340,7 +387,140 @@ const SessionPage = () => {
     }, 1500);
   }
 
+  function clearMediaOpenTimer(messageId: string) {
+    const timer = mediaOpenTimersRef.current.get(messageId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      mediaOpenTimersRef.current.delete(messageId);
+    }
+  }
+
+  function expireMediaMessage(messageId: string, reason: "timer" | "cleanup") {
+    clearMediaOpenTimer(messageId);
+    mediaOpenStateRef.current.delete(messageId);
+
+    setRoom((current) => {
+
+      if (!current || current.id !== room?.id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        messages: current.messages.map((message) => {
+          if (message.id !== messageId || message.type !== "media") {
+            return message;
+          }
+
+          return {
+            ...message,
+            media: {
+              ...message.media,
+              url: null,
+              signedUrlExpiresAt: null,
+            },
+          };
+        }),
+      };
+    });
+
+    console.info("[content] content expired", {
+      roomId: room?.id ?? null,
+      messageId,
+      reason,
+    });
+  }
+
+  function scheduleMediaExpiry(messageId: string, signedUrlExpiresAt?: string | null) {
+    clearMediaOpenTimer(messageId);
+
+    const expiryTime = signedUrlExpiresAt ? new Date(signedUrlExpiresAt).getTime() : Date.now() + EPHEMERAL_MEDIA_TTL_SECONDS * 1000;
+    const delay = Math.max(expiryTime - Date.now(), 0);
+
+    const timer = window.setTimeout(() => {
+      expireMediaMessage(messageId, "timer");
+    }, delay);
+
+    mediaOpenTimersRef.current.set(messageId, timer);
+  }
+
+  async function openMediaMessage(messageId: string) {
+    if (!room || openingMediaMessageId === messageId) {
+      return;
+    }
+
+    const mediaMessage = room.messages.find((message) => message.id === messageId && message.type === "media");
+    if (!mediaMessage || mediaMessage.media.url || mediaMessage.mediaConsumedAt) {
+      return;
+    }
+
+    setOpeningMediaMessageId(messageId);
+    try {
+      const opened = await openEphemeralMediaMessage(room.id, messageId);
+      if (!opened) {
+        return;
+      }
+
+      console.info("[content] signed url created", {
+        roomId: room.id,
+        messageId,
+      });
+
+      mediaOpenStateRef.current.set(messageId, {
+        url: opened.signedUrl,
+        signedUrlExpiresAt: opened.signedUrlExpiresAt,
+      });
+
+      setRoom((current) => {
+
+        if (!current || current.id !== room.id) {
+          return current;
+        }
+
+        return {
+          ...current,
+          messages: current.messages.map((message) => {
+            if (message.id !== messageId || message.type !== "media") {
+              return message;
+            }
+
+            return {
+              ...message,
+              mediaConsumedAt: opened.consumedAt,
+              media: {
+                ...message.media,
+                url: opened.signedUrl,
+                signedUrlExpiresAt: opened.signedUrlExpiresAt,
+              },
+            };
+          }),
+        };
+      });
+
+      scheduleMediaExpiry(messageId, mediaMessage.expiresAt ?? opened.signedUrlExpiresAt);
+
+      console.info("[content] content opened", {
+        roomId: room.id,
+        messageId,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.info("[content] content opened failed", {
+        roomId: room?.id ?? null,
+        messageId,
+        error: errorMessage,
+      });
+      if (/already been opened|expired|409|410/i.test(errorMessage)) {
+        expireMediaMessage(messageId, "cleanup");
+      }
+    } finally {
+
+      setOpeningMediaMessageId(null);
+    }
+  }
+
   function resetMediaSelection() {
+
     if (selectedMedia?.previewUrl) {
       URL.revokeObjectURL(selectedMedia.previewUrl);
     }
@@ -1045,7 +1225,7 @@ const SessionPage = () => {
                         <span>•</span>
                         <span>{timestamp}</span>
                       </div>
-                      <SessionMediaMessage message={message} isSelf={isSelf} />
+                      <SessionMediaMessage message={message} isSelf={isSelf} opening={openingMediaMessageId === message.id} onOpen={openMediaMessage} />
 
                     </div>
                   </div>

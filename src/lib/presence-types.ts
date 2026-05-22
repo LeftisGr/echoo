@@ -47,7 +47,7 @@ export interface PartnerProfile {
 }
 
 export interface MediaMessagePayload {
-  url: string;
+  url: string | null;
   path: string;
   mimeType: string;
   name: string;
@@ -56,6 +56,8 @@ export interface MediaMessagePayload {
   durationSeconds?: number;
   width?: number;
   height?: number;
+  bucket?: string;
+  signedUrlExpiresAt?: string | null;
 }
 
 interface ChatMessageBase {
@@ -78,6 +80,7 @@ export interface SystemChatMessage extends ChatMessageBase {
 export interface MediaChatMessage extends ChatMessageBase {
   type: "media";
   media: MediaMessagePayload;
+  mediaConsumedAt?: string | null;
 }
 
 export type ChatMessage = TextChatMessage | SystemChatMessage | MediaChatMessage;
