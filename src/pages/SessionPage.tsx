@@ -40,7 +40,8 @@ import {
 import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
-import { cn, upperWithoutAccents } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 function getRoomDisplayName(roomId: string) {
@@ -760,21 +761,6 @@ const SessionPage = () => {
 
   const timerUrgent = secondsRemaining <= 60;
 
-  const sessionProgressLabel = upperWithoutAccents(
-    phase === "TEXT_PHASE"
-      ? language === "en"
-        ? "Text first"
-        : "Πρώτα text"
-      : phase === "AUDIO_PHASE"
-        ? language === "en"
-          ? "Voice opening"
-          : "Ανοίγει η φωνή"
-        : language === "en"
-          ? "Media window"
-          : "Παράθυρο media",
-    language,
-  );
-
   const timerToneClass =
 
     phase === "TEXT_PHASE"
@@ -988,22 +974,22 @@ const SessionPage = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-7 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
+                    className="h-6 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
                     aria-label={language === "en" ? "Open report window" : "Άνοιγμα παραθύρου αναφοράς"}
                     onClick={() => setReportDialogOpen(true)}
                   >
-                    <Flag className="mr-1.5 h-3.5 w-3.5" />
+                    <Flag className="mr-1 h-3 w-3" />
                     {language === "en" ? "Report" : "Αναφορά"}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-7 shrink-0 whitespace-nowrap rounded-full border-rose-300/15 bg-rose-500/10 px-2.5 text-[11px] font-medium text-rose-50/80 hover:bg-rose-500/15 hover:text-rose-50"
+                    className="h-6 shrink-0 whitespace-nowrap rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
                     onClick={() => {
                       void blockCurrentPartner();
                     }}
                   >
-                    <PhoneOff className="mr-1.5 h-3.5 w-3.5" />
+                    <PhoneOff className="mr-1 h-3 w-3" />
                     {language === "en" ? "Block" : "Μπλοκ"}
                   </Button>
                 </div>
@@ -1044,7 +1030,6 @@ const SessionPage = () => {
                 timerLabel={timerLabel}
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
-                statusLabel={sessionProgressLabel}
               />
 
             </div>
@@ -1054,7 +1039,7 @@ const SessionPage = () => {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-[11px] text-rose-100 hover:bg-rose-500/20 hover:text-white"
+                    className="h-9 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-sm text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
                     {copy.session.leave}
                   </Button>

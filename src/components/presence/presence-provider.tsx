@@ -678,6 +678,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<PresenceProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [blockedUsersLoaded, setBlockedUsersLoaded] = useState(false);
+
   const [queue, setQueue] = useState<QueueState>(storedQueue);
 
   const [room, setRoom] = useState<RoomSession | null>(storedRoomState?.room ?? null);
@@ -762,10 +764,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) {
       setBlockedUserIds([]);
+      setBlockedUsersLoaded(false);
       return;
     }
 
     setBlockedUserIds(readStoredBlockedUsers(userId));
+    setBlockedUsersLoaded(true);
   }, [userId]);
 
   const stopVoiceChat = useCallback(() => {
@@ -1596,7 +1600,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }
 
   async function attemptRealtimeMatch(currentUserId: string, relaxed = false, force = false) {
-    if (!authenticated || !profile || room || (!queue.active && !force) || matchmakingInFlightRef.current) {
+    if (!authenticated || !profile || !blockedUsersLoaded || room || (!queue.active && !force) || matchmakingInFlightRef.current) {
       return;
     }
 
@@ -1619,6 +1623,31 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       if (match.partnerId && blockedUserIds.includes(match.partnerId)) {
+        if (match.roomId) {
+          const blockedRoom = (await loadRoomById(match.roomId)) as RoomRecord | null;
+          if (blockedRoom && !blockedRoom.endedAt) {
+            const endedAt = new Date().toISOString();
+            const endedBlockedRoom: RoomSession = {
+              id: blockedRoom.id,
+              userA: blockedRoom.userA,
+              userB: blockedRoom.userB,
+              startedAt: blockedRoom.startedAt,
+              endedAt,
+              voiceEnabled: blockedRoom.voiceEnabled,
+              rtcState: blockedRoom.rtcState ?? "idle",
+              rtcConnectionId: blockedRoom.rtcConnectionId ?? null,
+              rtcUpdatedAt: blockedRoom.rtcUpdatedAt ?? null,
+              voiceUnlockedAt: blockedRoom.voiceUnlockedAt ?? null,
+              status: "ended",
+              partner: null,
+              messages: [],
+              typingUserId: blockedRoom.typingUserId ?? null,
+              typingUpdatedAt: blockedRoom.typingUpdatedAt ?? null,
+            };
+            void endRoom(endedBlockedRoom);
+            void persistRoom(endedBlockedRoom);
+          }
+        }
         return;
       }
 
@@ -2043,7 +2072,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchingEnabledRef.current = false;
       stopQueueSubscriptions();
     };
-  }, [authenticated, blockedUserIds, profile, queue.active, queue.joinedAt, room?.id, userId]);
+  }, [authenticated, blockedUserIds, blockedUsersLoaded, profile, queue.active, queue.joinedAt, room?.id, userId]);
 
   async function refreshAdminMetrics() {
     const liveUsers = smoothedOnlineCount;
