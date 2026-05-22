@@ -919,12 +919,12 @@ const SessionPage = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 hover:bg-white/10 hover:text-white"
+                className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-3 text-[11px] font-medium text-white/80 hover:bg-white/10 hover:text-white"
                 onClick={() => setReportDialogOpen(true)}
               >
-                <Flag className="mr-1.5 h-3.5 w-3.5" />
-                {copy.session.report}
+                Report
               </Button>
+
             </div>
 
             <div className="pointer-events-none absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 text-center">
@@ -943,8 +943,7 @@ const SessionPage = () => {
                     variant="outline"
                     className="h-10 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
-                    <PhoneOff className="mr-2 h-4 w-4" />
-                    {copy.session.leave}
+                    Leave
                   </Button>
 
                 </AlertDialogTrigger>
