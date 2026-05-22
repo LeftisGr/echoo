@@ -1373,15 +1373,8 @@ const SessionPage = () => {
 
                     )}
                   >
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.localTrackReadyState === "live" ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>MIC LIVE</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.transmitting ? "border-sky-300/30 bg-sky-500/15 text-sky-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "YOU’RE SPEAKING" : "ΜΙΛΑΣ"}</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", (voiceDiagnostics?.bytesSent ?? 0) > 0 ? "border-violet-300/30 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "AUDIO BYTES SENT: " : "ΗΧΟΙ ΠΟΥ ΣΤΑΛΘΗΚΑΝ: "}{voiceDiagnostics?.bytesSent ?? 0}</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.remoteAudioDetected ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "VOICE REACHING" : "Η ΦΩΝΗ ΦΤΑΝΕΙ"}</div>
-
-                    </div>
-
                     <Button
+
                       type="button"
                       disabled={!canUseVoice}
 
