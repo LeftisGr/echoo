@@ -35,6 +35,8 @@ import {
   type MediaPreviewData,
   prepareMediaUpload,
 } from "@/lib/session-media";
+import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
+
 import { cn } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -135,6 +137,7 @@ const SessionPage = () => {
 
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
+  const featureGates = useFeatureGates(room?.startedAt, room?.status);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -206,12 +209,12 @@ const SessionPage = () => {
   useEffect(() => () => stopTypingIndicator(), []);
 
   useEffect(() => {
-    if (!room || phase === "TEXT_PHASE" || room.voiceUnlockedAt) {
+    if (!room || !featureGates[FeatureGateKey.PttVoice].unlocked || room.voiceUnlockedAt) {
       return;
     }
 
     unlockVoice();
-  }, [phase, room, unlockVoice]);
+  }, [featureGates, room, unlockVoice]);
 
   useEffect(() => {
     if (!room?.voiceUnlockedAt || room.voiceUnlockedAt === lastVoiceUnlockAtRef.current) {
@@ -230,7 +233,7 @@ const SessionPage = () => {
   }, [appendSystemMessage, copy.session.voiceUnlocked, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
 
   useEffect(() => {
-    if (!room || phase === "TEXT_PHASE") {
+    if (!room || !featureGates[FeatureGateKey.EphemeralContent].unlocked) {
       return;
     }
 
@@ -240,11 +243,11 @@ const SessionPage = () => {
 
     mediaUnlockMessageRoomIdRef.current = room.id;
     appendSystemMessage(copy.session.mediaUnlocked);
-    console.info("[session] media unlocked", { roomId: room.id, phase });
-  }, [appendSystemMessage, copy.session.mediaUnlocked, phase, room]);
+    console.info("[session] media unlocked", { roomId: room.id, feature: FeatureGateKey.EphemeralContent });
+  }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, room]);
 
   useEffect(() => {
-    if (phase !== "TEXT_PHASE") {
+    if (featureGates[FeatureGateKey.EphemeralContent].unlocked) {
       return;
     }
 
@@ -253,7 +256,7 @@ const SessionPage = () => {
     setMediaCaption("");
     setMediaError(null);
     setMediaBusy(false);
-  }, [phase]);
+  }, [featureGates]);
 
   useEffect(() => {
 
@@ -304,9 +307,14 @@ const SessionPage = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [room?.id]);
 
+  const canShareImages = canUseFeature(featureGates, FeatureGateKey.ImageSending);
+  const canShareAudio = canUseFeature(featureGates, FeatureGateKey.AudioContentSending);
+  const canShareMedia = canShareImages || canShareAudio;
+  const canUseVoice = canUseFeature(featureGates, FeatureGateKey.PttVoice);
+
   const voiceReady =
     room?.voiceEnabled &&
-    phase !== "TEXT_PHASE" &&
+    canUseVoice &&
     voiceState === "connected";
 
   function stopTypingIndicator() {
@@ -367,6 +375,21 @@ const SessionPage = () => {
 
     if (!file.type.startsWith("image/") && !isSupportedAudioType(file.type) && !file.type.startsWith("video/")) {
       setMediaError(language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.");
+      return;
+    }
+
+    if (file.type.startsWith("image/") && !canShareImages) {
+      setMediaError(language === "en" ? "Photo sharing is not available yet." : "Η αποστολή φωτογραφιών δεν είναι ακόμα διαθέσιμη.");
+      return;
+    }
+
+    if (isSupportedAudioType(file.type) && !canShareAudio) {
+      setMediaError(language === "en" ? "Audio sharing is not available yet." : "Η αποστολή ήχου δεν είναι ακόμα διαθέσιμη.");
+      return;
+    }
+
+    if (file.type.startsWith("video/") && !canShareMedia) {
+      setMediaError(language === "en" ? "Video sharing is not available yet." : "Η αποστολή βίντεο δεν είναι ακόμα διαθέσιμη.");
       return;
     }
 
@@ -1110,7 +1133,8 @@ const SessionPage = () => {
               >
                 <div className="space-y-3">
                   <div className="flex items-end gap-2 sm:gap-3">
-                    {phase !== "TEXT_PHASE" && (
+                    {canShareMedia && (
+
                       <div className="relative shrink-0">
                         <Button
                           type="button"
@@ -1205,7 +1229,8 @@ const SessionPage = () => {
                     </Button>
                   </div>
 
-                  {phase !== "TEXT_PHASE" && selectedMedia && (
+                  {canShareMedia && selectedMedia && (
+
                     <div className="space-y-3 rounded-[26px] border border-white/10 bg-[#0d1425] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-4">
                       <div className="flex items-start gap-3">
                         <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
@@ -1283,7 +1308,8 @@ const SessionPage = () => {
                   <div
                     className={cn(
                       "pt-1 transition-all duration-200",
-                      phase === "TEXT_PHASE" && "pointer-events-none h-0 overflow-hidden pt-0 opacity-0",
+                      !canUseVoice && "pointer-events-none h-0 overflow-hidden pt-0 opacity-0",
+
                     )}
                   >
                     <div className="mb-3 flex flex-wrap gap-2">
@@ -1296,7 +1322,8 @@ const SessionPage = () => {
 
                     <Button
                       type="button"
-                      disabled={phase === "TEXT_PHASE"}
+                      disabled={!canUseVoice}
+
                       className={cn(
                         "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
                         voiceDiagnostics?.transmitting && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",

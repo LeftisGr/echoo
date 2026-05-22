@@ -35,9 +35,9 @@ import {
 } from "@/lib/presence-backend";
 import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
 import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
+import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
 
-import { getSessionProgression } from "@/lib/session-progression";
 import {
   MEDIA_UPLOAD_BUCKET,
   MEDIA_UPLOAD_COOLDOWN_MS,
@@ -2212,7 +2212,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const textGate = createFeatureGateSnapshot(room.startedAt, room.status)[FeatureGateKey.RealtimeTextChat];
+      if (!textGate.unlocked) {
+        console.info("[gate] feature locked", {
+          feature: FeatureGateKey.RealtimeTextChat,
+          roomId: room.id,
+        });
+        return;
+      }
+
       const createdAt = new Date().toISOString();
+
       const userMessage: ChatMessage = {
         id: createId(),
         roomId: room.id,
@@ -2244,12 +2254,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const progression = getSessionProgression(currentRoom.startedAt);
-    if (progression.phase === "TEXT_PHASE") {
+    const featureGates = createFeatureGateSnapshot(currentRoom.startedAt, currentRoom.status);
+    const mediaGate =
+      preview.kind === "image"
+        ? featureGates[FeatureGateKey.ImageSending]
+        : preview.kind === "audio"
+          ? featureGates[FeatureGateKey.AudioContentSending]
+          : featureGates[FeatureGateKey.EphemeralContent];
+
+    if (!mediaGate.unlocked) {
       console.info("[content] upload blocked", {
         roomId: currentRoom.id,
         userId: currentUser,
-        phase: progression.phase,
+        feature: mediaGate.key,
+        status: mediaGate.status,
       });
       throw new Error("Media sharing is not available yet.");
     }
@@ -2259,6 +2277,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       : preview.kind === "audio"
         ? isSupportedAudioType(file.type)
         : isSupportedVideoType(file.type);
+
     const isValidSize = preview.kind === "image"
       ? file.size <= MAX_IMAGE_SIZE_BYTES
       : preview.kind === "audio"
