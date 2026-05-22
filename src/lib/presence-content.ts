@@ -59,13 +59,15 @@ export const queueMessages = {
     "Listening for someone nearby...",
     "Finding a live connection...",
     "Matching by language and energy...",
-    "Your moment is almost here...",
+    "Your room is almost here...",
+
   ],
   el: [
     "Ακούμε για κάποιον κοντά σου...",
     "Βρίσκουμε μια live σύνδεση...",
     "Κάνουμε match με βάση γλώσσα και ενέργεια...",
-    "Το moment σου έρχεται σε λίγο...",
+    "Το room σου ερχεται σε λιγο...",
+
   ],
 } as const;
 
@@ -100,12 +102,14 @@ export const copy = {
   en: {
     brand: {
       name: "Echoo",
-      tagline: "Anonymous moments. Live text. Voice when it feels right. Everything fades.",
+      tagline: "Anonymous rooms. Live text. Voice when it feels right. Everything fades.",
+
       waitlist: "Greece-first MVP",
     },
     nav: {
       home: "Home",
-      startNow: "Start a moment",
+      startNow: "Open a room",
+
       dashboard: "Dashboard",
       safety: "Safety",
       settings: "Settings",
@@ -123,8 +127,10 @@ export const copy = {
       heroEyebrow: "Anonymous live conversation",
       heroTitle: "Meet someone nearby or online, without giving away who you are.",
       heroBody:
-        "Echoo is a privacy-first space for live one-to-one conversation. Start with text, hold to talk when the moment opens, and share temporary media that fades with the room.",
-      heroPrimary: "Start a moment",
+        "Echoo is a privacy-first space for live one-to-one conversation. Start with text, hold to talk when the room opens, and share temporary media that fades with the room.",
+
+      heroPrimary: "Open a room",
+
       heroSecondary: "How Echoo works",
       getApp: "Get the app",
       statUsers: "online now",
@@ -144,15 +150,18 @@ export const copy = {
       contactTitle: "Support and contact",
       contactBody: "Need help, have a question, or want to reach the team?",
       ctaTitle: "Ready for a different kind of conversation?",
-      ctaBody: "Open Echoo, create your anonymous profile, and step into a live moment in seconds.",
+      ctaBody: "Open Echoo, create your anonymous profile, and step into a live room in seconds.",
+
       stickyMenu: "Menu",
-      stickySession: "Start a moment",
+      stickySession: "Open a room",
+
       sections: {
         howItWorks: "How Echoo Works",
         different: "Why Echoo Is Different",
         anonymous: "Anonymous by Design",
         temporary: "Temporary Conversations",
-        voice: "Voice Moments",
+        voice: "Voice mode",
+
         privacy: "Privacy First",
         safety: "Safety & Respect",
       },
@@ -170,14 +179,16 @@ export const copy = {
       language: "Language",
       interests: "Interests",
       helper: "No real name needed. You can change your filters any time.",
-      intro: "A few details help Echoo find better moments, not better profiles.",
+      intro: "A few details help Echoo find better rooms, not better profiles.",
+
       privacyNote: "Your profile stays private. Your conversations stay temporary.",
       continue: "Continue to Echoo",
     },
     dashboard: {
       title: "Your space is ready",
       body: "Your profile is anonymous, your preferences are saved, and Echoo is ready when you are.",
-      startSession: "Start a moment",
+      startSession: "Open a room",
+
       profile: "Profile",
       safety: "Safety",
       settings: "Settings",
@@ -186,15 +197,17 @@ export const copy = {
       filters: "Current filters",
       identity: "Your name tonight",
       note: "Text first. Voice later. No pressure.",
-      empty: "No active moment yet.",
-      emptyBody: "Start a moment to enter the queue and meet someone live.",
+      empty: "No active room yet.",
+      emptyBody: "Open a room to enter the queue and meet someone live.",
+
     },
     queue: {
       title: "Listening for your next connection",
       body: "We’re finding someone nearby or online who fits your current vibe and language.",
       cancel: "Leave queue",
       changeFilters: "Adjust preferences",
-      found: "A moment is opening...",
+      found: "A room is opening...",
+
       relaxed: "No one is free right now. Stay in the queue?",
       offline: "You’re offline. We’ll keep listening when the connection returns.",
       loading: "Opening your space...",
@@ -202,10 +215,10 @@ export const copy = {
       matchFound: "A connection is ready.",
     },
     session: {
-      title: "Private moment",
+      title: "Private room",
       textNote: "Text first. Voice unlocks later if the room stays alive.",
       demoTimer: "This text phase lasts 10 minutes before voice becomes available.",
-      leave: "Leave moment",
+      leave: "Leave",
       send: "Send",
       placeholder: "Say something simple...",
       emptyChat: "Nothing shared yet. Start with one honest line.",
@@ -216,13 +229,14 @@ export const copy = {
       voiceStarting: "Voice is coming online...",
       connected: "You’re live",
       listening: "Listening...",
-      ended: "Moment ended.",
-      findNew: "Start another moment",
+      ended: "Room ended.",
+      findNew: "Start another room",
       backHome: "Back home",
       howWasIt: "How did it feel?",
-      report: "Report connection",
+      report: "Report room",
       block: "Block connection",
-      connectionLost: "The moment was interrupted. Trying to reconnect...",
+      connectionLost: "The room was interrupted. Trying to reconnect...",
+
       partnerDisconnected: "The connection ended from the other side.",
       you: "You",
       partner: "Connection",
@@ -331,12 +345,14 @@ export const copy = {
       signIn: "Sign in",
       guestSessionReady: "Guest session ready.",
       loading: "Loading...",
-      restoring: "Restoring your moment...",
+      restoring: "Restoring your room...",
+
       loadingProfile: "Loading your profile...",
       loadingSettings: "Loading your settings...",
       listening: "Listening...",
       reconnectingMoment: "Trying to reconnect...",
-      connectionInterrupted: "The moment was interrupted.",
+      connectionInterrupted: "The room was interrupted.",
+
       connectionMissing: "Couldn’t reach the other side.",
       noChatYet: "Nothing shared yet.",
       noMediaYet: "No shared content yet.",
@@ -370,7 +386,8 @@ export const copy = {
       },
       {
         question: "Is voice communication live?",
-        answer: "Yes. Voice is live and only becomes available once the moment unlocks it.",
+        answer: "Yes. Voice is live and only becomes available once the room unlocks it.",
+
       },
       {
         question: "Can I block or report users?",
@@ -393,12 +410,14 @@ export const copy = {
   el: {
     brand: {
       name: "Echoo",
-      tagline: "Ανώνυμες στιγμές. Live text. Φωνή όταν ταιριάζει. Όλα σβήνουν.",
+      tagline: "Ανώνυμα rooms. Live text. Φωνη οταν ταιριαζει. Ολα σβηνουν.",
+
       waitlist: "MVP με προτεραιότητα στην Ελλάδα",
     },
     nav: {
       home: "Αρχική",
-      startNow: "Ξεκίνα ένα moment",
+      startNow: "Ανοιξε ενα room",
+
       dashboard: "Πίνακας",
       safety: "Ασφάλεια",
       settings: "Ρυθμίσεις",
@@ -416,8 +435,10 @@ export const copy = {
       heroEyebrow: "Ανώνυμες live συνομιλίες",
       heroTitle: "Γνώρισε κάποιον κοντά σου ή online, χωρίς να αποκαλύψεις ποιος είσαι.",
       heroBody:
-        "Το Echoo είναι ένας privacy-first χώρος για live one-to-one κουβέντες. Ξεκίνα με text, κράτα για να μιλήσεις όταν ανοίγει το moment και μοιράσου προσωρινό media που σβήνει μαζί με το room.",
-      heroPrimary: "Ξεκίνα ένα moment",
+        "Το Echoo είναι ένας privacy-first χωρος για live one-to-one κουβεντες. Ξεκινα με text, κρατα για να μιλησεις οταν ανοιγει το room και μοιρασου προσωρινο media που σβηνει μαζι με το room.",
+
+      heroPrimary: "Ανοιξε ενα room",
+
       heroSecondary: "Πώς λειτουργεί το Echoo",
       getApp: "Κατέβασε την app",
       statUsers: "online τώρα",
@@ -437,15 +458,18 @@ export const copy = {
       contactTitle: "Υποστήριξη και επικοινωνία",
       contactBody: "Χρειάζεσαι βοήθεια, έχεις απορία ή θέλεις να μιλήσεις με την ομάδα;",
       ctaTitle: "Έτοιμος/η για έναν διαφορετικό τύπο κουβέντας;",
-      ctaBody: "Άνοιξε το Echoo, δημιούργησε το ανώνυμο προφίλ σου και μπες σε live moment σε δευτερόλεπτα.",
+      ctaBody: "Άνοιξε το Echoo, δημιούργησε το ανώνυμο προφίλ σου και μπες σε live room σε δευτερόλεπτα.",
+
       stickyMenu: "Μενού",
-      stickySession: "Ξεκίνα ένα moment",
+      stickySession: "Ανοιξε ενα room",
+
       sections: {
         howItWorks: "Πώς λειτουργεί το Echoo",
         different: "Γιατί το Echoo ξεχωρίζει",
         anonymous: "Ανώνυμα by design",
         temporary: "Προσωρινές κουβέντες",
-        voice: "Voice moments",
+        voice: "Voice mode",
+
         privacy: "Privacy first",
         safety: "Ασφάλεια και σεβασμός",
       },
@@ -463,14 +487,16 @@ export const copy = {
       language: "Γλώσσα",
       interests: "Ενδιαφέροντα",
       helper: "Δεν χρειάζεται πραγματικό όνομα. Μπορείς να αλλάξεις φίλτρα οποιαδήποτε στιγμή.",
-      intro: "Λίγες λεπτομέρειες βοηθούν το Echoo να βρίσκει καλύτερα moments, όχι καλύτερα προφίλ.",
+      intro: "Λίγες λεπτομέρειες βοηθούν το Echoo να βρίσκει καλύτερα rooms, όχι καλύτερα προφίλ.",
+
       privacyNote: "Το προφίλ σου μένει ιδιωτικό. Οι κουβέντες σου μένουν προσωρινές.",
       continue: "Συνέχεια στο Echoo",
     },
     dashboard: {
       title: "Ο χώρος σου είναι έτοιμος",
       body: "Το προφίλ σου είναι ανώνυμο, οι προτιμήσεις σου αποθηκεύονται και το Echoo είναι έτοιμο όταν είσαι κι εσύ.",
-      startSession: "Ξεκίνα ένα moment",
+      startSession: "Ανοιξε ενα room",
+
       profile: "Προφίλ",
       safety: "Ασφάλεια",
       settings: "Ρυθμίσεις",
@@ -479,15 +505,17 @@ export const copy = {
       filters: "Τρέχοντα φίλτρα",
       identity: "Το όνομά σου απόψε",
       note: "Πρώτα text. Μετά φωνή. Χωρίς πίεση.",
-      empty: "Δεν υπάρχει ενεργό moment ακόμη.",
-      emptyBody: "Ξεκίνα ένα moment για να μπεις στην ουρά και να γνωρίσεις κάποιον live.",
+      empty: "Δεν υπάρχει ενεργο room ακομη.",
+      emptyBody: "Ανοιξε ενα room για να μπεις στην ουρά και να γνωρίσεις κάποιον live.",
+
     },
     queue: {
       title: "Ακούμε για την επόμενη σύνδεσή σου",
       body: "Βρίσκουμε κάποιον κοντά σου ή online που ταιριάζει με το vibe και τη γλώσσα σου.",
       cancel: "Έξοδος από την ουρά",
       changeFilters: "Ρύθμισε προτιμήσεις",
-      found: "Ένα moment ανοίγει...",
+      found: "Ενα room ανοίγει...",
+
       relaxed: "Δεν είναι διαθέσιμος κανείς τώρα. Να μείνεις στην ουρά;",
       offline: "Είσαι offline. Θα συνεχίσουμε όταν επιστρέψει η σύνδεση.",
       loading: "Ανοίγουμε τον χώρο σου...",
@@ -495,10 +523,10 @@ export const copy = {
       matchFound: "Η σύνδεση είναι έτοιμη.",
     },
     session: {
-      title: "Ιδιωτικό moment",
+      title: "Ιδιωτικό room",
       textNote: "Το text είναι προσωρινό. Η φωνή ανοίγει αργότερα αν το room συνεχίζει να ζει.",
       demoTimer: "Η φάση text κρατά 10 λεπτά πριν γίνει διαθέσιμη η φωνή.",
-      leave: "Έξοδος από το moment",
+      leave: "Έξοδος",
       send: "Αποστολή",
       placeholder: "Πες κάτι απλό...",
       emptyChat: "Δεν μοιράστηκε τίποτα ακόμη. Ξεκίνα με μία μικρή, ειλικρινή φράση.",
@@ -509,13 +537,14 @@ export const copy = {
       voiceStarting: "Η φωνή συνδέεται...",
       connected: "Είσαι live",
       listening: "Ακούμε...",
-      ended: "Το moment έληξε.",
-      findNew: "Ξεκίνα άλλο moment",
+      ended: "Το room έληξε.",
+      findNew: "Ξεκίνα άλλο room",
       backHome: "Πίσω στην αρχική",
       howWasIt: "Πώς σου φάνηκε;",
-      report: "Αναφορά σύνδεσης",
+      report: "Αναφορά room",
       block: "Αποκλεισμός σύνδεσης",
-      connectionLost: "Το moment διακόπηκε. Προσπαθούμε να επανασυνδεθούμε...",
+      connectionLost: "Το room διακόπηκε. Προσπαθούμε να επανασυνδεθούμε...",
+
       partnerDisconnected: "Η σύνδεση έκλεισε από την άλλη πλευρά.",
       you: "Εσύ",
       partner: "Η σύνδεση",
@@ -528,7 +557,8 @@ export const copy = {
       pttIdle: "Κράτα για να μιλήσεις",
       pttActive: "Μιλάς τώρα",
       pttRelease: "Άφησε για να ακούσεις",
-      mediaHint: "Μοίρασε μία φωτογραφία ή ένα σύντομο clip όταν το moment το αξίζει.",
+      mediaHint: "Μοίρασε μία φωτογραφία ή ένα σύντομο clip όταν το room το αξίζει.",
+
       whisper: "Το room είναι ήσυχο. Πες ένα γεια.",
     },
     safety: {
@@ -624,12 +654,14 @@ export const copy = {
       signIn: "Σύνδεση",
       guestSessionReady: "Η guest συνεδρία είναι έτοιμη.",
       loading: "Φορτώνουμε...",
-      restoring: "Επαναφέρουμε το moment σου...",
+      restoring: "Επαναφέρουμε το room σου...",
+
       loadingProfile: "Φορτώνουμε το προφίλ σου...",
       loadingSettings: "Φορτώνουμε τις ρυθμίσεις σου...",
       listening: "Ακούμε...",
       reconnectingMoment: "Προσπαθούμε να επανασυνδεθούμε...",
-      connectionInterrupted: "Το moment διακόπηκε.",
+      connectionInterrupted: "Το room διακόπηκε.",
+
       connectionMissing: "Δεν μπορέσαμε να φτάσουμε στην άλλη πλευρά.",
       noChatYet: "Δεν μοιράστηκε τίποτα ακόμη.",
       noMediaYet: "Δεν έχει μοιραστεί περιεχόμενο ακόμη.",
@@ -663,7 +695,8 @@ export const copy = {
       },
       {
         question: "Η φωνή είναι live;",
-        answer: "Ναι. Η φωνή είναι live και γίνεται διαθέσιμη μόνο όταν το moment την ξεκλειδώσει.",
+        answer: "Ναι. Η φωνή είναι live και γίνεται διαθέσιμη μόνο όταν το room την ξεκλειδωσει.",
+
       },
       {
         question: "Μπορώ να μπλοκάρω ή να κάνω report;",

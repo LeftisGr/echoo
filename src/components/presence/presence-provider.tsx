@@ -181,10 +181,50 @@ const roomStorageKey = "presence-mvp-room";
 const queueStorageKey = "presence-mvp-queue";
 const guestProfileStorageKey = "presence-mvp-guest-profile";
 const guestSessionStorageKey = "presence-mvp-guest-session";
+const blockedUsersStorageKey = "presence-mvp-blocked-users";
 const routeStorageKey = "presence-mvp-route";
 const matchTransitionStorageKey = "presence-mvp-match-transition";
 
+function readStoredBlockedUsers(userId: string | null) {
+  if (typeof window === "undefined" || !userId) {
+    return [] as string[];
+  }
+
+  const raw = window.localStorage.getItem(blockedUsersStorageKey);
+  if (!raw) {
+    return [] as string[];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string[]>;
+    return parsed[userId] ?? [];
+  } catch {
+    return [] as string[];
+  }
+}
+
+function writeStoredBlockedUsers(userId: string | null, blockedUserIds: string[]) {
+  if (typeof window === "undefined" || !userId) {
+    return;
+  }
+
+  const raw = window.localStorage.getItem(blockedUsersStorageKey);
+  let parsed: Record<string, string[]> = {};
+
+  if (raw) {
+    try {
+      parsed = JSON.parse(raw) as Record<string, string[]>;
+    } catch {
+      parsed = {};
+    }
+  }
+
+  parsed[userId] = blockedUserIds;
+  window.localStorage.setItem(blockedUsersStorageKey, JSON.stringify(parsed));
+}
+
 function createId() {
+
   return crypto.randomUUID();
 }
 
@@ -667,7 +707,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(stored.authenticated);
   const [profile, setProfile] = useState<PresenceProfile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [queue, setQueue] = useState<QueueState>(storedQueue);
+
   const [room, setRoom] = useState<RoomSession | null>(storedRoomState?.room ?? null);
   const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
   const [guestMode, setGuestMode] = useState(readStoredGuestSession());
@@ -747,7 +789,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const copy = useMemo(() => getCopy(language), [language]);
 
+  useEffect(() => {
+    if (!userId) {
+      setBlockedUserIds([]);
+      return;
+    }
+
+    setBlockedUserIds(readStoredBlockedUsers(userId));
+  }, [userId]);
+
   const stopVoiceChat = useCallback(() => {
+
     voiceSessionTokenRef.current = null;
     voiceStartInFlightRef.current = false;
     setVoicePlaybackBlocked(false);
@@ -1579,6 +1631,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (match.partnerId && blockedUserIds.includes(match.partnerId)) {
+        return;
+      }
+
       if (matchedRoomIdsRef.current.has(match.roomId)) {
         return;
       }
@@ -2002,7 +2058,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchingEnabledRef.current = false;
       stopQueueSubscriptions();
     };
-  }, [authenticated, profile, queue.active, queue.joinedAt, room?.id, userId]);
+  }, [authenticated, blockedUserIds, profile, queue.active, queue.joinedAt, room?.id, userId]);
 
   async function refreshAdminMetrics() {
     const liveUsers = smoothedOnlineCount;
@@ -2710,12 +2766,19 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const partnerId = room.userA === userId ? room.userB : room.userA;
     try {
       await persistBlock(room.id, userId, partnerId);
-      toast.success(copy.misc.blocked);
-      leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
     } catch {
-      toast.error(language === "en" ? "Could not block this connection." : "Δεν ήταν δυνατός ο αποκλεισμός αυτής της σύνδεσης.");
+      // Guest sessions and transient auth failures still get a local block.
     }
-  }, [copy.misc.blocked, language, leaveRoom, room, userId]);
+
+    if (!blockedUserIds.includes(partnerId)) {
+      const nextBlockedIds = [...blockedUserIds, partnerId];
+      setBlockedUserIds(nextBlockedIds);
+      writeStoredBlockedUsers(userId, nextBlockedIds);
+    }
+
+    toast.success(copy.misc.blocked);
+    leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
+  }, [blockedUserIds, copy.misc.blocked, language, leaveRoom, room, userId]);
 
   const startNewSessionFromEndedRoom = useCallback(async () => {
     if (room) {

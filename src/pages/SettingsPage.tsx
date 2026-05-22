@@ -7,6 +7,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
+import { upperWithoutAccents } from "@/lib/utils";
 
 const SettingsPage = () => {
   const {
@@ -75,7 +76,8 @@ const SettingsPage = () => {
             label={copy.settings.appLanguage}
             values={["en", "el"] as const}
             activeValue={language}
-            getLabel={(value) => value.toUpperCase()}
+            getLabel={(value) => upperWithoutAccents(value, language)}
+
             onSelect={setLanguage}
           />
           <SettingPills

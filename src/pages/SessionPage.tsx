@@ -39,7 +39,7 @@ import {
 } from "@/lib/session-media";
 import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
 
-import { cn } from "@/lib/utils";
+import { cn, upperWithoutAccents } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 function getRoomDisplayName(roomId: string) {
@@ -49,7 +49,8 @@ function getRoomDisplayName(roomId: string) {
     .split("")
     .reduce((value, char) => value + char.charCodeAt(0), 0);
 
-  return `Moment #${String(100 + (suffix % 900)).padStart(3, "0")}`;
+  return `Room #${String(100 + (suffix % 900)).padStart(3, "0")}`;
+
 }
 
 function formatBytes(bytes: number) {
@@ -508,7 +509,8 @@ const SessionPage = () => {
     }
 
     if (mediaSendCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
-      setMediaError(language === "en" ? "Media sharing limit reached for this session." : "Έφτασες το όριο media για αυτό το session.");
+      setMediaError(language === "en" ? "Media sharing limit reached for this room." : "Έφτασες το όριο media για αυτό το room.");
+
       return;
     }
 
@@ -667,8 +669,8 @@ const SessionPage = () => {
         ? "Finding your room..."
         : "Βρίσκουμε το room σου..."
       : language === "en"
-        ? "Restoring your moment..."
-        : "Αποκαθιστούμε το moment σου...";
+        ? "Restoring your room..."
+        : "Αποκαθιστούμε το room σου...";
 
     const loadingBody = queue.active
       ? language === "en"
@@ -734,37 +736,20 @@ const SessionPage = () => {
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
 
-  const voiceStatusInlineLabel =
+  const voiceStatusDotClass =
     voiceState === "connected"
-      ? language === "en"
-        ? "You’re live"
-        : "Είσαι live"
+      ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.16)]"
       : voiceState === "connecting" || voiceState === "requesting-microphone"
-        ? copy.session.listening
+        ? "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.16)]"
         : voiceState === "reconnecting"
-          ? language === "en"
-            ? "Trying to reconnect"
-            : "Προσπαθούμε να επανασυνδεθούμε"
+          ? "bg-slate-400 shadow-[0_0_0_4px_rgba(148,163,184,0.16)]"
           : voiceState === "failed" || voiceState === "error"
-            ? language === "en"
-              ? "Moment interrupted"
-              : "Το moment διακόπηκε"
-            : null;
-
-  const voiceStatusInlineToneClass =
-    voiceState === "connected"
-      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-      : voiceState === "connecting" || voiceState === "requesting-microphone"
-        ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
-        : voiceState === "reconnecting"
-          ? "border-sky-300/20 bg-sky-300/10 text-sky-50"
-          : voiceState === "failed" || voiceState === "error"
-            ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
-            : "border-white/10 bg-white/5 text-white/55";
+            ? "bg-slate-500 shadow-[0_0_0_4px_rgba(100,116,139,0.16)]"
+            : "bg-white/20";
 
   const timerUrgent = secondsRemaining <= 60;
 
-  const sessionProgressLabel =
+  const sessionProgressLabel = upperWithoutAccents(
     phase === "TEXT_PHASE"
       ? language === "en"
         ? "Text first"
@@ -775,7 +760,9 @@ const SessionPage = () => {
           : "Ανοίγει η φωνή"
         : language === "en"
           ? "Media window"
-          : "Παράθυρο media";
+          : "Παράθυρο media",
+    language,
+  );
 
   const timerToneClass =
 
@@ -875,8 +862,9 @@ const SessionPage = () => {
               <div className="space-y-3 p-3 sm:space-y-4 sm:p-5">
                 <div className="rounded-[24px] border border-white/10 bg-white/5 p-3 text-center sm:p-5">
                   <p className="text-[9px] uppercase tracking-[0.32em] text-white/40">
-                    {language === "en" ? "After the moment" : "Μετά το moment"}
-                  </p>
+                  {language === "en" ? "After the room" : "Μετα το room"}
+                </p>
+
                   <h2 className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-2xl">{copy.session.howWasIt}</h2>
                   <p className="mt-1 text-xs leading-5 text-white/55 sm:text-sm">
                     {language === "en"
@@ -923,7 +911,8 @@ const SessionPage = () => {
                         navigate("/queue");
                       }}
                     >
-                      {language === "en" ? "New session" : "Νέα συνεδρία"}
+                      {language === "en" ? "New room" : "Νεο room"}
+
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
@@ -964,7 +953,8 @@ const SessionPage = () => {
                         type="button"
                         variant="outline"
                         className="h-7 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
-                        aria-label={language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
+                        aria-label={language === "en" ? "When should you report this room?" : "Ποτε να κανεις report σε αυτο το room;"}
+
                       >
                         <Flag className="mr-1.5 h-3.5 w-3.5" />
                         {language === "en" ? "Report" : "Αναφορά"}
@@ -973,8 +963,9 @@ const SessionPage = () => {
                     <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
                       <DialogHeader>
                         <DialogTitle className="text-left text-white">
-                          {language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
-                        </DialogTitle>
+                              {language === "en" ? "When should you report?" : "Ποτε να κανεις report;"}
+                            </DialogTitle>
+    
                         <DialogDescription className="text-left text-white/60">
                           {language === "en"
                             ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review behavior and keep Echoo safer."
@@ -997,40 +988,34 @@ const SessionPage = () => {
                 </div>
               </div>
 
-              {voiceStatusInlineLabel && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", voiceState === "connected" ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" : voiceState === "reconnecting" ? "bg-sky-300 shadow-[0_0_0_4px_rgba(56,189,248,0.12)]" : voiceState === "failed" || voiceState === "error" ? "bg-rose-300 shadow-[0_0_0_4px_rgba(251,113,133,0.12)]" : "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]")} />
-                  <span className={cn("rounded-full border px-2.5 py-1 font-medium tracking-[0.18em] uppercase", voiceStatusInlineToneClass)}>{voiceStatusInlineLabel}</span>
-                  {voicePlaybackBlocked && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-7 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2.5 text-[11px] text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
-                      onClick={async () => {
-                        await enableVoicePlayback();
-                      }}
-                    >
-                      {language === "en" ? "Turn audio on" : "Άνοιξε τον ήχο"}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
+                <span className={cn("h-2.5 w-2.5 rounded-full transition-colors duration-300", voiceStatusDotClass)} aria-label={language === "en" ? "Audio status" : "Κατάσταση ήχου"} title={voiceState === "connected" ? (language === "en" ? "Live" : "Live") : voiceState === "connecting" || voiceState === "requesting-microphone" ? (language === "en" ? "Connecting" : "Συνδέεται") : voiceState === "reconnecting" ? (language === "en" ? "Reconnecting" : "Επανασύνδεση") : voiceState === "failed" || voiceState === "error" ? (language === "en" ? "Connection issue" : "Πρόβλημα σύνδεσης") : (language === "en" ? "Idle" : "Ανενεργό")} />
+                {voicePlaybackBlocked && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2.5 text-[11px] text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                    onClick={async () => {
+                      await enableVoicePlayback();
+                    }}
+                  >
+                    {language === "en" ? "Turn audio on" : "Άνοιξε τον ήχο"}
+                  </Button>
+                )}
+                {(voiceState === "idle" || voiceState === "failed" || voiceState === "error") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 rounded-full border-violet-300/20 bg-violet-300/10 px-2.5 text-[11px] text-violet-50 hover:bg-violet-300/15 hover:text-white"
+                    onClick={async () => {
+                      await startVoiceChat();
+                    }}
+                  >
+                    {language === "en" ? "Try voice again" : "Δοκίμασε ξανά τη φωνή"}
+                  </Button>
+                )}
+              </div>
 
-                    </Button>
-
-                  )}
-                  {(voiceState === "idle" || voiceState === "failed" || voiceState === "error") && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-7 rounded-full border-violet-300/20 bg-violet-300/10 px-2.5 text-[11px] text-violet-50 hover:bg-violet-300/15 hover:text-white"
-                      onClick={async () => {
-                        await startVoiceChat();
-                      }}
-                    >
-                      {language === "en" ? "Try voice again" : "Δοκίμασε ξανά τη φωνή"}
-
-                    </Button>
-
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="pointer-events-none absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 text-center">
@@ -1049,16 +1034,16 @@ const SessionPage = () => {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-10 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 hover:bg-rose-500/20 hover:text-white"
+                    className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-[11px] text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
                     {copy.session.leave}
-
                   </Button>
 
                 </AlertDialogTrigger>
                 <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>{language === "en" ? "Leave this moment?" : "Να φύγεις από αυτό το moment;"}</AlertDialogTitle>
+                    <AlertDialogTitle>{language === "en" ? "Leave this room?" : "Να φυγεις απο αυτο το room;"}</AlertDialogTitle>
+
                     <AlertDialogDescription className="text-white/55">
                       {language === "en"
                         ? "The connection will end for both people."
@@ -1074,7 +1059,7 @@ const SessionPage = () => {
                       className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
                       onClick={() => leaveRoom(copy.session.partnerDisconnected)}
                     >
-                      {language === "en" ? "Leave moment" : "Έξοδος"}
+                      {language === "en" ? "Leave room" : "Εξοδος"}
 
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -1103,8 +1088,9 @@ const SessionPage = () => {
                       ? "We are reconnecting in the background."
                       : "Προσπαθούμε να επανασυνδεθούμε στο παρασκήνιο."
                     : language === "en"
-                      ? "You can start a new session when you're ready."
-                      : "Μπορείς να ξεκινήσεις νέο session όταν είσαι έτοιμος/η."}
+                      ? "You can start a new room when you're ready."
+                      : "Μπορείς να ξεκινήσεις νέο room όταν είσαι έτοιμος/η."}
+
                 </p>
               </div>
             </div>
@@ -1477,7 +1463,7 @@ const SessionPage = () => {
                           ) : (
                             <span className="inline-flex items-center gap-2">
                               <Check className="h-4 w-4" />
-                              {language === "en" ? "Share moment" : "Μοιράσου το moment"}
+                              {language === "en" ? "Share it" : "Μοιράσου το"}
 
                             </span>
                           )}
@@ -1605,7 +1591,8 @@ const SessionPage = () => {
                   {language === "en" ? "What next?" : "Τι θέλεις μετά;"}
                 </p>
                 <h3 className="mt-2 text-lg font-semibold tracking-tight text-white sm:text-xl">
-                  {language === "en" ? "Start new session or go home" : "Νέα συνεδρία ή αρχική;"}
+                  {language === "en" ? "Start a new room or go home" : "Νεο room ή αρχικη;"}
+
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-white/60">{copy.session.howWasIt}</p>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -1616,7 +1603,8 @@ const SessionPage = () => {
                       navigate("/queue");
                     }}
                   >
-                    {language === "en" ? "Start new session" : "Νέα συνεδρία"}
+                    {language === "en" ? "Start a new room" : "Νεο room"}
+
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                   <Button
@@ -1642,7 +1630,8 @@ const SessionPage = () => {
         <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-left text-white">
-              {language === "en" ? "Report this connection" : "Αναφορά σύνδεσης"}
+              {language === "en" ? "Report room" : "Αναφορά room"}
+
             </DialogTitle>
             <DialogDescription className="text-left text-white/60">
               {language === "en"
