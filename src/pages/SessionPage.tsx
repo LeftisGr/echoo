@@ -850,8 +850,8 @@ const SessionPage = () => {
     <div className="h-[100dvh] overflow-hidden bg-[#08101b] text-white">
       <div className="flex h-full min-h-0 flex-col">
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+14px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <div className="min-w-0">
+          <div className="relative flex items-start gap-3 sm:items-center">
+            <div className="min-w-0 flex-1 pr-2 text-left">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
               <div className="mt-1 flex items-center gap-2">
                 <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
@@ -883,7 +883,7 @@ const SessionPage = () => {
                 </Dialog>
               </div>
               {voiceStatusInlineLabel && (
-                <div className="mt-2 flex items-center gap-2 text-[11px] leading-none text-white/40">
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
                   <span className={cn("h-2.5 w-2.5 rounded-full", voiceState === "connected" ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" : voiceState === "reconnecting" ? "bg-sky-300 shadow-[0_0_0_4px_rgba(56,189,248,0.12)]" : voiceState === "failed" || voiceState === "error" ? "bg-rose-300 shadow-[0_0_0_4px_rgba(251,113,133,0.12)]" : "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]")} />
                   <span className={cn("rounded-full border px-2.5 py-1 font-medium tracking-[0.18em] uppercase", voiceStatusInlineToneClass)}>{voiceStatusInlineLabel}</span>
                   {voicePlaybackBlocked && (
@@ -925,11 +925,9 @@ const SessionPage = () => {
                 <Flag className="mr-1.5 h-3.5 w-3.5" />
                 {copy.session.report}
               </Button>
-
             </div>
 
-            <div className="text-center">
-
+            <div className="pointer-events-none absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 text-center">
               <SessionProgressHeader
                 phase={phase}
                 timerLabel={timerLabel}
@@ -938,7 +936,7 @@ const SessionPage = () => {
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex flex-1 justify-end pl-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
