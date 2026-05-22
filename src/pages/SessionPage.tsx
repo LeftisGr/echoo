@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ArrowRight, Check, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
+import { ArrowRight, Check, Flag, Home, ImagePlus, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -83,9 +83,11 @@ const SessionPage = () => {
     leaveRoom,
     rateRoom,
     reportCurrentRoom,
+    blockCurrentPartner,
     startNewSessionFromEndedRoom,
 
     startVoiceChat,
+
     stopVoiceChat,
     enableVoicePlayback,
     setVoiceTransmissionEnabled,
@@ -913,18 +915,18 @@ const SessionPage = () => {
           <div className="relative flex items-start gap-3 sm:items-center">
             <div className="min-w-0 flex-1 pr-2 text-left">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-full border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                      variant="outline"
+                      className="h-7 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
                       aria-label={language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
                     >
-                      <Info className="h-3.5 w-3.5" />
+                      <Flag className="mr-1.5 h-3.5 w-3.5" />
+                      {language === "en" ? "Report" : "Αναφορά"}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
@@ -939,9 +941,20 @@ const SessionPage = () => {
                       </DialogDescription>
                     </DialogHeader>
                   </DialogContent>
-
                 </Dialog>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-7 rounded-full border-rose-300/15 bg-rose-500/10 px-2.5 text-[11px] font-medium text-rose-50/80 hover:bg-rose-500/15 hover:text-rose-50"
+                  onClick={() => {
+                    void blockCurrentPartner();
+                  }}
+                >
+                  <PhoneOff className="mr-1.5 h-3.5 w-3.5" />
+                  {language === "en" ? "Block" : "Μπλοκ"}
+                </Button>
               </div>
+
               {voiceStatusInlineLabel && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
                   <span className={cn("h-2.5 w-2.5 rounded-full", voiceState === "connected" ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" : voiceState === "reconnecting" ? "bg-sky-300 shadow-[0_0_0_4px_rgba(56,189,248,0.12)]" : voiceState === "failed" || voiceState === "error" ? "bg-rose-300 shadow-[0_0_0_4px_rgba(251,113,133,0.12)]" : "bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]")} />
@@ -976,15 +989,6 @@ const SessionPage = () => {
                   )}
                 </div>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-3 text-[11px] font-medium text-white/80 hover:bg-white/10 hover:text-white"
-                onClick={() => setReportDialogOpen(true)}
-              >
-                Report
-              </Button>
-
             </div>
 
             <div className="pointer-events-none absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 text-center">
@@ -1154,8 +1158,11 @@ const SessionPage = () => {
 
                   shouldForceScrollRef.current = isNearBottomRef.current;
                   stopTypingIndicator();
-                  await sendMessage(nextDraft);
-                  setDraft("");
+                  const sent = await sendMessage(nextDraft);
+                  if (sent) {
+                    setDraft("");
+                  }
+
                 }}
               >
                 <div className="space-y-3">

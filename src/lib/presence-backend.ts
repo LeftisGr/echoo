@@ -284,7 +284,38 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
   return { ok: true, userId, filters };
 }
 
+export async function recordSafetyEvent(
+  eventType: "queue_join" | "text_send" | "media_upload" | "reconnect",
+  roomId?: string | null,
+  targetUserId?: string | null,
+  metadata: Record<string, unknown> = {},
+) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ ok: true, allowed: true, eventType, roomId, targetUserId, metadata });
+  }
+
+  const { data, error } = await supabase.rpc("record_safety_event", {
+    p_event_type: eventType,
+    p_room_id: roomId ?? null,
+    p_target_user_id: targetUserId ?? null,
+    p_metadata: metadata,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const result = Array.isArray(data) ? data[0] : data;
+  return {
+    allowed: Boolean(result?.allowed ?? true),
+    remaining: Number(result?.remaining ?? 0),
+    windowSeconds: Number(result?.window_seconds ?? 0),
+    limitCount: Number(result?.limit_count ?? 0),
+  };
+}
+
 export async function cleanupUserSession(userId: string) {
+
   if (!hasSupabaseConfig) {
     return createOfflineResult({ ok: true, userId });
   }
@@ -737,7 +768,25 @@ export async function persistReport(roomId: string, reporterId: string, reported
   return { ok: true, roomId, reporterId, reportedUser, reason };
 }
 
+export async function persistBlock(roomId: string, blockerId: string, blockedUserId: string) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ ok: true, roomId, blockerId, blockedUserId });
+  }
+
+  const { error } = await supabase.rpc("block_user", {
+    p_target_user_id: blockedUserId,
+    p_room_id: roomId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { ok: true, roomId, blockerId, blockedUserId };
+}
+
 export async function endRoom(room: RoomSession) {
+
   if (!hasSupabaseConfig) {
     return createOfflineResult({ ok: true, room });
   }

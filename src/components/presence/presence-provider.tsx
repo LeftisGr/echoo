@@ -25,14 +25,17 @@ import {
   loadRoomById,
   loadRoomMessages,
   matchQueueUser,
+  persistBlock,
   persistMessage,
   persistRating,
   persistReport,
   persistRoom,
   persistRoomTyping,
+  recordSafetyEvent,
   syncProfile,
   cleanupUserSession,
 } from "@/lib/presence-backend";
+
 import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTransmissionDiagnostics } from "@/lib/presence-rtc";
 import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
@@ -147,12 +150,14 @@ interface PresenceContextValue {
   startQueue: () => Promise<void>;
   cancelQueue: () => Promise<void>;
   unlockVoice: () => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string) => Promise<boolean>;
+
   sendMediaMessage: (input: { file: File; caption: string; preview: MediaPreviewData }) => Promise<void>;
   leaveRoom: (reason?: string) => void;
   rateRoom: (score: RatingScore) => Promise<void>;
   reportCurrentRoom: (reason: string) => Promise<void>;
-  blockCurrentPartner: () => void;
+  blockCurrentPartner: () => Promise<void>;
+
   setQueueFilters: (filters: Partial<QueueFilters>) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setReconnectEnabled: (enabled: boolean) => void;
@@ -2168,6 +2173,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await syncProfile(activeProfile);
     }
 
+    const safety = await recordSafetyEvent("queue_join", null, null, {
+      preference: activeProfile.preference,
+      language: activeProfile.language,
+    });
+    if (!safety.allowed) {
+      toast.error(language === "en" ? "Please wait a moment before starting another room." : "Περίμενε λίγο πριν ξεκινήσεις άλλο room.");
+      return;
+    }
+
     stopQueueSubscriptions();
     stopRoomSubscriptions();
     matchingEnabledRef.current = false;
@@ -2178,6 +2192,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     await cleanupUserSession(activeProfile.id);
 
     const nextQueue: QueueState = {
+
       active: true,
       joinedAt: new Date().toISOString(),
       estimatedWaitSeconds: 18,
@@ -2203,7 +2218,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [authenticated, hapticsEnabled, profile, userId]);
+  }, [authenticated, hapticsEnabled, language, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
@@ -2246,7 +2261,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(
     async (content: string) => {
       if (!room || !profile || !content.trim()) {
-        return;
+        return false;
       }
 
       const textGate = createFeatureGateSnapshot(room.startedAt, room.status)[FeatureGateKey.RealtimeTextChat];
@@ -2255,7 +2270,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           feature: FeatureGateKey.RealtimeTextChat,
           roomId: room.id,
         });
-        return;
+        return false;
+      }
+
+      const safety = await recordSafetyEvent("text_send", room.id, null, { length: content.trim().length });
+      if (!safety.allowed) {
+        toast.error(language === "en" ? "Slow down a little." : "Πήγαινε λίγο πιο αργά.");
+        return false;
       }
 
       const createdAt = new Date().toISOString();
@@ -2280,8 +2301,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : current,
       );
       await persistMessage(userMessage);
+      return true;
     },
-    [profile, room],
+    [language, profile, room],
   );
 
   const sendMediaMessage = useCallback(async ({ file, caption, preview }: { file: File; caption: string; preview: MediaPreviewData }) => {
@@ -2361,7 +2383,21 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       throw new Error("Media sharing limit reached for this session.");
     }
 
+    const safety = await recordSafetyEvent("media_upload", currentRoom.id, null, {
+      kind: preview.kind,
+      size: file.size,
+    });
+    if (!safety.allowed) {
+      console.info("[media] upload failed", {
+        roomId: currentRoom.id,
+        userId: currentUser,
+        reason: "rate-limited",
+      });
+      throw new Error("Please wait a moment before sending another media item.");
+    }
+
     console.info("[media] upload started", {
+
       roomId: currentRoom.id,
       userId: currentUser,
       fileName: file.name,
@@ -2666,10 +2702,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [copy.misc.reported, language, leaveRoom, room, userId],
   );
 
-  const blockCurrentPartner = useCallback(() => {
-    toast.success(copy.misc.blocked);
-    leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
-  }, [copy.misc.blocked, language, leaveRoom]);
+  const blockCurrentPartner = useCallback(async () => {
+    if (!room || !userId) {
+      return;
+    }
+
+    const partnerId = room.userA === userId ? room.userB : room.userA;
+    try {
+      await persistBlock(room.id, userId, partnerId);
+      toast.success(copy.misc.blocked);
+      leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
+    } catch {
+      toast.error(language === "en" ? "Could not block this connection." : "Δεν ήταν δυνατός ο αποκλεισμός αυτής της σύνδεσης.");
+    }
+  }, [copy.misc.blocked, language, leaveRoom, room, userId]);
 
   const startNewSessionFromEndedRoom = useCallback(async () => {
     if (room) {
