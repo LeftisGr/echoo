@@ -42,7 +42,7 @@ import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn } from "@/lib/utils";
 
-import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
+import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 function getRoomDisplayName(roomId: string) {
   const suffix = roomId
@@ -123,6 +123,7 @@ const SessionPage = () => {
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
+  const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
 
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
@@ -147,10 +148,46 @@ const SessionPage = () => {
   const previousLastMessageIdRef = useRef<string | null>(null);
   const lastVoiceUnlockAtRef = useRef<string | null>(null);
   const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
+  const lastProgressionPhaseRef = useRef<string | null>(null);
+  const progressionMomentTimeoutRef = useRef<number | null>(null);
 
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
   const featureGates = useFeatureGates(room?.startedAt, room?.status);
+
+  useEffect(() => {
+    if (progressionMomentTimeoutRef.current !== null) {
+      window.clearTimeout(progressionMomentTimeoutRef.current);
+      progressionMomentTimeoutRef.current = null;
+    }
+
+    if (!room?.id) {
+      lastProgressionPhaseRef.current = null;
+      setProgressionMoment(null);
+      return;
+    }
+
+    const phaseKey = `${room.id}:${phase}:${language}`;
+    const nextMoment = getSessionPhaseCopy(phase, language).moment;
+
+    if (lastProgressionPhaseRef.current === phaseKey) {
+      return;
+    }
+
+    lastProgressionPhaseRef.current = phaseKey;
+    setProgressionMoment(nextMoment);
+
+    progressionMomentTimeoutRef.current = window.setTimeout(() => {
+      setProgressionMoment(null);
+    }, 2800);
+
+    return () => {
+      if (progressionMomentTimeoutRef.current !== null) {
+        window.clearTimeout(progressionMomentTimeoutRef.current);
+        progressionMomentTimeoutRef.current = null;
+      }
+    };
+  }, [language, phase, room?.id]);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -235,6 +272,7 @@ const SessionPage = () => {
 
     lastVoiceUnlockAtRef.current = room.voiceUnlockedAt;
     appendSystemMessage(copy.session.voiceUnlocked);
+    setProgressionMoment(language === "en" ? "The room opens for your voice." : "Το room ανοίγει για τη φωνή σου.");
 
     if (voiceAutoStartRoomIdRef.current === room.id) {
       return;
@@ -242,7 +280,7 @@ const SessionPage = () => {
 
     voiceAutoStartRoomIdRef.current = room.id;
     void startVoiceChat();
-  }, [appendSystemMessage, copy.session.voiceUnlocked, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
+  }, [appendSystemMessage, copy.session.voiceUnlocked, language, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
 
   useEffect(() => {
     if (!room || !featureGates[FeatureGateKey.EphemeralContent].unlocked) {
@@ -262,9 +300,9 @@ const SessionPage = () => {
 
     appendSystemMessage(copy.session.mediaUnlocked);
     console.info("[session] media unlocked", { roomId: room.id, feature: FeatureGateKey.EphemeralContent });
+    setProgressionMoment(language === "en" ? "A little more of the room is visible now." : "Λίγο περισσότερο room είναι τώρα ορατό.");
     playSoundFeedback("content-reveal", matchSoundEnabled);
-  }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, matchSoundEnabled, room]);
-
+  }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, language, matchSoundEnabled, room]);
   useEffect(() => {
     if (featureGates[FeatureGateKey.EphemeralContent].unlocked) {
       return;
@@ -1030,6 +1068,7 @@ const SessionPage = () => {
                 timerLabel={timerLabel}
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
+                language={language}
               />
 
             </div>
@@ -1074,6 +1113,14 @@ const SessionPage = () => {
           </div>
         </header>
 
+        {progressionMoment && (
+          <div className="flex-none px-4 pt-3 sm:px-6">
+            <div className="mx-auto max-w-3xl rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-sm text-white/70 backdrop-blur-sm animate-[echo-message-in_220ms_ease-out]">
+              {progressionMoment}
+            </div>
+          </div>
+        )}
+
         {sessionBanner && (
           <div
             className={cn(
@@ -1081,6 +1128,7 @@ const SessionPage = () => {
               !online ? "border-amber-400/20 bg-amber-400/10 text-amber-50" : "border-white/10 bg-white/5 text-white/80",
             )}
           >
+
             <div className="flex items-start gap-3">
               <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full", !online ? "bg-amber-400/15 text-amber-100" : "bg-white/10 text-white")}>
                 <ShieldAlert className="h-4 w-4" />

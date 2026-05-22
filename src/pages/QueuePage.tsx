@@ -10,6 +10,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
+import { upperWithoutAccents } from "@/lib/utils";
 
 const loadingWindowSeconds = 20;
 const searchingWindowSeconds = 20;
@@ -201,13 +202,13 @@ const QueuePage = () => {
               </p>
               <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.18em] text-white/45">
                 <div className={`rounded-full border px-2 py-2 ${matchingStage >= 1 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  1 · {language === "en" ? "Ready" : "Έτοιμο"}
+                  1 · {upperWithoutAccents(language === "en" ? "Ready" : "Έτοιμο", language)}
                 </div>
                 <div className={`rounded-full border px-2 py-2 ${matchingStage >= 2 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  2 · {language === "en" ? "Listening" : "Ακούμε"}
+                  2 · {upperWithoutAccents(language === "en" ? "Listening" : "Ακούμε", language)}
                 </div>
                 <div className={`rounded-full border px-2 py-2 ${matchingStage >= 3 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  3 · {language === "en" ? "Opening" : "Ανοίγει"}
+                  3 · {upperWithoutAccents(language === "en" ? "Opening" : "Ανοίγει", language)}
                 </div>
 
               </div>

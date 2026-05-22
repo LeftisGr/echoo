@@ -1,26 +1,26 @@
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import type { AppLanguage } from "@/lib/presence-types";
 import type { SessionPhase } from "@/lib/session-progression";
 import { SessionPhaseBadge } from "@/components/session/session-phase-badge";
+import { cn } from "@/lib/utils";
 
 export function SessionProgressHeader({
   phase,
   timerLabel,
   timerProgress,
   toneClassName,
-  statusLabel,
+  language,
 }: {
   phase: SessionPhase;
   timerLabel: string;
   timerProgress: number;
   toneClassName: string;
-  statusLabel?: string;
+  language: AppLanguage;
 }) {
   return (
     <div className="space-y-3 text-center">
-      <SessionPhaseBadge phase={phase} />
-      <div className={cn("text-3xl font-semibold tracking-tight sm:text-4xl", toneClassName)}>{timerLabel}</div>
-      {statusLabel && <p className="text-[10px] uppercase tracking-[0.32em] text-white/40">{statusLabel}</p>}
+      <SessionPhaseBadge phase={phase} language={language} />
+      <div className={cn("text-3xl font-semibold tracking-tight sm:text-4xl transition-all duration-300", toneClassName)}>{timerLabel}</div>
       <Progress value={timerProgress} className="h-1.5 rounded-full bg-white/10" />
     </div>
   );

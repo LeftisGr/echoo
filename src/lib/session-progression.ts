@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import type { AppLanguage } from "@/lib/presence-types";
+
 export const SESSION_TEXT_PHASE_SECONDS = 600;
 export const SESSION_AUDIO_PHASE_SECONDS = 600;
 export const SESSION_MEDIA_PHASE_SECONDS = 600;
@@ -14,6 +16,48 @@ export interface SessionProgression {
   secondsUntilMediaUnlock: number;
   mediaUnlocked: boolean;
   voiceUnlocked: boolean;
+}
+
+export interface SessionPhaseCopy {
+  badgeLabel: string;
+  moment: string;
+}
+
+const sessionPhaseCopy: Record<SessionPhase, Record<AppLanguage, SessionPhaseCopy>> = {
+  TEXT_PHASE: {
+    en: {
+      badgeLabel: "Settling in",
+      moment: "The room is learning your pace.",
+    },
+    el: {
+      badgeLabel: "Το room ηρεμεί",
+      moment: "Το room μαθαίνει τον ρυθμό σας.",
+    },
+  },
+  AUDIO_PHASE: {
+    en: {
+      badgeLabel: "Voice approaching",
+      moment: "A little more trust is enough to open the voice.",
+    },
+    el: {
+      badgeLabel: "Η φωνή πλησιάζει",
+      moment: "Λίγη περισσότερη εμπιστοσύνη αρκεί για να ανοίξει η φωνή.",
+    },
+  },
+  MEDIA_PHASE: {
+    en: {
+      badgeLabel: "The room opens wider",
+      moment: "What you share now feels more intimate.",
+    },
+    el: {
+      badgeLabel: "Το room ανοίγει πιο πολύ",
+      moment: "Αυτό που μοιράζεστε τώρα νιώθει πιο κοντινό.",
+    },
+  },
+};
+
+export function getSessionPhaseCopy(phase: SessionPhase, language: AppLanguage) {
+  return sessionPhaseCopy[phase][language];
 }
 
 export function getSessionPhase(elapsedSeconds: number): SessionPhase {
