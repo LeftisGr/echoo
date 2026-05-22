@@ -12,6 +12,7 @@ import type {
 
 export const hasSupabaseConfig = true;
 const MESSAGE_TTL_SECONDS = EPHEMERAL_CONTENT_TTL_SECONDS;
+const PERMANENT_MESSAGE_TTL_SECONDS = 60 * 60 * 24 * 365 * 100;
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
@@ -66,7 +67,8 @@ create table if not exists public.messages (
   media_width integer,
   media_height integer,
   media_consumed_at timestamptz,
-  expires_at timestamptz not null default (now() + interval '18 seconds'),
+  expires_at timestamptz not null default (now() + interval '100 years'),
+
   created_at timestamptz not null default now()
 );
 
@@ -664,9 +666,13 @@ export async function persistMessage(message: ChatMessage) {
   }
 
   const createdAt = new Date(message.createdAt);
-  const expiresAt = new Date(createdAt.getTime() + MESSAGE_TTL_SECONDS * 1000).toISOString();
+  const expiresAt =
+    message.type === "media"
+      ? new Date(createdAt.getTime() + MESSAGE_TTL_SECONDS * 1000).toISOString()
+      : new Date(createdAt.getTime() + PERMANENT_MESSAGE_TTL_SECONDS * 1000).toISOString();
 
   const { error } = await supabase.from("messages").insert({
+
     id: message.id,
     room_id: message.roomId,
     sender_id: message.senderId,

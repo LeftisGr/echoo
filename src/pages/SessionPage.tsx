@@ -25,7 +25,6 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
-import { EPHEMERAL_CONTENT_TTL_MS } from "@/lib/ephemeral-content";
 import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
@@ -690,15 +689,8 @@ const SessionPage = () => {
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
-  const visibleMessages = room.messages.filter((message) => {
-    if (message.type === "system") {
-      return true;
-    }
+  const visibleMessages = room.messages;
 
-    const expiresAt = message.expiresAt ? new Date(message.expiresAt).getTime() : new Date(message.createdAt).getTime() + EPHEMERAL_CONTENT_TTL_MS;
-
-    return expiresAt > now;
-  });
   const roomDisplayName = getRoomDisplayName(room.id);
 
   const reportReasonOptions = [

@@ -9,11 +9,10 @@ import { requestEphemeralContentAccess } from "@/lib/content-api";
 import type { ChatMessage } from "@/lib/presence-types";
 
 export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage; isSelf: boolean }) {
-  const [openedUrl, setOpenedUrl] = useState<string | null>(message.type === "media" ? message.media.url : null);
-  const [openUntil, setOpenUntil] = useState<number | null>(null);
+  const [openedUrl, setOpenedUrl] = useState<string | null>(message.type === "media" && message.media.url?.startsWith("blob:") ? message.media.url : null);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasBeenOpened, setHasBeenOpened] = useState(Boolean(message.type === "media" && message.media.url));
+  const [viewerExpired, setViewerExpired] = useState(false);
   const expiryTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -21,10 +20,14 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
       return;
     }
 
-    setError(null);
-    setOpenUntil(null);
-    setHasBeenOpened(Boolean(message.mediaConsumedAt) || Boolean(message.media.url && message.media.url.startsWith("blob:")));
+    if (expiryTimerRef.current) {
+      window.clearTimeout(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
 
+    setError(null);
+    setViewerExpired(false);
+    setOpenedUrl(message.media.url?.startsWith("blob:") ? message.media.url : null);
   }, [message]);
 
   useEffect(() => {
@@ -47,24 +50,23 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
     return null;
   }
 
-  const isOpened = Boolean(openedUrl);
-  const isExpired = Boolean(openUntil && openUntil <= Date.now() && !openedUrl);
-  const canOpen = !isExpired && !message.mediaConsumedAt && !hasBeenOpened && !isSelf;
+  const serverExpired = Boolean(message.expiresAt && new Date(message.expiresAt).getTime() <= Date.now());
+  const isExpired = viewerExpired || serverExpired;
+  const isOpened = Boolean(openedUrl) && !isExpired;
+  const canOpen = !isExpired && !message.mediaConsumedAt && !isSelf;
 
-  const startExpiryTimer = () => {
+  const startViewerExpiryTimer = () => {
     if (expiryTimerRef.current) {
       window.clearTimeout(expiryTimerRef.current);
     }
 
-    const nextOpenUntil = Date.now() + EPHEMERAL_CONTENT_VIEWER_SECONDS * 1000;
-    setOpenUntil(nextOpenUntil);
     expiryTimerRef.current = window.setTimeout(() => {
       console.info("[content] content expired", {
         messageId: message.id,
         roomId: message.roomId,
       });
       setOpenedUrl(null);
-      setOpenUntil(null);
+      setViewerExpired(true);
     }, EPHEMERAL_CONTENT_VIEWER_SECONDS * 1000);
   };
 
@@ -83,8 +85,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
           source: "local-preview",
         });
         setOpenedUrl(message.media.url);
-        setHasBeenOpened(true);
-        startExpiryTimer();
+        startViewerExpiryTimer();
         return;
       }
 
@@ -100,9 +101,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
         source: "signed-url",
       });
       setOpenedUrl(response.signedUrl);
-      setHasBeenOpened(true);
-      startExpiryTimer();
-
+      startViewerExpiryTimer();
     } catch (contentError) {
       setError(contentError instanceof Error ? contentError.message : "Could not open content.");
     } finally {
@@ -117,8 +116,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
           {message.media.kind === "video" ? <Video className="h-4 w-4" /> : message.media.kind === "audio" ? <Play className="h-4 w-4" /> : <Image className="h-4 w-4" />}
           <span>{kindLabel}</span>
         </div>
-        <span>{message.mediaConsumedAt || hasBeenOpened ? "Viewed" : "Open once"}</span>
-
+        <span>{serverExpired || viewerExpired || message.mediaConsumedAt ? "Expired" : "Open once"}</span>
       </div>
 
       {!isOpened ? (
@@ -133,7 +131,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
                 void openContent();
               }}
             >
-              {opening ? "Opening..." : isExpired ? "Expired" : message.mediaConsumedAt ? "Viewed" : "Open once"}
+              {opening ? "Opening..." : isExpired || message.mediaConsumedAt ? "Expired" : "Open once"}
             </Button>
             {error ? <span className={cn("text-xs", isSelf ? "text-rose-600" : "text-rose-200")}>{error}</span> : null}
           </div>
@@ -176,7 +174,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
 
           <div className="flex items-center justify-between gap-3 px-4 pb-4 text-xs text-inherit/50">
             <span>{message.media.name}</span>
-            <span>{message.mediaConsumedAt ? "Viewed" : openUntil ? `${Math.max(0, Math.ceil((openUntil - Date.now()) / 1000))}s left` : ""}</span>
+            <span>{serverExpired || viewerExpired || message.mediaConsumedAt ? "Expired" : ""}</span>
           </div>
         </div>
       )}

@@ -2219,7 +2219,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         senderId: profile.id,
         content: content.trim(),
         createdAt,
-        expiresAt: getEphemeralContentExpiresAt(createdAt),
         type: "text",
       };
 

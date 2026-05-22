@@ -63,7 +63,8 @@ serve(async (req) => {
     const nowIso = new Date().toISOString();
     const { data: expiredMessages, error: loadError } = await supabase
       .from("messages")
-      .select("id, media_path, media_bucket, expires_at")
+      .select("id, media_path, media_bucket, expires_at, media_consumed_at")
+      .eq("type", "media")
       .lte("expires_at", nowIso);
 
     if (loadError) {
@@ -101,21 +102,27 @@ serve(async (req) => {
       storageDeletedCount += paths.length;
     }
 
-    const { error: deleteError } = await supabase.from("messages").delete().in(
-      "id",
-      messageRows.map((message) => message.id),
-    );
-    if (deleteError) {
-      console.error("[content] cleanup delete failed", { error: deleteError.message });
-      return jsonResponse({ error: deleteError.message }, 500);
+    if (expiredMedia.length) {
+      const { error: updateError } = await supabase
+        .from("messages")
+        .update({
+          media_url: null,
+          media_consumed_at: nowIso,
+        })
+        .in("id", expiredMedia.map((message) => message.id));
+
+      if (updateError) {
+        console.error("[content] cleanup update failed", { error: updateError.message });
+        return jsonResponse({ error: updateError.message }, 500);
+      }
     }
 
     console.info("[content] cleanup complete", {
-      deletedCount: messageRows.length,
+      deletedCount: expiredMedia.length,
       storageDeletedCount,
     });
 
-    return jsonResponse({ deletedCount: messageRows.length, storageDeletedCount });
+    return jsonResponse({ deletedCount: expiredMedia.length, storageDeletedCount });
   }
 
   if (body.action !== "sign" || !body.messageId) {
