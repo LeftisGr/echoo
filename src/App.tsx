@@ -57,6 +57,10 @@ function AppRoutes() {
   const storedRoute = readStoredRoute();
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
     writeStoredRoute(`${location.pathname}${location.search}`);
   }, [location.pathname, location.search]);
 
