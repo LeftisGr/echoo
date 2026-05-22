@@ -414,6 +414,10 @@ class QueryBuilder {
   }
 }
 
+function encodeStoragePath(path: string) {
+  return path.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+}
+
 class ChannelShim {
   constructor(_topic: string, _key?: string) {}
   on() {
@@ -438,6 +442,83 @@ class ChannelShim {
 
 export function createClient(url: string, key: string) {
   let currentSession: StoredSession | null = readSession();
+
+  const requestStorage = async (method: string, bucket: string, path?: string, body?: BodyInit | null, extraHeaders?: Record<string, string>) => {
+    const session = await ensureValidSession(url, key, currentSession ?? readSession());
+    const headers: Record<string, string> = {
+      apikey: key,
+      ...(extraHeaders ?? {}),
+    };
+
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+
+    const response = await fetch(
+      path ? `${url}/storage/v1/object/${bucket}/${encodeStoragePath(path)}` : `${url}/storage/v1/object/${bucket}`,
+      {
+        method,
+        headers,
+        body,
+      },
+    );
+
+    return response;
+  };
+
+  const storage = {
+    from(bucket: string) {
+      return {
+        async upload(path: string, file: Blob, options?: { contentType?: string; upsert?: boolean }) {
+          const response = await requestStorage(
+            "POST",
+            bucket,
+            path,
+            file,
+            {
+              ...(options?.contentType ? { "Content-Type": options.contentType } : { "Content-Type": file.type || "application/octet-stream" }),
+              ...(options?.upsert ? { "x-upsert": "true" } : {}),
+            },
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            return { data: null, error: new Error(errorText || "Upload failed.") };
+          }
+
+          return { data: { path }, error: null };
+        },
+        async remove(paths: string[]) {
+          for (const path of paths) {
+            const response = await requestStorage("DELETE", bucket, path);
+            if (!response.ok) {
+              const errorText = await response.text();
+              return { data: null, error: new Error(errorText || "Delete failed.") };
+            }
+          }
+
+          return { data: paths, error: null };
+        },
+        async createSignedUrl(path: string, expiresIn: number) {
+          const response = await requestStorage(
+            "POST",
+            bucket,
+            `sign/${path}`,
+            JSON.stringify({ expiresIn }),
+            { "Content-Type": "application/json" },
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            return { data: null, error: new Error(errorText || "Unable to create signed URL.") };
+          }
+
+          const data = await response.json();
+          return { data, error: null };
+        },
+      };
+    },
+  };
 
   const auth = {
     async getSession() {
@@ -559,6 +640,7 @@ export function createClient(url: string, key: string) {
 
   return {
     auth,
+    storage,
     from(table: string) {
       return new QueryBuilder(url, key, table, currentSession);
     },
