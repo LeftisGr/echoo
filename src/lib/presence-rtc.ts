@@ -53,7 +53,17 @@ function rtcLog(message: string, data?: unknown) {
   console.info("[rtc]", message);
 }
 
+function pttLog(message: string, data?: unknown) {
+  if (data !== undefined) {
+    console.info("[ptt]", message, data);
+    return;
+  }
+
+  console.info("[ptt]", message);
+}
+
 function trackSnapshot(track: MediaStreamTrack) {
+
   return {
     id: track.id,
     kind: track.kind,
@@ -279,12 +289,12 @@ export async function createPeerToPeerVoiceSession({
   let reconnectAttempts = 0;
   let currentConnectionId = isInitiator ? crypto.randomUUID() : initialConnectionId ?? null;
   let activePeer: RTCPeerConnection | null = null;
-  let localAudioEnabled = false;
-  let isPressing = false;
-  let transmissionOperationId = 0;
+  let transmissionDesiredEnabled = false;
+  let transmissionSyncChain: Promise<void> = Promise.resolve();
   let localAudioSender: RTCRtpSender | null = null;
 
   let localAudioSenders: RTCRtpSender[] = [];
+
   let transmissionWatchdogTimer: number | null = null;
   let lastObservedBytesSent = 0;
   let bytesFrozenCount = 0;
@@ -331,15 +341,71 @@ export async function createPeerToPeerVoiceSession({
 
   const emitDiagnostics = (next: VoiceTransmissionDiagnostics) => {
     onDiagnosticsChange?.(next);
-    rtcLog("ptt diagnostics", next);
+    pttLog("diagnostics snapshot", next);
+  };
+
+  const emitCurrentTransmissionDiagnostics = (reason: string, stats?: { bytesSent: number; packetsSent: number; audioLevel: number | null }) => {
+    const sender = localAudioSender ?? activePeer?.getSenders().find((item) => item.track?.kind === "audio") ?? null;
+    const senderTrack = sender?.track ?? null;
+    const localAudioTrack = localAudioTracks[0] ?? null;
+    const actualTransmitting = Boolean(sender && senderTrack && localAudioTrack && localAudioTrack.enabled && senderTrack.readyState === "live");
+
+    const next = {
+      roomId,
+      sessionId,
+      connectionId: currentConnectionId,
+      isPressing: transmissionDesiredEnabled,
+      transmitting: actualTransmitting,
+      localTrackEnabled: localAudioTrack?.enabled ?? false,
+      localTrackReadyState: localAudioTrack?.readyState ?? null,
+      localTrackMuted: localAudioTrack?.muted ?? false,
+      senderTrackEnabled: senderTrack?.enabled ?? null,
+      senderTrackReadyState: senderTrack?.readyState ?? null,
+      senderTrackMuted: senderTrack?.muted ?? null,
+      bytesSent: stats?.bytesSent ?? lastObservedBytesSent,
+      packetsSent: stats?.packetsSent ?? 0,
+      audioLevel: stats?.audioLevel ?? null,
+      remoteAudioDetected,
+      lastStatsAt: new Date().toISOString(),
+    } satisfies VoiceTransmissionDiagnostics;
+
+    if (typeof stats?.bytesSent === "number") {
+      lastObservedBytesSent = stats.bytesSent;
+    }
+
+    emitDiagnostics(next);
+    pttLog(actualTransmitting ? "transmitting active" : "transmitting inactive", {
+      reason,
+      roomId,
+      sessionId,
+      connectionId: currentConnectionId,
+      isPressing: next.isPressing,
+      transmitting: next.transmitting,
+    });
+    pttLog("local track state", {
+      reason,
+      roomId,
+      sessionId,
+      enabled: next.localTrackEnabled,
+      readyState: next.localTrackReadyState,
+      muted: next.localTrackMuted,
+    });
+    pttLog("sender state", {
+      reason,
+      roomId,
+      sessionId,
+      exists: Boolean(sender),
+      enabled: next.senderTrackEnabled,
+      readyState: next.senderTrackReadyState,
+      muted: next.senderTrackMuted,
+    });
+    return next;
   };
 
   const syncDiagnostics = async (reason: string) => {
-
-    const sender = localAudioSender ?? null;
-    const senderTrack = sender?.track ?? null;
+    const sender = localAudioSender ?? activePeer?.getSenders().find((item) => item.track?.kind === "audio") ?? null;
     const senderStats = sender && typeof sender.getStats === "function" ? await sender.getStats() : null;
-    let bytesSent = 0;
+    let bytesSent = lastObservedBytesSent;
     let packetsSent = 0;
     let audioLevel: number | null = null;
 
@@ -354,30 +420,7 @@ export async function createPeerToPeerVoiceSession({
       }
     });
 
-    const next = {
-      roomId,
-      sessionId,
-      connectionId: currentConnectionId,
-      isPressing,
-      transmitting: localAudioEnabled,
-
-      localTrackEnabled: localAudioTracks[0]?.enabled ?? false,
-      localTrackReadyState: localAudioTracks[0]?.readyState ?? null,
-      localTrackMuted: localAudioTracks[0]?.muted ?? false,
-      senderTrackEnabled: senderTrack?.enabled ?? null,
-      senderTrackReadyState: senderTrack?.readyState ?? null,
-      senderTrackMuted: senderTrack?.muted ?? null,
-      bytesSent,
-      packetsSent,
-      audioLevel,
-      remoteAudioDetected,
-      lastStatsAt: new Date().toISOString(),
-    } satisfies VoiceTransmissionDiagnostics;
-
-    lastObservedBytesSent = bytesSent;
-    emitDiagnostics(next);
-    rtcLog("ptt stats snapshot", { reason, ...next });
-    return next;
+    emitCurrentTransmissionDiagnostics(reason, { bytesSent, packetsSent, audioLevel });
   };
 
   const ensureAudioPlayback = async (reason: string) => {
@@ -514,13 +557,18 @@ export async function createPeerToPeerVoiceSession({
   };
 
   const transmissionWatchdogTick = async () => {
-    if (stopped || !canContinue() || !isPressing || !localAudioSender) {
+    if (stopped || !canContinue() || !transmissionDesiredEnabled) {
       return;
     }
 
-    const sender = localAudioSender;
+    const sender = localAudioSender ?? activePeer?.getSenders().find((item) => item.track?.kind === "audio") ?? null;
+    if (!sender) {
+      return;
+    }
+
     const senderTrack = sender.track;
     const stats = typeof sender.getStats === "function" ? await sender.getStats() : null;
+
     let bytesSent = 0;
     let packetsSent = 0;
     let audioLevel: number | null = null;
@@ -536,7 +584,7 @@ export async function createPeerToPeerVoiceSession({
       }
     });
 
-    rtcLog("ptt watchdog stats", {
+    pttLog("watchdog stats", {
       roomId,
       sessionId,
       connectionId: currentConnectionId,
@@ -562,7 +610,7 @@ export async function createPeerToPeerVoiceSession({
     }
 
     bytesFrozenCount = 0;
-    rtcLog("ptt watchdog rebinding sender", {
+    pttLog("watchdog rebinding sender", {
       roomId,
       sessionId,
       connectionId: currentConnectionId,
@@ -570,100 +618,80 @@ export async function createPeerToPeerVoiceSession({
       senderTrack: senderTrack ? trackSnapshot(senderTrack) : null,
     });
 
-    if (senderTrack) {
-      await sender.replaceTrack(null);
-      await sender.replaceTrack(localAudioTracks[0] ?? null);
-    } else {
-      await sender.replaceTrack(localAudioTracks[0] ?? null);
+    const localAudioTrack = localAudioTracks[0] ?? null;
+    if (localAudioTrack && sender.track !== localAudioTrack) {
+      await sender.replaceTrack(localAudioTrack);
     }
 
     const transceiver = activePeer?.getTransceivers().find((item) => item.sender === sender) ?? null;
     if (transceiver && transceiver.direction !== "sendrecv") {
       transceiver.direction = "sendrecv";
     }
+
   };
 
-  const setLocalAudioEnabled = async (enabled: boolean) => {
+  const applyTransmissionState = async (reason: string) => {
     if (stopped || !canContinue()) {
-      rtcLog("push-to-talk ignored for stale session", { roomId, sessionId, enabled });
+      pttLog("transmission sync skipped for stale session", { roomId, sessionId, reason, desired: transmissionDesiredEnabled });
       return;
     }
-
-    const operationId = ++transmissionOperationId;
-    isPressing = enabled;
 
     const localAudioTrack = localAudioTracks[0] ?? null;
     if (!localAudioTrack) {
-      rtcLog("push-to-talk missing local audio track", { roomId, sessionId, enabled });
+      pttLog("transmission sync missing local audio track", { roomId, sessionId, reason, desired: transmissionDesiredEnabled });
       return;
     }
 
-    if (localAudioEnabled === enabled && localAudioSender?.track === localAudioTrack) {
-      localAudioTrack.enabled = enabled;
-      await syncDiagnostics("noop-toggle");
-      return;
-    }
+    const desiredEnabled = transmissionDesiredEnabled;
+    const sender = localAudioSender ?? activePeer?.getSenders().find((item) => item.track?.kind === "audio") ?? null;
+    localAudioSender = sender;
 
-    localAudioEnabled = enabled;
-    localAudioTrack.enabled = enabled;
-    rtcLog(enabled ? "local track enabled" : "local track muted", {
+    localAudioTrack.enabled = desiredEnabled;
+    pttLog(desiredEnabled ? "enabling track" : "disabling track", {
+      reason,
       roomId,
       sessionId,
-      ...trackSnapshot(localAudioTrack),
+      desiredEnabled,
+    });
+    emitCurrentTransmissionDiagnostics(`${reason}-applied`);
+
+    if (desiredEnabled && sender && sender.track !== localAudioTrack) {
+      await sender.replaceTrack(localAudioTrack);
+    }
+
+    if (desiredEnabled && !transmissionDesiredEnabled) {
+      localAudioTrack.enabled = false;
+    }
+
+    const senderTrack = sender?.track ?? null;
+    pttLog("local track state", {
+      reason,
+      roomId,
+      sessionId,
+      enabled: localAudioTrack.enabled,
+      readyState: localAudioTrack.readyState,
+      muted: localAudioTrack.muted,
+      desiredEnabled,
+    });
+    pttLog("sender state", {
+      reason,
+      roomId,
+      sessionId,
+      exists: Boolean(sender),
+      enabled: senderTrack?.enabled ?? null,
+      readyState: senderTrack?.readyState ?? null,
+      muted: senderTrack?.muted ?? null,
     });
 
-    const activeSenders = localAudioSenders.length ? localAudioSenders : activePeer?.getSenders().filter((sender) => sender.track?.kind === "audio") ?? [];
-    localAudioSender = activeSenders[0] ?? null;
-    localAudioSenders = activeSenders;
-
-    for (const sender of activeSenders) {
-      if (operationId !== transmissionOperationId) {
-        rtcLog("ptt operation superseded", { roomId, sessionId, operationId, enabled });
-        return;
-      }
-
-      const senderTrack = sender.track;
-      rtcLog("sender snapshot", {
-        roomId,
-        sessionId,
-        enabled,
-        hasSenderTrack: Boolean(senderTrack),
-        senderTrack: senderTrack ? trackSnapshot(senderTrack) : null,
-      });
-
-      if (enabled) {
-        await sender.replaceTrack(localAudioTrack);
-        if (operationId !== transmissionOperationId) {
-          rtcLog("ptt operation superseded after replaceTrack", { roomId, sessionId, operationId, enabled });
-          return;
-        }
-        const transceiver = activePeer?.getTransceivers().find((item) => item.sender === sender) ?? null;
-        if (transceiver && transceiver.direction !== "sendrecv") {
-          transceiver.direction = "sendrecv";
-          rtcLog("transceiver direction updated", {
-            roomId,
-            sessionId,
-            direction: transceiver.direction,
-          });
-        }
-      } else if (sender.track) {
-        await sender.replaceTrack(null);
+    if (sender?.track && sender.track.readyState === "live") {
+      const transceiver = activePeer?.getTransceivers().find((item) => item.sender === sender) ?? null;
+      if (transceiver && transceiver.direction !== "sendrecv") {
+        transceiver.direction = "sendrecv";
       }
     }
 
-    if (operationId !== transmissionOperationId) {
-      rtcLog("ptt operation superseded before commit", { roomId, sessionId, operationId, enabled });
-      return;
-    }
-
-    rtcLog(enabled ? "push-to-talk pressed" : "push-to-talk released", {
-      roomId,
-      sessionId,
-      enabled,
-      trackCount: localAudioTracks.length,
-    });
-
-    if (enabled) {
+    const shouldTransmit = transmissionDesiredEnabled && localAudioTrack.enabled;
+    if (shouldTransmit) {
       clearTransmissionWatchdog();
       transmissionWatchdogTimer = window.setInterval(() => {
         void transmissionWatchdogTick();
@@ -673,7 +701,37 @@ export async function createPeerToPeerVoiceSession({
       clearTransmissionWatchdog();
     }
 
-    await syncDiagnostics(enabled ? "pressed" : "released");
+    await syncDiagnostics(reason);
+
+  };
+
+  const scheduleTransmissionStateSync = (reason: string) => {
+    transmissionSyncChain = transmissionSyncChain.then(() => applyTransmissionState(reason)).catch((error) => {
+      pttLog("transmission sync failed", {
+        reason,
+        roomId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    return transmissionSyncChain;
+  };
+
+  const setLocalAudioEnabled = async (enabled: boolean) => {
+    if (stopped || !canContinue()) {
+      pttLog("push-to-talk ignored for stale session", { roomId, sessionId, enabled });
+      return;
+    }
+
+    transmissionDesiredEnabled = enabled;
+    pttLog(enabled ? "press start" : "press end", {
+      roomId,
+      sessionId,
+      enabled,
+    });
+
+    return scheduleTransmissionStateSync(enabled ? "pressed" : "released");
   };
 
   const teardown = async (markIdle = true) => {
@@ -689,8 +747,12 @@ export async function createPeerToPeerVoiceSession({
     clearTransmissionWatchdog();
     stopChannel();
     cleanupPeer();
+    transmissionDesiredEnabled = false;
+    transmissionSyncChain = Promise.resolve();
+
     localAudioSenders = [];
     localAudioSender = null;
+
     audioElement.pause();
     audioElement.srcObject = null;
 
@@ -914,6 +976,8 @@ export async function createPeerToPeerVoiceSession({
         senderTrack: localAudioSender.track ? trackSnapshot(localAudioSender.track) : null,
       });
     }
+
+    void scheduleTransmissionStateSync("peer-start");
 
     attachPeerHandlers(peer);
 

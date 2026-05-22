@@ -94,8 +94,8 @@ const SessionPage = () => {
   } = usePresence();
 
   const [draft, setDraft] = useState("");
-  const [pushToTalkPressed, setPushToTalkPressed] = useState(false);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+
   const [selectedMedia, setSelectedMedia] = useState<MediaPreviewData | null>(null);
   const [mediaCaption, setMediaCaption] = useState("");
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -477,10 +477,10 @@ const SessionPage = () => {
       phase,
       voiceState,
       voiceReady,
-      isPressing: isPressingRef.current,
-      pressedState: pushToTalkPressed,
+      isPressing: Boolean(voiceDiagnostics?.isPressing),
+      transmitting: Boolean(voiceDiagnostics?.transmitting),
     });
-  }, [phase, pushToTalkPressed, room?.id, voiceReady, voiceState]);
+  }, [phase, room?.id, voiceDiagnostics?.isPressing, voiceDiagnostics?.transmitting, voiceReady, voiceState]);
 
   const clearPushToTalkReleaseTimeout = useCallback(() => {
     if (pttReleaseTimeoutRef.current !== null) {
@@ -503,18 +503,18 @@ const SessionPage = () => {
       isPressingRef.current = false;
       pttPointerIdRef.current = null;
       pttStartedAtRef.current = null;
-      console.info("[ptt] release committed", {
+      console.info("[ptt] press end", {
         roomId: room?.id ?? null,
         phase,
-        pointerId: pointerId ?? pttPointerIdRef.current,
+        pointerId: pointerId ?? null,
       });
-      setPushToTalkPressed(false);
-      console.info("[ptt] track disabled requested", {
+      console.info("[ptt] disabling track", {
         roomId: room?.id ?? null,
         phase,
-        pointerId: pointerId ?? pttPointerIdRef.current,
+        pointerId: pointerId ?? null,
       });
       setVoiceTransmissionEnabled(false);
+
     },
     [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled],
   );
@@ -538,19 +538,19 @@ const SessionPage = () => {
       pttPointerIdRef.current = pointerId;
       pttStartedAtRef.current = Date.now();
 
-      console.info("[ptt] pointerdown", {
+      console.info("[ptt] press start", {
         roomId: room?.id ?? null,
         phase,
         voiceState,
         pointerId,
       });
-      console.info("[ptt] track enabled requested", {
+      console.info("[ptt] enabling track", {
         roomId: room?.id ?? null,
         phase,
         pointerId,
       });
-      setPushToTalkPressed(true);
       setVoiceTransmissionEnabled(true);
+
     },
     [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled, voiceReady, voiceState],
   );
@@ -1283,7 +1283,8 @@ const SessionPage = () => {
                       disabled={phase === "TEXT_PHASE"}
                       className={cn(
                         "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
-                        pushToTalkPressed && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
+                        voiceDiagnostics?.transmitting && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
+
                         !voiceReady && "cursor-not-allowed opacity-60",
                         "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                       )}
@@ -1356,17 +1357,44 @@ const SessionPage = () => {
 
                     >
 
-                      <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
+                      <Mic className={cn("h-5 w-5 transition-transform duration-150", voiceDiagnostics?.transmitting && "scale-110 animate-pulse")} />
                       <span className="text-sm font-semibold tracking-wide sm:text-base">
-                        {pushToTalkPressed
-                          ? copy.session.pttActive
-                          : copy.session.pttIdle}
+                        {voiceDiagnostics?.transmitting ? copy.session.pttActive : copy.session.pttIdle}
                       </span>
 
                     </Button>
+
+                    <div className="grid gap-2 rounded-[22px] border border-white/10 bg-black/20 p-3 text-[11px] leading-5 text-white/65 sm:grid-cols-2">
+                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
+                        <span className="uppercase tracking-[0.2em] text-white/40">mic track.enabled</span>
+                        <span className={voiceDiagnostics?.localTrackEnabled ? "text-emerald-100" : "text-white/45"}>
+                          {voiceDiagnostics ? String(voiceDiagnostics.localTrackEnabled) : "—"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
+                        <span className="uppercase tracking-[0.2em] text-white/40">sender exists</span>
+                        <span className={voiceDiagnostics && voiceDiagnostics.senderTrackEnabled !== null ? "text-emerald-100" : "text-white/45"}>
+                          {voiceDiagnostics ? String(voiceDiagnostics.senderTrackEnabled !== null) : "—"}
+                        </span>
+
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
+                        <span className="uppercase tracking-[0.2em] text-white/40">transmitting</span>
+                        <span className={voiceDiagnostics?.transmitting ? "text-emerald-100" : "text-white/45"}>
+                          {voiceDiagnostics ? String(voiceDiagnostics.transmitting) : "—"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
+                        <span className="uppercase tracking-[0.2em] text-white/40">is pressing</span>
+                        <span className={voiceDiagnostics?.isPressing ? "text-emerald-100" : "text-white/45"}>
+                          {voiceDiagnostics ? String(voiceDiagnostics.isPressing) : "—"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {typingIndicator && (
+
                     <div className="mt-1 inline-flex min-h-[2.5rem] items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
                       <span className="truncate">{language === "en" ? "The other side is typing…" : "Η άλλη πλευρά γράφει…"}</span>
 
