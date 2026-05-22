@@ -11,7 +11,7 @@ const ContactPage = () => {
       <Surface className="space-y-5 p-6 sm:p-8">
         <SectionTitle title={copy.contact.title} body={copy.contact.body} />
         <div className="grid gap-4 sm:grid-cols-3">
-          <ContactCard icon={Mail} label={language === "en" ? "Email" : "Email"} value={copy.contact.email} />
+          <ContactCard icon={Mail} label={copy.support.emailLabel} value={copy.contact.email} />
           <ContactCard
             icon={MapPin}
             label={language === "en" ? "Focus" : "Προτεραιότητα"}
@@ -19,8 +19,8 @@ const ContactPage = () => {
           />
           <ContactCard
             icon={Shield}
-            label={language === "en" ? "Trust & Safety" : "Ασφάλεια"}
-            value={language === "en" ? "Safety team" : "Ομάδα ασφάλειας"}
+            label={copy.nav.safety}
+            value={language === "en" ? "Trust and safety" : "Ασφάλεια και έλεγχος"}
           />
         </div>
       </Surface>

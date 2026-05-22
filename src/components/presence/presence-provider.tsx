@@ -802,7 +802,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setTypingIndicator({
       roomId: currentRoom.id,
       senderId: currentRoom.typingUserId,
-      displayName: currentRoom.partner?.username ?? "Stranger",
+      displayName: currentRoom.partner?.username ?? "Connection",
       updatedAt: currentRoom.typingUpdatedAt ?? new Date().toISOString(),
     });
 
@@ -1533,7 +1533,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setTypingIndicator({
           roomId,
           senderId: latestRemote.userId ?? "",
-          displayName: currentRoom.partner?.username ?? "Stranger",
+          displayName: currentRoom.partner?.username ?? "Connection",
           updatedAt: latestRemote.updatedAt ?? new Date().toISOString(),
         });
 
@@ -1573,7 +1573,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           setTypingIndicator({
             roomId,
             senderId: nextTyping.userId,
-            displayName: currentRoom.partner?.username ?? "Stranger",
+            displayName: currentRoom.partner?.username ?? "Connection",
             updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
           });
 

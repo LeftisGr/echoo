@@ -1,26 +1,31 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useRef } from "react";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
+import AboutPage from "@/pages/AboutPage";
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import ContactPage from "@/pages/ContactPage";
 import DashboardPage from "@/pages/DashboardPage";
+import FAQPage from "@/pages/FAQPage";
 import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import PrivacyPage from "@/pages/PrivacyPage";
 import QueuePage from "@/pages/QueuePage";
+import RetentionPage from "@/pages/RetentionPage";
 import SafetyPage from "@/pages/SafetyPage";
 import SessionPage from "@/pages/SessionPage";
 import SettingsPage from "@/pages/SettingsPage";
+import SupportPage from "@/pages/SupportPage";
 import TermsPage from "@/pages/TermsPage";
 
 const queryClient = new QueryClient();
@@ -49,7 +54,6 @@ function AppRoutes() {
 
   const { isStandalone } = usePwaInstall();
   const initialRouteHandledRef = useRef(false);
-
   const storedRoute = readStoredRoute();
 
   useEffect(() => {
@@ -79,11 +83,9 @@ function AppRoutes() {
         </div>
       </div>
     );
-
   }
 
   return (
-
     <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       <Routes location={location}>
         <Route path="/" element={<Index />} />
@@ -92,10 +94,13 @@ function AppRoutes() {
         <Route path="/queue" element={<QueuePage />} />
         <Route path="/session" element={<SessionPage />} />
         <Route path="/session/:roomId" element={<SessionPage />} />
-        <Route path="/safety" element={<SafetyPage />} />
-
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/retention" element={<RetentionPage />} />
+        <Route path="/safety" element={<SafetyPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/admin/presence" element={<AdminPage />} />

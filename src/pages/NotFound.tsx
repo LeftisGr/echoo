@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
@@ -17,11 +17,11 @@ const NotFound = () => {
         <h1 className="text-4xl font-semibold tracking-tight text-white">404</h1>
         <p className="text-sm leading-6 text-white/65">
           {location.pathname.startsWith("/session")
-            ? "That room no longer exists."
-            : "This page doesn’t exist anymore."}
+            ? "That moment no longer exists."
+            : "This page drifted away."}
         </p>
         <Button asChild className="h-11 rounded-full bg-violet-500 px-5 text-white hover:bg-violet-400">
-          <Link to="/">Return home</Link>
+          <Link to="/">Go home</Link>
         </Button>
       </div>
     </div>

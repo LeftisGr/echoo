@@ -14,8 +14,15 @@ function MenuSheet() {
   const links = [
     { to: "/", label: copy.nav.home, icon: Sparkles },
     { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
+    { to: "/about", label: copy.nav.about, icon: Globe },
+    { to: "/faq", label: copy.nav.faq, icon: Sparkles },
+    { to: "/support", label: copy.nav.support, icon: Shield },
+    { to: "/contact", label: copy.nav.contact, icon: Shield },
     { to: "/safety", label: copy.nav.safety, icon: Shield },
     { to: "/settings", label: copy.nav.settings, icon: Globe },
+    { to: "/privacy", label: copy.nav.privacy, icon: Shield },
+    { to: "/terms", label: copy.nav.terms, icon: Shield },
+
   ];
 
   return (
@@ -49,19 +56,12 @@ function MenuSheet() {
             </Link>
           ))}
           <Link
-            to="/contact"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
-          >
-            {copy.nav.contact}
-          </Link>
-          <Link
             to="/admin/presence"
             className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
           >
             {copy.nav.admin}
           </Link>
         </div>
-
       </SheetContent>
     </Sheet>
   );

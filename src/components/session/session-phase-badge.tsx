@@ -11,10 +11,10 @@ export function SessionPhaseBadge({ phase }: { phase: SessionPhase }) {
 
   const label =
     phase === "TEXT_PHASE"
-      ? "Text phase"
+      ? "Listening..."
       : phase === "AUDIO_PHASE"
-        ? "Audio phase"
-        : "Media phase";
+        ? "You’re live"
+        : "Media open";
 
   return (
     <span className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.24em]", styles)}>

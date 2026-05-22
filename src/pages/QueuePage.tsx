@@ -14,19 +14,7 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const {
-    authenticated,
-    appReady,
-    queue,
-    room,
-
-    matchTransition,
-    cancelQueue,
-    copy,
-    language,
-    online,
-    adminMetrics,
-  } = usePresence();
+  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics } = usePresence();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
@@ -72,18 +60,11 @@ const QueuePage = () => {
     return () => window.clearInterval(interval);
   }, [language, queue.active, room, matchTransition]);
 
-  const phase = matchTransition
-    ? "match-found"
-    : room
-      ? "opening"
-      : elapsedSeconds < loadingWindowSeconds
-        ? "loading"
-        : "searching";
+  const phase = matchTransition ? "match-found" : room ? "opening" : elapsedSeconds < loadingWindowSeconds ? "loading" : "searching";
 
   const progress = useMemo(() => {
     if (phase === "match-found") {
       return Math.min(((3 - matchTransition!.secondsLeft) / 3) * 100, 100);
-
     }
 
     return Math.min((elapsedSeconds / totalQueueSeconds) * 100, 100);
@@ -106,21 +87,14 @@ const QueuePage = () => {
 
   const currentMessage =
     phase === "loading"
-      ? language === "en"
-        ? "Opening your room..."
-        : "Ανοίγουμε το room σου..."
-
+      ? copy.queue.loading
       : phase === "searching"
         ? queue.softRelaxed
           ? copy.queue.relaxed
           : queueMessages[language][messageIndex]
         : copy.queue.found;
-  
-  const queueNotice = !online
-    ? copy.queue.offline
-    : phase === "searching" && queue.softRelaxed
-      ? copy.queue.relaxed
-      : null;
+
+  const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
 
   if (!appReady) {
     return null;
@@ -161,7 +135,8 @@ const QueuePage = () => {
               <LoaderCircle className="relative h-7 w-7 animate-spin" />
             </div>
             <div className="flex-1">
-              <p className="text-xs uppercase tracking-[0.32em] text-white/40">Echoo live queue</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-white/40">Echoo listening room</p>
+
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">{copy.queue.title}</h1>
             </div>
             <Badge className="rounded-full border border-violet-400/15 bg-violet-400/10 px-3 py-1 text-violet-50 hover:bg-violet-400/10">
@@ -195,11 +170,12 @@ const QueuePage = () => {
                   1 · {language === "en" ? "Ready" : "Έτοιμο"}
                 </div>
                 <div className={`rounded-full border px-2 py-2 ${matchingStage >= 2 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  2 · {language === "en" ? "Searching" : "Αναζήτηση"}
+                  2 · {language === "en" ? "Listening" : "Ακούμε"}
                 </div>
                 <div className={`rounded-full border px-2 py-2 ${matchingStage >= 3 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  3 · {language === "en" ? "Opening" : "Άνοιγμα"}
+                  3 · {language === "en" ? "Opening" : "Ανοίγει"}
                 </div>
+
               </div>
             </div>
           </div>
@@ -213,23 +189,14 @@ const QueuePage = () => {
               </div>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Σε σύνδεση τώρα"}</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Live τώρα"}</p>
               <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
               <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Status" : "Κατάσταση"}</p>
               <p className="mt-2 text-sm font-medium text-violet-100">
-                {phase === "loading"
-                  ? language === "en"
-                    ? "Searching"
-                    : "Αναζήτηση"
-                  : phase === "searching"
-                    ? language === "en"
-                      ? "Searching"
-                      : "Γίνεται αναζήτηση"
-                    : copy.queue.found}
-  
+                {phase === "loading" ? copy.queue.loading : phase === "searching" ? copy.queue.searching : copy.queue.matchFound}
               </p>
               <p className="mt-1 text-sm text-white/50">{secondsLeft}s</p>
             </div>
@@ -261,17 +228,14 @@ const QueuePage = () => {
                 <p className="font-medium">{queueNotice}</p>
                 <p className="mt-1 text-xs text-violet-50/70">
                   {language === "en"
-                    ? "Keep this tab open and we will keep looking for someone nearby in the queue."
-                    : "Άφησε αυτό το tab ανοιχτό και θα συνεχίσουμε να ψάχνουμε κάποιον διαθέσιμο."}
+                    ? "Keep this tab open and we will keep listening for your next connection."
+                    : "Άφησε αυτό το tab ανοιχτό και θα συνεχίσουμε να ακούμε για την επόμενη σύνδεσή σου."}
                 </p>
               </div>
             )}
 
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-violet-400 transition-[width] duration-700 ease-out"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="h-full rounded-full bg-violet-400 transition-[width] duration-700 ease-out" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
@@ -307,26 +271,23 @@ const QueuePage = () => {
                   <LoaderCircle className="h-9 w-9 animate-spin text-violet-100" />
                 </div>
               </div>
-              <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.found}</p>
-
+              <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.matchFound}</p>
               <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
                 {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
               </h2>
               <p className="mt-3 text-sm leading-6 text-white/65">
-                {language === "en"
-                  ? "A room is opening just for you."
-                  : "Ένα room ανοίγει ειδικά για εσένα."}
+                {language === "en" ? "A moment is opening just for you." : "Ένα moment ανοίγει ειδικά για εσένα."}
               </p>
               <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">1</div>
-                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">2</div>
-                <div className="rounded-full border border-violet-300/30 bg-violet-400/15 px-2 py-2 text-violet-50">3</div>
-              </div>
-              <div className="mt-8 h-1 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-violet-400 transition-[width] duration-1000 ease-out"
-                  style={{ width: `${((3 - matchTransition.secondsLeft + 1) / 3) * 100}%` }}
-                />
+                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                  {language === "en" ? "Listening" : "Ακούμε"}
+                </div>
+                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                  {language === "en" ? "Matching" : "Matching"}
+                </div>
+                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                  {language === "en" ? "Opening" : "Άνοιγμα"}
+                </div>
               </div>
             </div>
           </div>

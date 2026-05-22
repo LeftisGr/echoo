@@ -17,16 +17,16 @@ const SafetyPage = () => {
               title: copy.safety.actions[0],
               body:
                 language === "en"
-                  ? "Fast safety actions are always inside the room."
-                  : "Οι γρήγορες ενέργειες ασφάλειας είναι πάντα μέσα στο room.",
+                  ? "Reporting is always a tap away inside the room."
+                  : "Η αναφορά είναι πάντα ένα tap μακριά μέσα στο room.",
             },
             {
               icon: ShieldAlert,
               title: copy.safety.actions[1],
               body:
                 language === "en"
-                  ? "Block someone instantly if you need to."
-                  : "Μπορείς να μπλοκάρεις κάποιον αμέσως όταν χρειάζεται.",
+                  ? "Block instantly if the moment turns wrong."
+                  : "Μπλόκαρε αμέσως αν το moment στραβώσει.",
             },
             {
               icon: TimerReset,
@@ -34,8 +34,9 @@ const SafetyPage = () => {
               body:
                 language === "en"
                   ? "Leave without friction. No awkward steps."
-                  : "Φεύγεις χωρίς τριβή. Χωρίς awkward βήματα.",
+                  : "Φεύγεις χωρίς τριβή. Χωρίς άβολα βήματα.",
             },
+
             {
               icon: HandHeart,
               title: language === "en" ? "Shared rules" : "Κοινές αρχές",
@@ -68,19 +69,20 @@ const SafetyPage = () => {
         </Surface>
         <Surface className="space-y-4 p-5">
           <p className="text-sm uppercase tracking-[0.22em] text-white/40">
-            {language === "en" ? "Safety flow" : "Ροή ασφάλειας"}
+            {language === "en" ? "What Echoo protects" : "Τι προστατεύει το Echoo"}
           </p>
           {[
             language === "en"
-              ? "Respect reminders appear before voice unlock."
-              : "Οι υπενθυμίσεις σεβασμού εμφανίζονται πριν από το voice unlock.",
+              ? "Privacy stays high and identity stays light."
+              : "Το απόρρητο μένει υψηλό και η ταυτότητα ελαφριά.",
             language === "en"
-              ? "Report and block stay inside every room."
-              : "Το report και το block μένουν πάντα μέσα στο room.",
+              ? "Voice stays optional after it unlocks."
+              : "Η φωνή παραμένει προαιρετική αφού ξεκλειδώσει.",
             language === "en"
               ? "Rooms can end instantly if behavior crosses the line."
               : "Τα rooms μπορούν να κλείσουν αμέσως αν η συμπεριφορά ξεπεράσει τα όρια.",
           ].map((item) => (
+
             <div key={item} className="rounded-[22px] border border-white/10 bg-white/5 p-4 text-sm text-white/65">
               {item}
             </div>

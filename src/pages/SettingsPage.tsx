@@ -4,12 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import {
-  languageOptions,
-  localizeLanguagePreference,
-  localizePreference,
-  preferenceOptions,
-} from "@/lib/presence-content";
+import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
 
 const SettingsPage = () => {
   const {
@@ -27,7 +22,6 @@ const SettingsPage = () => {
     setReconnectEnabled,
     setMatchSoundEnabled,
     logout,
-
   } = usePresence();
 
   if (!authenticated) {
@@ -39,7 +33,6 @@ const SettingsPage = () => {
       <PageShell className="space-y-6">
         <Surface className="space-y-3 p-6 sm:p-8">
           <SectionTitle title={copy.settings.title} body={copy.misc.loadingSettings} />
-
         </Surface>
       </PageShell>
     );
@@ -93,43 +86,21 @@ const SettingsPage = () => {
           />
 
           <Surface className="space-y-5 p-5">
-            <SwitchRow
-              label={copy.settings.haptics}
-              checked={hapticsEnabled}
-              onCheckedChange={setHapticsEnabled}
-            />
-            <SwitchRow
-              label={language === "en" ? "Match sound" : "Ήχος match"}
-
-              checked={matchSoundEnabled}
-              onCheckedChange={setMatchSoundEnabled}
-            />
-
-            <SwitchRow
-              label={copy.settings.reconnect}
-              checked={reconnectEnabled}
-              onCheckedChange={setReconnectEnabled}
-            />
+            <SwitchRow label={copy.settings.haptics} checked={hapticsEnabled} onCheckedChange={setHapticsEnabled} />
+            <SwitchRow label={copy.settings.matchSound} checked={matchSoundEnabled} onCheckedChange={setMatchSoundEnabled} />
+            <SwitchRow label={copy.settings.reconnect} checked={reconnectEnabled} onCheckedChange={setReconnectEnabled} />
           </Surface>
-
         </div>
       </div>
 
       <Surface className="space-y-4 p-5 sm:p-6">
         <div className="grid gap-3 sm:grid-cols-2">
           <Link to="/dashboard">
-            <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
-              {copy.nav.dashboard}
-            </Button>
+            <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">{copy.nav.dashboard}</Button>
           </Link>
-          <Button
-          variant="outline"
-          className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-          onClick={logout}
-        >
-          {language === "en" ? "Sign out" : "Έξοδος"}
-        </Button>
-
+          <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
+            {copy.settings.signOut}
+          </Button>
         </div>
       </Surface>
     </PageShell>
@@ -177,11 +148,7 @@ function SettingPills<T extends string>({
               key={value}
               type="button"
               onClick={() => onSelect(value)}
-              className={
-                active
-                  ? "rounded-full border border-violet-400/20 bg-violet-400/15 px-4 py-2 text-sm text-violet-50"
-                  : "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70"
-              }
+              className={active ? "rounded-full border border-violet-400/20 bg-violet-400/15 px-4 py-2 text-sm text-violet-50" : "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70"}
             >
               {getLabel(value)}
             </button>

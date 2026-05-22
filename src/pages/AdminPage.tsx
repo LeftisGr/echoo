@@ -66,7 +66,8 @@ const AdminPage = () => {
     <PageShell className="space-y-6">
       <Surface className="space-y-4 p-6 sm:p-8">
         <SectionTitle
-          eyebrow={language === "en" ? "Hidden route" : "Κρυφή διαδρομή"}
+          eyebrow={language === "en" ? "Private dashboard" : "Ιδιωτικό dashboard"}
+
           title="Echoo admin"
           body={
             language === "en"

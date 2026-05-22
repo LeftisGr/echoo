@@ -44,7 +44,7 @@ function getRoomDisplayName(roomId: string) {
     .split("")
     .reduce((value, char) => value + char.charCodeAt(0), 0);
 
-  return `Room #${String(100 + (suffix % 900)).padStart(3, "0")}`;
+  return `Moment #${String(100 + (suffix % 900)).padStart(3, "0")}`;
 }
 
 function formatBytes(bytes: number) {
@@ -628,20 +628,18 @@ const SessionPage = () => {
   const voiceStatusInlineLabel =
     voiceState === "connected"
       ? language === "en"
-        ? "Connected"
-        : "Συνδέθηκε"
+        ? "You’re live"
+        : "Είσαι live"
       : voiceState === "connecting" || voiceState === "requesting-microphone"
-        ? language === "en"
-          ? "Connecting"
-          : "Σύνδεση"
+        ? copy.session.listening
         : voiceState === "reconnecting"
           ? language === "en"
-            ? "Reconnecting"
-            : "Επανασύνδεση"
+            ? "Trying to reconnect"
+            : "Προσπαθούμε να επανασυνδεθούμε"
           : voiceState === "failed" || voiceState === "error"
             ? language === "en"
-              ? "Voice issue"
-              : "Πρόβλημα φωνής"
+              ? "Moment interrupted"
+              : "Το moment διακόπηκε"
             : null;
 
   const voiceStatusInlineToneClass =
@@ -688,7 +686,7 @@ const SessionPage = () => {
   const reportReasonOptions = [
     { value: "harassment", label: language === "en" ? "Harassment or abuse" : "Παρενόχληση ή κακοποίηση" },
     { value: "threats", label: language === "en" ? "Threats or hate speech" : "Απειλές ή λόγος μίσους" },
-    { value: "spam", label: language === "en" ? "Spam or unsolicited content" : "Spam ή ανεπιθύμητο περιεχόμενο" },
+    { value: "spam", label: language === "en" ? "Spam or unwanted content" : "Spam ή ανεπιθύμητο περιεχόμενο" },
   ];
 
   const submitRoomReport = async () => {
@@ -775,13 +773,13 @@ const SessionPage = () => {
               <div className="space-y-3 p-3 sm:space-y-4 sm:p-5">
                 <div className="rounded-[24px] border border-white/10 bg-white/5 p-3 text-center sm:p-5">
                   <p className="text-[9px] uppercase tracking-[0.32em] text-white/40">
-                    {language === "en" ? "Post-session" : "Μετά το session"}
+                    {language === "en" ? "After the moment" : "Μετά το moment"}
                   </p>
                   <h2 className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-2xl">{copy.session.howWasIt}</h2>
                   <p className="mt-1 text-xs leading-5 text-white/55 sm:text-sm">
                     {language === "en"
-                      ? "Pick a quick reaction, then choose your next step."
-                      : "Διάλεξε μια γρήγορη αντίδραση και μετά το επόμενο βήμα."}
+                      ? "Choose a quick reaction, then decide what feels right next."
+                      : "Διάλεξε μια γρήγορη αντίδραση και μετά αποφάσισε τι σου ταιριάζει."}
                   </p>
 
                   <div className="mt-3 flex items-center justify-center gap-2 sm:mt-4 sm:gap-3">
@@ -864,7 +862,7 @@ const SessionPage = () => {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 rounded-full border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
-                      aria-label={language === "en" ? "Why report this room?" : "Γιατί να αναφέρεις αυτό το room;"}
+                      aria-label={language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
                     >
                       <Info className="h-3.5 w-3.5" />
                     </Button>
@@ -872,15 +870,16 @@ const SessionPage = () => {
                   <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
                     <DialogHeader>
                       <DialogTitle className="text-left text-white">
-                        {language === "en" ? "Why report a stranger?" : "Γιατί να αναφέρεις έναν άγνωστο;"}
+                        {language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
                       </DialogTitle>
                       <DialogDescription className="text-left text-white/60">
                         {language === "en"
-                          ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review bad behavior in the admin panel and keep Echoo safer."
-                          : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του δωματίου. Οι αναφορές βοηθούν να ελέγχουμε κακή συμπεριφορά από το admin panel και να κρατάμε το Echoo πιο ασφαλές."}
+                          ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review behavior and keep Echoo safer."
+                          : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του room. Οι αναφορές βοηθούν να ελέγχουμε τη συμπεριφορά και να κρατάμε το Echoo πιο ασφαλές."}
                       </DialogDescription>
                     </DialogHeader>
                   </DialogContent>
+
                 </Dialog>
               </div>
               {voiceStatusInlineLabel && (
@@ -896,8 +895,10 @@ const SessionPage = () => {
                         await enableVoicePlayback();
                       }}
                     >
-                      {language === "en" ? "Enable Audio" : "Ενεργοποίηση ήχου"}
+                      {language === "en" ? "Turn audio on" : "Άνοιξε τον ήχο"}
+
                     </Button>
+
                   )}
                   {(voiceState === "idle" || voiceState === "failed" || voiceState === "error") && (
                     <Button
@@ -908,20 +909,21 @@ const SessionPage = () => {
                         await startVoiceChat();
                       }}
                     >
-                      {language === "en" ? "Connect Voice" : "Σύνδεση φωνής"}
+                      {language === "en" ? "Try voice again" : "Δοκίμασε ξανά τη φωνή"}
+
                     </Button>
+
                   )}
                 </div>
               )}
               <Button
-
                 type="button"
                 variant="outline"
                 className="mt-2 h-8 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 hover:bg-white/10 hover:text-white"
                 onClick={() => setReportDialogOpen(true)}
               >
                 <Flag className="mr-1.5 h-3.5 w-3.5" />
-                {language === "en" ? "Report" : "Αναφορά"}
+                {copy.session.report}
               </Button>
 
             </div>
@@ -944,17 +946,19 @@ const SessionPage = () => {
                     className="h-10 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
                     <PhoneOff className="mr-2 h-4 w-4" />
-                    {language === "en" ? "Leave" : "Έξοδος"}
+                    {copy.session.leave}
                   </Button>
+
                 </AlertDialogTrigger>
                 <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>{language === "en" ? "Leave this session?" : "Να φύγεις από το session;"}</AlertDialogTitle>
+                    <AlertDialogTitle>{language === "en" ? "Leave this moment?" : "Να φύγεις από αυτό το moment;"}</AlertDialogTitle>
                     <AlertDialogDescription className="text-white/55">
                       {language === "en"
-                        ? "The connection will end for both users."
-                        : "Η σύνδεση θα τερματιστεί και για τους δύο χρήστες."}
+                        ? "The connection will end for both people."
+                        : "Η σύνδεση θα τερματιστεί και για τους δύο ανθρώπους."}
                     </AlertDialogDescription>
+
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
@@ -964,7 +968,8 @@ const SessionPage = () => {
                       className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
                       onClick={() => leaveRoom(copy.session.partnerDisconnected)}
                     >
-                      {language === "en" ? "Yes, leave" : "Ναι, έξοδος"}
+                      {language === "en" ? "Leave moment" : "Έξοδος"}
+
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1180,7 +1185,8 @@ const SessionPage = () => {
                       onKeyDown={handleDraftKeyDown}
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={stopTypingIndicator}
-                      placeholder={language === "en" ? "Write a message..." : "Γράψε ένα μήνυμα..."}
+                      placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
+
                       className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                     />
 
@@ -1224,7 +1230,8 @@ const SessionPage = () => {
                           <Input
                             value={mediaCaption}
                             onChange={(event) => setMediaCaption(event.target.value)}
-                            placeholder={language === "en" ? "Add a short caption (optional)" : "Πρόσθεσε λεζάντα (προαιρετικό)"}
+                            placeholder={language === "en" ? "Add a quiet caption (optional)" : "Πρόσθεσε μια μικρή λεζάντα (προαιρετικό)"}
+
                             className="h-11 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
                             maxLength={180}
                           />
@@ -1248,7 +1255,8 @@ const SessionPage = () => {
                           ) : (
                             <span className="inline-flex items-center gap-2">
                               <Check className="h-4 w-4" />
-                              {language === "en" ? "Send media" : "Αποστολή media"}
+                              {language === "en" ? "Share moment" : "Μοιράσου το moment"}
+
                             </span>
                           )}
                         </Button>
@@ -1264,9 +1272,10 @@ const SessionPage = () => {
                   >
                     <div className="mb-3 flex flex-wrap gap-2">
                       <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.localTrackReadyState === "live" ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>MIC LIVE</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.transmitting ? "border-sky-300/30 bg-sky-500/15 text-sky-50" : "border-white/10 bg-white/5 text-white/60")}>TRANSMITTING</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", (voiceDiagnostics?.bytesSent ?? 0) > 0 ? "border-violet-300/30 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5 text-white/60")}>AUDIO BYTES SENT: {voiceDiagnostics?.bytesSent ?? 0}</div>
-                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.remoteAudioDetected ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>REMOTE AUDIO DETECTED</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.transmitting ? "border-sky-300/30 bg-sky-500/15 text-sky-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "YOU’RE SPEAKING" : "ΜΙΛΑΣ"}</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", (voiceDiagnostics?.bytesSent ?? 0) > 0 ? "border-violet-300/30 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "AUDIO BYTES SENT: " : "ΗΧΟΙ ΠΟΥ ΣΤΑΛΘΗΚΑΝ: "}{voiceDiagnostics?.bytesSent ?? 0}</div>
+                      <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]", voiceDiagnostics?.remoteAudioDetected ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-white/5 text-white/60")}>{language === "en" ? "VOICE REACHING" : "Η ΦΩΝΗ ΦΤΑΝΕΙ"}</div>
+
                     </div>
 
                     <Button
@@ -1343,25 +1352,24 @@ const SessionPage = () => {
                         }
                       }}
                       onContextMenu={(event) => event.preventDefault()}
-                      aria-label={language === "en" ? "Hold to speak" : "Κράτα πατημένο για να μιλήσεις"}
+                      aria-label={copy.session.startVoice}
+
                     >
 
                       <Mic className={cn("h-5 w-5 transition-transform duration-150", pushToTalkPressed && "scale-110 animate-pulse")} />
                       <span className="text-sm font-semibold tracking-wide sm:text-base">
                         {pushToTalkPressed
-                          ? language === "en"
-                            ? "Talking..."
-                            : "Μιλάς..."
-                          : language === "en"
-                            ? "Hold to Talk"
-                            : "Κράτα για ομιλία"}
+                          ? copy.session.pttActive
+                          : copy.session.pttIdle}
                       </span>
+
                     </Button>
                   </div>
 
                   {typingIndicator && (
                     <div className="mt-1 inline-flex min-h-[2.5rem] items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                      <span className="truncate">Stranger is typing…</span>
+                      <span className="truncate">{language === "en" ? "The other side is typing…" : "Η άλλη πλευρά γράφει…"}</span>
+
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
@@ -1416,12 +1424,12 @@ const SessionPage = () => {
         <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-left text-white">
-              {language === "en" ? "Report Stranger" : "Αναφορά αγνώστου"}
+              {language === "en" ? "Report this connection" : "Αναφορά σύνδεσης"}
             </DialogTitle>
             <DialogDescription className="text-left text-white/60">
               {language === "en"
-                ? "Choose the reason that best fits what happened. Your report will show up in the admin panel for review."
-                : "Επίλεξε τον λόγο που ταιριάζει καλύτερα. Η αναφορά θα εμφανιστεί στο admin panel για έλεγχο."}
+                ? "Choose the reason that fits best. Your report helps us keep Echoo calm and safe."
+                : "Επίλεξε τον λόγο που ταιριάζει καλύτερα. Η αναφορά μάς βοηθά να κρατάμε το Echoo ήρεμο και ασφαλές."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1477,7 +1485,7 @@ const SessionPage = () => {
               ) : (
                 <span className="inline-flex items-center gap-2">
                   <Flag className="h-4 w-4" />
-                  {language === "en" ? "Submit report" : "Υποβολή report"}
+                  {language === "en" ? "Send report" : "Αποστολή αναφοράς"}
                 </span>
               )}
             </Button>
