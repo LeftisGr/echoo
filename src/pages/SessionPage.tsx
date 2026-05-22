@@ -1461,33 +1461,6 @@ const SessionPage = () => {
 
                     </Button>
 
-                    <div className="grid gap-2 rounded-[22px] border border-white/10 bg-black/20 p-3 text-[11px] leading-5 text-white/65 sm:grid-cols-2">
-                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
-                        <span className="uppercase tracking-[0.2em] text-white/40">mic track.enabled</span>
-                        <span className={voiceDiagnostics?.localTrackEnabled ? "text-emerald-100" : "text-white/45"}>
-                          {voiceDiagnostics ? String(voiceDiagnostics.localTrackEnabled) : "—"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
-                        <span className="uppercase tracking-[0.2em] text-white/40">sender exists</span>
-                        <span className={voiceDiagnostics && voiceDiagnostics.senderTrackEnabled !== null ? "text-emerald-100" : "text-white/45"}>
-                          {voiceDiagnostics ? String(voiceDiagnostics.senderTrackEnabled !== null) : "—"}
-                        </span>
-
-                      </div>
-                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
-                        <span className="uppercase tracking-[0.2em] text-white/40">transmitting</span>
-                        <span className={voiceDiagnostics?.transmitting ? "text-emerald-100" : "text-white/45"}>
-                          {voiceDiagnostics ? String(voiceDiagnostics.transmitting) : "—"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 rounded-full border border-white/8 bg-white/5 px-3 py-2">
-                        <span className="uppercase tracking-[0.2em] text-white/40">is pressing</span>
-                        <span className={voiceDiagnostics?.isPressing ? "text-emerald-100" : "text-white/45"}>
-                          {voiceDiagnostics ? String(voiceDiagnostics.isPressing) : "—"}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
                   {typingIndicator && (
