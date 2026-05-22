@@ -570,7 +570,7 @@ const SessionPage = () => {
     clearPushToTalkReleaseTimeout();
     releasePushToTalk();
     stopTypingIndicator();
-  }, [clearPushToTalkReleaseTimeout, releasePushToTalk, stopTypingIndicator]);
+  }, []);
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
 
