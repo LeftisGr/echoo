@@ -506,8 +506,7 @@ const SessionPage = () => {
     }
 
     setMediaBusy(true);
-    console.info("[content] send requested", {
-
+    console.info("[media] upload started", {
       roomId: room?.id ?? null,
       phase,
       kind: selectedMedia.kind,
@@ -515,6 +514,7 @@ const SessionPage = () => {
       fileSize: selectedMedia.size,
       fileType: selectedMedia.file.type,
     });
+
     try {
       await sendMediaMessage({
         file: selectedMedia.file,
@@ -523,21 +523,21 @@ const SessionPage = () => {
       });
       mediaCooldownRef.current = Date.now();
       mediaSendCountRef.current += 1;
-      console.info("[content] send completed", {
-
+      console.info("[media] upload success", {
         roomId: room?.id ?? null,
         phase,
         kind: selectedMedia.kind,
         fileName: selectedMedia.displayName,
       });
+
       resetMediaSelection();
     } catch (mediaSendError) {
-      console.info("[content] send failed", {
-
+      console.info("[media] upload failed", {
         roomId: room?.id ?? null,
         phase,
         error: mediaSendError instanceof Error ? mediaSendError.message : String(mediaSendError),
       });
+
       setMediaError(mediaSendError instanceof Error ? mediaSendError.message : language === "en" ? "Upload failed." : "Η αποστολή απέτυχε.");
     } finally {
       setMediaBusy(false);
@@ -1302,10 +1302,44 @@ const SessionPage = () => {
                             className="h-11 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/35"
                             maxLength={180}
                           />
+
+                          {(mediaBusy || mediaError) && (
+                            <div className="space-y-2 pt-1">
+                              {mediaBusy ? (
+                                <div className="space-y-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/55">
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="h-2 w-2 animate-pulse rounded-full bg-violet-200/80" />
+                                    {language === "en" ? "Uploading media..." : "Μεταφόρτωση media..."}
+                                  </span>
+                                  <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
+                                    <div className="h-full w-1/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-violet-300/70" />
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {mediaError ? (
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-full border border-rose-300/15 bg-rose-500/10 px-3 py-2 text-xs text-rose-50/90">
+                                  <span className="leading-5">{mediaError}</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-8 rounded-full border border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white"
+                                    onClick={() => {
+                                      void sendSelectedMedia();
+                                    }}
+                                    disabled={mediaBusy}
+                                  >
+                                    {language === "en" ? "Retry" : "Προσπάθησε ξανά"}
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-3 sm:flex-row">
+
                         <Button
                           type="button"
                           className="h-11 rounded-full bg-violet-500 px-5 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
@@ -1317,7 +1351,8 @@ const SessionPage = () => {
                           {mediaBusy ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
-                              {language === "en" ? "Sending..." : "Αποστολή..."}
+                              {language === "en" ? "Uploading..." : "Μεταφόρτωση..."}
+
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-2">

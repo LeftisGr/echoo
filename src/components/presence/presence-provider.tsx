@@ -1341,9 +1341,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       void cleanupExpiredEphemeralContent()
         .then((result) => {
           if (result) {
-            console.info("[content] cleanup complete", result);
+            console.info("[media] cleanup success", result);
           }
         })
+
         .catch(() => undefined)
         .finally(() => {
           contentCleanupInFlightRef.current = false;
@@ -2299,9 +2300,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : featureGates[FeatureGateKey.EphemeralContent];
 
     if (!mediaGate.unlocked) {
-      console.info("[content] upload blocked", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
+        reason: "blocked",
         feature: mediaGate.key,
         status: mediaGate.status,
       });
@@ -2322,7 +2324,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const isValidDuration = preview.kind === "video" ? (preview.durationSeconds ?? 0) <= MAX_VIDEO_DURATION_SECONDS : true;
 
     if (!isValidType || !isValidSize || !isValidDuration) {
-      console.info("[content] upload failed", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "validation",
@@ -2333,7 +2335,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
 
     if (mediaUploadInFlightRef.current) {
-      console.info("[content] upload failed", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "in-flight",
@@ -2342,7 +2344,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCooldownRef.current && now - mediaUploadCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
-      console.info("[content] upload failed", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "cooldown",
@@ -2351,7 +2353,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
-      console.info("[content] upload failed", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "limit-reached",
@@ -2359,7 +2361,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       throw new Error("Media sharing limit reached for this session.");
     }
 
-    console.info("[content] upload start", {
+    console.info("[media] upload started", {
       roomId: currentRoom.id,
       userId: currentUser,
       fileName: file.name,
@@ -2382,8 +2384,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const localPreviewUrl = URL.createObjectURL(file);
       const createdAt = new Date().toISOString();
+      const messageId = createId();
       const mediaMessage: ChatMessage = {
-        id: createId(),
+        id: messageId,
         roomId: currentRoom.id,
         senderId: currentUser,
         content: caption.trim() || (preview.kind === "image" ? "Photo" : preview.kind === "audio" ? "Audio" : "Video"),
@@ -2405,6 +2408,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         },
       };
 
+      const storedMediaMessage: ChatMessage = {
+        ...mediaMessage,
+        media: {
+          ...mediaMessage.media,
+          url: null,
+        },
+      };
+
       setRoom((current) =>
         current && current.id === currentRoom.id
           ? {
@@ -2416,24 +2427,26 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : current,
       );
 
-      await persistMessage(mediaMessage);
+      await persistMessage(storedMediaMessage);
       mediaUploadCooldownRef.current = Date.now();
       mediaUploadCountRef.current += 1;
 
-      console.info("[content] upload success", {
+      console.info("[media] upload success", {
         roomId: currentRoom.id,
         userId: currentUser,
         messageId: mediaMessage.id,
         kind: preview.kind,
       });
+
     } catch (error) {
-      console.info("[content] upload failed", {
+      console.info("[media] upload failed", {
         roomId: currentRoom.id,
         userId: currentUser,
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     } finally {
+
       mediaUploadInFlightRef.current = false;
     }
   }, [userId]);

@@ -61,10 +61,11 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
     }
 
     expiryTimerRef.current = window.setTimeout(() => {
-      console.info("[content] content expired", {
+      console.info("[media] expired", {
         messageId: message.id,
         roomId: message.roomId,
       });
+
       setOpenedUrl(null);
       setViewerExpired(true);
     }, EPHEMERAL_CONTENT_VIEWER_SECONDS * 1000);
@@ -79,27 +80,29 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
     setError(null);
     try {
       if (message.media.url && message.media.url.startsWith("blob:")) {
-        console.info("[content] content opened", {
+        console.info("[media] content opened", {
           messageId: message.id,
           roomId: message.roomId,
           source: "local-preview",
         });
+
         setOpenedUrl(message.media.url);
         startViewerExpiryTimer();
         return;
       }
 
       const response = await requestEphemeralContentAccess(message.id);
-      console.info("[content] signed url created", {
+      console.info("[media] signed url created", {
         messageId: message.id,
         roomId: message.roomId,
         expiresInSeconds: response.expiresInSeconds,
       });
-      console.info("[content] content opened", {
+      console.info("[media] content opened", {
         messageId: message.id,
         roomId: message.roomId,
         source: "signed-url",
       });
+
       setOpenedUrl(response.signedUrl);
       startViewerExpiryTimer();
     } catch (contentError) {
