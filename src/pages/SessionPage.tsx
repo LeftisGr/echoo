@@ -22,9 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { PageShell, Surface } from "@/components/presence/presence-shell";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { usePresence } from "@/components/presence/presence-provider";
+
 import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
@@ -99,9 +101,12 @@ const SessionPage = () => {
   } = usePresence();
 
   const [draft, setDraft] = useState("");
+  const [messageSending, setMessageSending] = useState(false);
+  const [messageSendError, setMessageSendError] = useState<string | null>(null);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
 
   const [selectedMedia, setSelectedMedia] = useState<MediaPreviewData | null>(null);
+
   const [mediaCaption, setMediaCaption] = useState("");
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
@@ -657,20 +662,39 @@ const SessionPage = () => {
   }, [clearPushToTalkReleaseTimeout, releasePushToTalk, room?.id, stopTypingIndicator]);
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
+    const loadingTitle = queue.active
+      ? language === "en"
+        ? "Finding your room..."
+        : "Βρίσκουμε το room σου..."
+      : language === "en"
+        ? "Restoring your moment..."
+        : "Αποκαθιστούμε το moment σου...";
+
+    const loadingBody = queue.active
+      ? language === "en"
+        ? "We’re reconnecting the path between queue and room. The next scene is almost ready."
+        : "Επανασυνδέουμε τη διαδρομή ανάμεσα στην ουρά και το room. Η επόμενη σκηνή είναι σχεδόν έτοιμη."
+      : language === "en"
+        ? "Hold for a second while Echoo settles the connection."
+        : "Περίμενε μια στιγμή όσο το Echoo σταθεροποιεί τη σύνδεση.";
 
     return (
       <PageShell className="flex items-center">
-        <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
-          <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">{copy.misc.loading}</h1>
-
-        </Surface>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={loadingTitle}
+            body={loadingBody}
+            status={queue.active ? copy.misc.listening : copy.misc.reconnectingMoment}
+            tone={queue.active ? "violet" : "sky"}
+            className="shadow-2xl"
+          />
+        </div>
       </PageShell>
     );
   }
 
   if (!authenticated) {
-
     return <Navigate to="/auth" replace />;
   }
 
@@ -683,16 +707,17 @@ const SessionPage = () => {
   }
 
   if (!profile) {
-
     return (
       <PageShell className="flex items-center">
-        <Surface className="mx-auto w-full max-w-2xl space-y-3 p-6 text-center sm:p-10">
-          <p className="text-sm uppercase tracking-[0.28em] text-white/40">Echoo</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">
-            {copy.misc.loadingProfile}
-          </h1>
-
-        </Surface>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.misc.loadingProfile}
+            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
+            status={copy.misc.restoring}
+            tone="amber"
+          />
+        </div>
       </PageShell>
     );
   }
@@ -739,7 +764,21 @@ const SessionPage = () => {
 
   const timerUrgent = secondsRemaining <= 60;
 
+  const sessionProgressLabel =
+    phase === "TEXT_PHASE"
+      ? language === "en"
+        ? "Text first"
+        : "Πρώτα text"
+      : phase === "AUDIO_PHASE"
+        ? language === "en"
+          ? "Voice opening"
+          : "Ανοίγει η φωνή"
+        : language === "en"
+          ? "Media window"
+          : "Παράθυρο media";
+
   const timerToneClass =
+
     phase === "TEXT_PHASE"
       ? "text-white"
       : phase === "AUDIO_PHASE"
@@ -802,6 +841,7 @@ const SessionPage = () => {
 
   const handleDraftChange = (value: string) => {
     setDraft(value);
+    setMessageSendError(null);
     typingDraftRef.current = value;
 
     if (!value.trim()) {
@@ -915,44 +955,46 @@ const SessionPage = () => {
           <div className="relative flex items-start gap-3 sm:items-center">
             <div className="min-w-0 flex-1 pr-2 text-left">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
                 <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-7 rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
-                      aria-label={language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
-                    >
-                      <Flag className="mr-1.5 h-3.5 w-3.5" />
-                      {language === "en" ? "Report" : "Αναφορά"}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle className="text-left text-white">
-                        {language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
-                      </DialogTitle>
-                      <DialogDescription className="text-left text-white/60">
-                        {language === "en"
-                          ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review behavior and keep Echoo safer."
-                          : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του room. Οι αναφορές βοηθούν να ελέγχουμε τη συμπεριφορά και να κρατάμε το Echoo πιο ασφαλές."}
-                      </DialogDescription>
-                    </DialogHeader>
-                  </DialogContent>
-                </Dialog>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-7 rounded-full border-rose-300/15 bg-rose-500/10 px-2.5 text-[11px] font-medium text-rose-50/80 hover:bg-rose-500/15 hover:text-rose-50"
-                  onClick={() => {
-                    void blockCurrentPartner();
-                  }}
-                >
-                  <PhoneOff className="mr-1.5 h-3.5 w-3.5" />
-                  {language === "en" ? "Block" : "Μπλοκ"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-7 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
+                        aria-label={language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
+                      >
+                        <Flag className="mr-1.5 h-3.5 w-3.5" />
+                        {language === "en" ? "Report" : "Αναφορά"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle className="text-left text-white">
+                          {language === "en" ? "Why report this connection?" : "Γιατί να αναφέρεις αυτή τη σύνδεση;"}
+                        </DialogTitle>
+                        <DialogDescription className="text-left text-white/60">
+                          {language === "en"
+                            ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review behavior and keep Echoo safer."
+                            : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του room. Οι αναφορές βοηθούν να ελέγχουμε τη συμπεριφορά και να κρατάμε το Echoo πιο ασφαλές."}
+                        </DialogDescription>
+                      </DialogHeader>
+                    </DialogContent>
+                  </Dialog>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 shrink-0 whitespace-nowrap rounded-full border-rose-300/15 bg-rose-500/10 px-2.5 text-[11px] font-medium text-rose-50/80 hover:bg-rose-500/15 hover:text-rose-50"
+                    onClick={() => {
+                      void blockCurrentPartner();
+                    }}
+                  >
+                    <PhoneOff className="mr-1.5 h-3.5 w-3.5" />
+                    {language === "en" ? "Block" : "Μπλοκ"}
+                  </Button>
+                </div>
               </div>
 
               {voiceStatusInlineLabel && (
@@ -997,7 +1039,9 @@ const SessionPage = () => {
                 timerLabel={timerLabel}
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
+                statusLabel={sessionProgressLabel}
               />
+
             </div>
 
             <div className="flex flex-1 justify-end pl-2">
@@ -1007,7 +1051,8 @@ const SessionPage = () => {
                     variant="outline"
                     className="h-10 rounded-full border-rose-400/20 bg-rose-500/10 px-4 text-rose-100 hover:bg-rose-500/20 hover:text-white"
                   >
-                    Leave
+                    {copy.session.leave}
+
                   </Button>
 
                 </AlertDialogTrigger>
@@ -1073,6 +1118,22 @@ const SessionPage = () => {
 
         >
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-10 sm:pb-12">
+            {visibleMessages.length === 0 && (
+              <div className="py-4 sm:py-8">
+                <CalmStateCard
+                  eyebrow={language === "en" ? "Quiet room" : "Ήσυχο room"}
+                  title={copy.session.noMessages}
+                  body={
+                    language === "en"
+                      ? "The first line decides the temperature. Say something small and let the room answer."
+                      : "Η πρώτη γραμμή ορίζει τη θερμοκρασία. Πες κάτι μικρό και άσε το room να απαντήσει."
+                  }
+                  status={copy.session.whisper}
+                  tone="violet"
+                  className="mx-auto max-w-xl"
+                />
+              </div>
+            )}
 
             {visibleMessages.map((message) => {
 
@@ -1152,23 +1213,33 @@ const SessionPage = () => {
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const nextDraft = draft.trim();
-                  if (!nextDraft) {
+                  if (!nextDraft || messageSending) {
                     return;
                   }
 
                   shouldForceScrollRef.current = isNearBottomRef.current;
                   stopTypingIndicator();
-                  const sent = await sendMessage(nextDraft);
-                  if (sent) {
-                    setDraft("");
-                  }
+                  setMessageSendError(null);
+                  setMessageSending(true);
 
+                  try {
+                    const sent = await sendMessage(nextDraft);
+                    if (sent) {
+                      setDraft("");
+                    } else {
+                      setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                    }
+                  } catch {
+                    setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                  } finally {
+                    setMessageSending(false);
+                  }
                 }}
+
               >
                 <div className="space-y-3">
                   <div className="flex items-end gap-2 sm:gap-3">
                     {canShareMedia && (
-
                       <div className="relative shrink-0">
                         <Button
                           type="button"
@@ -1212,7 +1283,6 @@ const SessionPage = () => {
                               </span>
                               <span>{language === "en" ? "Audio" : "Ήχος"}</span>
                             </button>
-
                           </div>
                         )}
 
@@ -1243,7 +1313,6 @@ const SessionPage = () => {
                             }
                           }}
                         />
-
                       </div>
                     )}
 
@@ -1252,15 +1321,59 @@ const SessionPage = () => {
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={stopTypingIndicator}
                       placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
-
                       className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                     />
 
-                    <Button type="submit" className="h-14 shrink-0 rounded-full bg-violet-500 px-5 text-white shadow-md shadow-violet-500/20 transition-transform duration-150 hover:bg-violet-400 active:scale-95">
-                      <span className="hidden sm:inline">{copy.session.send}</span>
-                      <Send className="h-4 w-4 sm:ml-2" />
+                    <Button
+                      type="submit"
+                      className="h-14 shrink-0 rounded-full bg-violet-500 px-5 text-white shadow-md shadow-violet-500/20 transition-transform duration-150 hover:bg-violet-400 active:scale-95"
+                      disabled={messageSending || !draft.trim()}
+                    >
+                      {messageSending ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
+                          <span className="hidden sm:inline">{language === "en" ? "Sending" : "Αποστολή"}</span>
+                        </span>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">{copy.session.send}</span>
+                          <Send className="h-4 w-4 sm:ml-2" />
+                        </>
+                      )}
                     </Button>
                   </div>
+
+                  {messageSendError && (
+                    <div className="flex flex-col gap-2 rounded-[22px] border border-amber-300/15 bg-amber-500/10 px-4 py-3 text-sm text-amber-50 sm:flex-row sm:items-center sm:justify-between">
+                      <p>{messageSendError}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white"
+                        onClick={() => {
+                          setMessageSendError(null);
+                          setMessageSending(true);
+                          void (async () => {
+                            try {
+                              const nextDraft = draft.trim();
+                              const sent = await sendMessage(nextDraft);
+                              if (sent) {
+                                setDraft("");
+                              } else {
+                                setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                              }
+                            } catch {
+                              setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                            } finally {
+                              setMessageSending(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {language === "en" ? "Retry" : "Προσπάθησε ξανά"}
+                      </Button>
+                    </div>
+                  )}
 
                   {canShareMedia && selectedMedia && (
 

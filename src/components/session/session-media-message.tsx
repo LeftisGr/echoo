@@ -3,13 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Play, Video } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { usePresence } from "@/components/presence/presence-provider";
 import { cn } from "@/lib/utils";
 import { EPHEMERAL_CONTENT_VIEWER_SECONDS } from "@/lib/ephemeral-content";
 import { requestEphemeralContentAccess } from "@/lib/content-api";
 import type { ChatMessage } from "@/lib/presence-types";
 
 export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage; isSelf: boolean }) {
+  const { language } = usePresence();
   const [openedUrl, setOpenedUrl] = useState<string | null>(message.type === "media" && message.media.url?.startsWith("blob:") ? message.media.url : null);
+
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewerExpired, setViewerExpired] = useState(false);
@@ -125,7 +128,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
       {!isOpened ? (
         <div className={cn("space-y-3 p-4", isSelf ? "bg-white" : "bg-transparent")}>
           <p className={cn("text-sm leading-6", isSelf ? "text-slate-700" : "text-white/70")}>{message.content || message.media.name}</p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
               className={cn("h-10 rounded-full px-4 text-sm font-medium transition-transform duration-150 active:scale-95", isSelf ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-violet-500 text-white hover:bg-violet-400")}
@@ -134,11 +137,27 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
                 void openContent();
               }}
             >
-              {opening ? "Opening..." : isExpired || message.mediaConsumedAt ? "Expired" : "Open once"}
+              {opening ? (language === "en" ? "Opening..." : "Ανοίγει...") : isExpired || message.mediaConsumedAt ? (language === "en" ? "Expired" : "Έληξε") : language === "en" ? "Open once" : "Άνοιγμα μία φορά"}
+
             </Button>
-            {error ? <span className={cn("text-xs", isSelf ? "text-rose-600" : "text-rose-200")}>{error}</span> : null}
+            {error ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className={cn("leading-5", isSelf ? "text-rose-600" : "text-rose-200")}>{error}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn("h-8 rounded-full border-white/10 px-3 text-white hover:bg-white/10 hover:text-white", isSelf ? "bg-white" : "bg-white/5")}
+                  onClick={() => {
+                    void openContent();
+                  }}
+                >
+                  {language === "en" ? "Retry" : "Προσπάθησε ξανά"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
+
       ) : (
         <div className="space-y-3 p-0">
           {message.media.kind === "audio" ? (

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, LoaderCircle, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
+import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
+
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
 
 const loadingWindowSeconds = 20;
@@ -94,10 +97,36 @@ const QueuePage = () => {
           : queueMessages[language][messageIndex]
         : copy.queue.found;
 
+  const statusNote =
+    phase === "loading"
+      ? language === "en"
+        ? "A quiet check before the room opens."
+        : "Ένας ήσυχος έλεγχος πριν ανοίξει το room."
+      : phase === "searching"
+        ? language === "en"
+          ? "The queue keeps moving so the room never feels frozen."
+          : "Η ουρά κινείται συνεχώς ώστε το room να μη νιώθει παγωμένο."
+        : language === "en"
+          ? "A connection has found its shape."
+          : "Μια σύνδεση έχει βρει το σχήμα της."
+;
+
   const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
 
   if (!appReady) {
-    return null;
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={language === "en" ? "Waking the queue..." : "Ξυπνάμε την ουρά..."}
+            body={language === "en" ? "The room is being tuned before the first step." : "Το room συντονίζεται πριν από το πρώτο βήμα."}
+            status={copy.misc.restoring}
+            tone="violet"
+          />
+        </div>
+      </PageShell>
+    );
   }
 
   if (!authenticated) {
@@ -132,8 +161,13 @@ const QueuePage = () => {
           <div className="flex items-center gap-3 text-left">
             <div className="relative flex h-14 w-14 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-violet-100 shadow-lg shadow-violet-500/10">
               <div className="absolute inset-1 rounded-[20px] bg-violet-500/15 animate-pulse" />
-              <LoaderCircle className="relative h-7 w-7 animate-spin" />
+              <div className="relative flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100 [animation-delay:-0.16s]" />
+                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100 [animation-delay:-0.08s]" />
+                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100" />
+              </div>
             </div>
+
             <div className="flex-1">
               <p className="text-xs uppercase tracking-[0.32em] text-white/40">Echoo listening room</p>
 
@@ -208,15 +242,8 @@ const QueuePage = () => {
                 <p className="text-sm font-medium text-white transition-opacity duration-300 ease-out" style={{ opacity: messageFading ? 0.4 : 1 }}>
                   {currentMessage}
                 </p>
-                <p className="mt-2 text-sm text-white/50">
-                  {phase === "searching"
-                    ? language === "en"
-                      ? "It updates every few seconds so the queue feels alive."
-                      : "Η κατάσταση αλλάζει κάθε λίγα δευτερόλεπτα για να νιώθεις τη ροή."
-                    : language === "en"
-                      ? "A connection is ready to open."
-                      : "Η σύνδεση είναι έτοιμη να ανοίξει."}
-                </p>
+                <p className="mt-2 text-sm text-white/50">{statusNote}</p>
+
               </div>
               <Badge className="rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
                 {phase === "match-found" ? `${matchTransition?.secondsLeft ?? 0}...` : `${secondsLeft}s`}
@@ -268,9 +295,14 @@ const QueuePage = () => {
             <div className="relative mx-auto w-full max-w-md px-6 text-center">
               <div className="mb-6 flex justify-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.25)]">
-                  <LoaderCircle className="h-9 w-9 animate-spin text-violet-100" />
+                  <div className="flex items-center gap-1.5 text-violet-100">
+                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.16s]" />
+                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.08s]" />
+                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current" />
+                  </div>
                 </div>
               </div>
+
               <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.matchFound}</p>
               <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
                 {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}

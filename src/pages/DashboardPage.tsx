@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const DashboardPage = () => {
@@ -17,11 +18,17 @@ const DashboardPage = () => {
 
   if (!profile) {
     return (
-      <PageShell className="space-y-6">
-        <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title={copy.dashboard.title} body={copy.misc.loadingProfile} />
-        </Surface>
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.dashboard.title}
+            body={language === "en" ? "Your anonymous profile is settling in." : "Το ανώνυμο προφίλ σου σταθεροποιείται."}
+            status={copy.misc.loadingProfile}
+          />
+        </div>
       </PageShell>
+
     );
   }
 

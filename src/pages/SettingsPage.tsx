@@ -3,7 +3,9 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+
 import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
 
 const SettingsPage = () => {
@@ -30,11 +32,17 @@ const SettingsPage = () => {
 
   if (!profile) {
     return (
-      <PageShell className="space-y-6">
-        <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title={copy.settings.title} body={copy.misc.loadingSettings} />
-        </Surface>
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.settings.title}
+            body={language === "en" ? "Your settings are quietly coming back." : "Οι ρυθμίσεις σου επιστρέφουν ήσυχα."}
+            status={copy.misc.loadingSettings}
+          />
+        </div>
       </PageShell>
+
     );
   }
 

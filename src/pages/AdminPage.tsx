@@ -6,7 +6,9 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+
 import { adminChartData } from "@/lib/presence-content";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -54,11 +56,18 @@ const AdminPage = () => {
 
   if (!profile) {
     return (
-      <PageShell className="space-y-6">
-        <Surface className="space-y-3 p-6 sm:p-8">
-          <SectionTitle title="Echoo admin" body={copy.misc.loadingProfile} />
-        </Surface>
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Private dashboard" : "Ιδιωτικό dashboard"}
+            title="Echoo admin"
+            body={language === "en" ? "The admin room is still settling." : "Το admin room ακόμα σταθεροποιείται."}
+            status={copy.misc.loadingProfile}
+            tone="sky"
+          />
+        </div>
       </PageShell>
+
     );
   }
 
@@ -188,10 +197,19 @@ const AdminPage = () => {
 
               <div className="mt-4 space-y-3">
                 {loadingReports ? (
-                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
-                    {copy.misc.loading}
+                  <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/55">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-violet-200/80" />
+                      {language === "en" ? "Reading the latest signals" : "Διαβάζουμε τα τελευταία σήματα"}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-3/4 animate-pulse rounded-full bg-white/8" />
+                      <div className="h-4 w-1/2 animate-pulse rounded-full bg-white/8" />
+                      <div className="h-4 w-2/3 animate-pulse rounded-full bg-white/8" />
+                    </div>
                   </div>
                 ) : recentReports.length ? (
+
                   recentReports.map((report) => (
                     <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
