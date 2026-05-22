@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ArrowRight, Check, Flag, Home, ImagePlus, Info, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
 
@@ -127,7 +127,9 @@ const SessionPage = () => {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const typingStopTimeoutRef = useRef<number | null>(null);
+  const typingHeartbeatTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
+  const typingDraftRef = useRef("");
   const shouldForceScrollRef = useRef(true);
 
   const isNearBottomRef = useRef(true);
@@ -206,9 +208,8 @@ const SessionPage = () => {
     return () => window.clearTimeout(timeout);
   }, [room?.messages]);
 
-  useEffect(() => () => stopTypingIndicator(), []);
-
   useEffect(() => {
+
     if (!room || !featureGates[FeatureGateKey.PttVoice].unlocked || room.voiceUnlockedAt) {
       return;
     }
@@ -317,40 +318,88 @@ const SessionPage = () => {
     canUseVoice &&
     voiceState === "connected";
 
-  function stopTypingIndicator() {
+  const clearTypingTimers = useCallback(() => {
     if (typingStopTimeoutRef.current) {
       window.clearTimeout(typingStopTimeoutRef.current);
       typingStopTimeoutRef.current = null;
     }
+
+    if (typingHeartbeatTimeoutRef.current) {
+      window.clearTimeout(typingHeartbeatTimeoutRef.current);
+      typingHeartbeatTimeoutRef.current = null;
+    }
+  }, []);
+
+  const stopTypingIndicator = useCallback(() => {
+    clearTypingTimers();
 
     if (!typingActiveRef.current) {
       return;
     }
 
     typingActiveRef.current = false;
+    console.info("[typing] clear", {
+      roomId: room?.id ?? null,
+      reason: "stop",
+    });
     sendTypingState(false);
-  }
+  }, [clearTypingTimers, room?.id, sendTypingState]);
 
-  function startTypingIndicator() {
+  const emitTypingHeartbeat = useCallback(() => {
+    if (!typingActiveRef.current || !typingDraftRef.current.trim()) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    console.info("[typing] emit", {
+      roomId: room?.id ?? null,
+      typing: true,
+      updatedAt,
+      source: "heartbeat",
+    });
+    sendTypingState(true, updatedAt);
+
+    typingHeartbeatTimeoutRef.current = window.setTimeout(() => {
+      emitTypingHeartbeat();
+    }, 900);
+  }, [room?.id, sendTypingState]);
+
+  const startTypingIndicator = useCallback(() => {
     if (typingActiveRef.current) {
       return;
     }
 
     typingActiveRef.current = true;
-    sendTypingState(true);
-  }
+    const updatedAt = new Date().toISOString();
+    console.info("[typing] emit", {
+      roomId: room?.id ?? null,
+      typing: true,
+      updatedAt,
+      source: "start",
+    });
+    sendTypingState(true, updatedAt);
+    emitTypingHeartbeat();
+  }, [emitTypingHeartbeat, room?.id, sendTypingState]);
 
-  function queueTypingStop() {
+  const queueTypingStop = useCallback(() => {
     if (typingStopTimeoutRef.current) {
       window.clearTimeout(typingStopTimeoutRef.current);
     }
 
+    console.info("[typing] debounce reset", {
+      roomId: room?.id ?? null,
+      typingLength: typingDraftRef.current.trim().length,
+    });
+
     typingStopTimeoutRef.current = window.setTimeout(() => {
       stopTypingIndicator();
     }, 1500);
-  }
+  }, [room?.id, stopTypingIndicator]);
+
+  useEffect(() => () => stopTypingIndicator(), [room?.id, stopTypingIndicator]);
 
   function resetMediaSelection() {
+
     if (selectedMedia?.previewUrl) {
       URL.revokeObjectURL(selectedMedia.previewUrl);
     }
@@ -504,14 +553,8 @@ const SessionPage = () => {
   }, [selectedMedia?.previewUrl]);
 
   useEffect(() => {
-    console.info("[typing] render state", {
-      roomId: room?.id ?? null,
-      remoteTyping: Boolean(typingIndicator),
-    });
-  }, [room?.id, typingIndicator]);
-
-  useEffect(() => {
     console.info("[ptt] component rerender", {
+
       roomId: room?.id ?? null,
       phase,
       voiceState,
@@ -609,7 +652,7 @@ const SessionPage = () => {
     clearPushToTalkReleaseTimeout();
     releasePushToTalk();
     stopTypingIndicator();
-  }, []);
+  }, [clearPushToTalkReleaseTimeout, releasePushToTalk, room?.id, stopTypingIndicator]);
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
 
@@ -755,25 +798,9 @@ const SessionPage = () => {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
-  const handleDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) {
-      return;
-    }
-
-    if (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Delete") {
-      return;
-    }
-
-    console.info("[typing] key pressed", { key: event.key });
-
-    if (event.key !== "Backspace" && event.key !== "Delete") {
-      startTypingIndicator();
-      queueTypingStop();
-    }
-  };
-
   const handleDraftChange = (value: string) => {
     setDraft(value);
+    typingDraftRef.current = value;
 
     if (!value.trim()) {
       stopTypingIndicator();
@@ -1215,7 +1242,6 @@ const SessionPage = () => {
 
                     <Input
                       value={draft}
-                      onKeyDown={handleDraftKeyDown}
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={stopTypingIndicator}
                       placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
@@ -1439,7 +1465,7 @@ const SessionPage = () => {
                   {typingIndicator && (
 
                     <div className="mt-1 inline-flex min-h-[2.5rem] items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-sm text-violet-50/90 transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                      <span className="truncate">{language === "en" ? "The other side is typing…" : "Η άλλη πλευρά γράφει…"}</span>
+                      <span className="truncate">{language === "en" ? "Typing..." : "ΓΡΑΦΕΙ..."}</span>
 
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-violet-100/80 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />

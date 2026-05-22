@@ -640,7 +640,7 @@ export async function persistRoom(room: RoomSession) {
   return { ok: true, room };
 }
 
-export async function persistRoomTyping(room: RoomSession, typingUserId: string | null) {
+export async function persistRoomTyping(room: RoomSession, typingUserId: string | null, updatedAt = new Date().toISOString()) {
   if (!hasSupabaseConfig) {
     return createOfflineResult({ ok: true, roomId: room.id, typingUserId });
   }
@@ -649,7 +649,7 @@ export async function persistRoomTyping(room: RoomSession, typingUserId: string 
     .from("rooms")
     .update({
       typing_user_id: typingUserId,
-      typing_updated_at: typingUserId ? new Date().toISOString() : null,
+      typing_updated_at: updatedAt,
     })
     .eq("id", room.id);
 
