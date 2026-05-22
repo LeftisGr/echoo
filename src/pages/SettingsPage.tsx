@@ -97,7 +97,12 @@ const SettingsPage = () => {
 
           <Surface className="space-y-5 p-5">
             <SwitchRow label={copy.settings.haptics} checked={hapticsEnabled} onCheckedChange={setHapticsEnabled} />
-            <SwitchRow label={copy.settings.matchSound} checked={matchSoundEnabled} onCheckedChange={setMatchSoundEnabled} />
+            <SwitchRow
+              label={copy.settings.matchSound}
+              description={language === "en" ? "Soft tones for matching, push-to-talk, and unlock moments." : "Απαλοί ήχοι για matching, push-to-talk και ξεκλειδώματα."}
+              checked={matchSoundEnabled}
+              onCheckedChange={setMatchSoundEnabled}
+            />
             <SwitchRow label={copy.settings.reconnect} checked={reconnectEnabled} onCheckedChange={setReconnectEnabled} />
           </Surface>
         </div>
@@ -119,16 +124,21 @@ const SettingsPage = () => {
 
 function SwitchRow({
   label,
+  description,
   checked,
   onCheckedChange,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-black/20 p-4">
-      <p className="text-sm text-white/75">{label}</p>
+      <div className="space-y-1">
+        <p className="text-sm text-white/75">{label}</p>
+        {description && <p className="max-w-xs text-xs leading-5 text-white/45">{description}</p>}
+      </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );

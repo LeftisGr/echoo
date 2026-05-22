@@ -40,6 +40,7 @@ import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTr
 import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
+import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import {
   MEDIA_UPLOAD_BUCKET,
@@ -259,37 +260,6 @@ function vibrate(pattern: number | number[]) {
   }
 
   navigator.vibrate(pattern);
-}
-
-function playMatchFoundSound() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const AudioContextClass = window.AudioContext;
-  if (!AudioContextClass) {
-    return;
-  }
-
-  const context = new AudioContextClass();
-  const gain = context.createGain();
-  gain.gain.value = 0.0001;
-  gain.connect(context.destination);
-
-  const oscillator = context.createOscillator();
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(784, context.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(987, context.currentTime + 0.12);
-  oscillator.connect(gain);
-  oscillator.start();
-
-  gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22);
-  oscillator.stop(context.currentTime + 0.24);
-
-  oscillator.onended = () => {
-    void context.close();
-  };
 }
 
 function randomFrom<T>(items: readonly T[]) {
@@ -1088,6 +1058,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [queue]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        language,
+        authenticated,
+        reportsCount,
+        ratings,
+        matchSoundEnabled,
+      }),
+    );
+  }, [authenticated, language, matchSoundEnabled, ratings, reportsCount]);
+
+  useEffect(() => {
     if (!sessionReady || !authenticated) {
       return;
     }
@@ -1655,9 +1642,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         secondsLeft: 3,
       });
 
-      if (matchSoundEnabled) {
-        playMatchFoundSound();
-      }
+      playSoundFeedback("match", matchSoundEnabled);
 
       await openRoom(activeRoom.id, currentUserId, activeRoom);
       setQueue(createInitialQueue(profile));
@@ -2298,22 +2283,30 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [profile]);
 
   const unlockVoice = useCallback(() => {
+    let nextRoom: RoomSession | null = null;
+
     setRoom((current) => {
       if (!current || current.voiceEnabled) {
         return current;
       }
 
       const unlockedAt = new Date().toISOString();
-      const nextRoom = {
+      nextRoom = {
         ...current,
         voiceEnabled: true,
         voiceUnlockedAt: unlockedAt,
       };
-      void persistRoom(nextRoom);
-      toast.success(copy.session.voiceUnlocked);
       return nextRoom;
     });
-  }, [copy.session.voiceUnlocked]);
+
+    if (!nextRoom) {
+      return;
+    }
+
+    void persistRoom(nextRoom);
+    toast.success(copy.session.voiceUnlocked);
+    playSoundFeedback("unlock", matchSoundEnabled);
+  }, [copy.session.voiceUnlocked, matchSoundEnabled]);
   const sendMessage = useCallback(
     async (content: string) => {
       if (!room || !profile || !content.trim()) {
@@ -2529,6 +2522,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         messageId: mediaMessage.id,
         kind: preview.kind,
       });
+      playSoundFeedback("content-reveal", matchSoundEnabled);
 
     } catch (error) {
       console.info("[media] upload failed", {

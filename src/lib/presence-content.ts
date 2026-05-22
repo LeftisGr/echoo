@@ -271,7 +271,8 @@ export const copy = {
       lookingFor: "Looking for",
       haptics: "Haptic feedback",
       reconnect: "Reconnect when possible",
-      matchSound: "Match sound",
+      matchSound: "Sound feedback",
+
       save: "Saved",
       privacy: "Privacy and data",
       account: "Account",
@@ -580,7 +581,8 @@ export const copy = {
       lookingFor: "Αναζητώ",
       haptics: "Δόνηση",
       reconnect: "Επανασύνδεση όταν γίνεται",
-      matchSound: "Ήχος match",
+      matchSound: "Ήχοι feedback",
+
       save: "Αποθηκεύτηκε",
       privacy: "Απόρρητο και δεδομένα",
       account: "Λογαριασμός",

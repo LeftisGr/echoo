@@ -16,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +38,7 @@ import {
   prepareMediaUpload,
 } from "@/lib/session-media";
 import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
+import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn, upperWithoutAccents } from "@/lib/utils";
 import { SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
@@ -78,6 +79,7 @@ const SessionPage = () => {
     profile,
     copy,
     language,
+    matchSoundEnabled,
     online,
     unlockVoice,
     sendMessage,
@@ -250,10 +252,17 @@ const SessionPage = () => {
       return;
     }
 
+    const hasUnlockMessage = room.messages.some((message) => message.type === "system" && message.content === copy.session.mediaUnlocked);
     mediaUnlockMessageRoomIdRef.current = room.id;
+
+    if (hasUnlockMessage) {
+      return;
+    }
+
     appendSystemMessage(copy.session.mediaUnlocked);
     console.info("[session] media unlocked", { roomId: room.id, feature: FeatureGateKey.EphemeralContent });
-  }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, room]);
+    playSoundFeedback("content-reveal", matchSoundEnabled);
+  }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, matchSoundEnabled, room]);
 
   useEffect(() => {
     if (featureGates[FeatureGateKey.EphemeralContent].unlocked) {
@@ -605,9 +614,10 @@ const SessionPage = () => {
         pointerId: pointerId ?? null,
       });
       setVoiceTransmissionEnabled(false);
+      playSoundFeedback("ptt-release", matchSoundEnabled);
 
     },
-    [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled],
+    [clearPushToTalkReleaseTimeout, matchSoundEnabled, phase, room?.id, setVoiceTransmissionEnabled],
   );
 
   const handlePushToTalkPress = useCallback(
@@ -641,9 +651,10 @@ const SessionPage = () => {
         pointerId,
       });
       setVoiceTransmissionEnabled(true);
+      playSoundFeedback("ptt-press", matchSoundEnabled);
 
     },
-    [clearPushToTalkReleaseTimeout, phase, room?.id, setVoiceTransmissionEnabled, voiceReady, voiceState],
+    [clearPushToTalkReleaseTimeout, matchSoundEnabled, phase, room?.id, setVoiceTransmissionEnabled, voiceReady, voiceState],
   );
 
   useEffect(() => {
@@ -945,35 +956,45 @@ const SessionPage = () => {
             <div className="min-w-0 flex-1 pr-2 text-left">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={cn("h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-300", voiceStatusDotClass)}
+                    aria-label={language === "en" ? "Audio status" : "Κατάσταση ήχου"}
+                    title={
+                      voiceState === "connected"
+                        ? language === "en"
+                          ? "Live"
+                          : "Live"
+                        : voiceState === "connecting" || voiceState === "requesting-microphone"
+                          ? language === "en"
+                            ? "Connecting"
+                            : "Συνδέεται"
+                          : voiceState === "reconnecting"
+                            ? language === "en"
+                              ? "Reconnecting"
+                              : "Επανασύνδεση"
+                            : voiceState === "failed" || voiceState === "error"
+                              ? language === "en"
+                                ? "Connection issue"
+                                : "Πρόβλημα σύνδεσης"
+                              : language === "en"
+                                ? "Idle"
+                                : "Ανενεργό"
+                    }
+                  />
+                  <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-7 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
-                        aria-label={language === "en" ? "When should you report this room?" : "Ποτε να κανεις report σε αυτο το room;"}
-
-                      >
-                        <Flag className="mr-1.5 h-3.5 w-3.5" />
-                        {language === "en" ? "Report" : "Αναφορά"}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="border-white/10 bg-[#11192b] text-white sm:max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle className="text-left text-white">
-                              {language === "en" ? "When should you report?" : "Ποτε να κανεις report;"}
-                            </DialogTitle>
-    
-                        <DialogDescription className="text-left text-white/60">
-                          {language === "en"
-                            ? "Use reporting when someone is harassing, threatening, spamming, or breaking the room rules. Reports help us review behavior and keep Echoo safer."
-                            : "Χρησιμοποίησε την αναφορά όταν κάποιος παρενοχλεί, απειλεί, σπαμάρει ή παραβιάζει τους κανόνες του room. Οι αναφορές βοηθούν να ελέγχουμε τη συμπεριφορά και να κρατάμε το Echoo πιο ασφαλές."}
-                        </DialogDescription>
-                      </DialogHeader>
-                    </DialogContent>
-                  </Dialog>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2.5 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white"
+                    aria-label={language === "en" ? "Open report window" : "Άνοιγμα παραθύρου αναφοράς"}
+                    onClick={() => setReportDialogOpen(true)}
+                  >
+                    <Flag className="mr-1.5 h-3.5 w-3.5" />
+                    {language === "en" ? "Report" : "Αναφορά"}
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -989,7 +1010,6 @@ const SessionPage = () => {
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
-                <span className={cn("h-2.5 w-2.5 rounded-full transition-colors duration-300", voiceStatusDotClass)} aria-label={language === "en" ? "Audio status" : "Κατάσταση ήχου"} title={voiceState === "connected" ? (language === "en" ? "Live" : "Live") : voiceState === "connecting" || voiceState === "requesting-microphone" ? (language === "en" ? "Connecting" : "Συνδέεται") : voiceState === "reconnecting" ? (language === "en" ? "Reconnecting" : "Επανασύνδεση") : voiceState === "failed" || voiceState === "error" ? (language === "en" ? "Connection issue" : "Πρόβλημα σύνδεσης") : (language === "en" ? "Idle" : "Ανενεργό")} />
                 {voicePlaybackBlocked && (
                   <Button
                     type="button"

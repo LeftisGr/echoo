@@ -37,11 +37,11 @@ function MenuSheet() {
           {copy.landing.stickyMenu}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="border-white/10 bg-[#0d1020] text-white">
+      <SheetContent side="right" className="max-h-[100dvh] overflow-y-auto border-white/10 bg-[#0d1020] text-white overscroll-contain">
         <SheetHeader>
           <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
         </SheetHeader>
-        <div className="mt-8 space-y-3">
+        <div className="mt-8 space-y-3 pb-6 pr-1">
           <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3">
             <PwaInstallButton className="w-full justify-center" />
           </div>
