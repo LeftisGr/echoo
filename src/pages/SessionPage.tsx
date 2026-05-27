@@ -719,15 +719,15 @@ const SessionPage = () => {
         : "Βρίσκουμε το room σου..."
       : language === "en"
         ? "Restoring your room..."
-        : "Αποκαθιστούμε το room σου...";
+        : "Φέρνουμε ξανά το room σου...";
 
     const loadingBody = queue.active
       ? language === "en"
-        ? "We’re reconnecting the path between queue and room. The next scene is almost ready."
-        : "Επανασυνδέουμε τη διαδρομή ανάμεσα στην ουρά και το room. Η επόμενη σκηνή είναι σχεδόν έτοιμη."
+        ? "We’re gently reconnecting the path between queue and room."
+        : "Επανασυνδέουμε απαλά τη διαδρομή ανάμεσα στην ουρά και το room."
       : language === "en"
-        ? "Hold for a second while Echoo settles the connection."
-        : "Περίμενε μια στιγμή όσο το Echoo σταθεροποιεί τη σύνδεση.";
+        ? "Hold for a second while Echoo settles the room."
+        : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room.";
 
     return (
       <PageShell className="flex items-center">
@@ -1119,7 +1119,7 @@ const SessionPage = () => {
                   type="button"
                   variant="outline"
                   className="h-6 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
-                  aria-label={language === "en" ? "Open report window" : "Άνοιγμα παραθύρου αναφοράς"}
+                  aria-label={language === "en" ? "Open report" : "Άνοιγμα αναφοράς"}
                   onClick={() => setReportDialogOpen(true)}
                 >
                   <Flag className="mr-1 h-3 w-3" />
@@ -1134,7 +1134,7 @@ const SessionPage = () => {
                   }}
                 >
                   <PhoneOff className="mr-1 h-3 w-3" />
-                  {language === "en" ? "Block" : "Μπλοκ"}
+                  {language === "en" ? "Block" : "Αποκλεισμός"}
                 </Button>
                 {voicePlaybackBlocked && (
                   <Button
@@ -1396,10 +1396,10 @@ const SessionPage = () => {
                     if (sent) {
                       setDraft("");
                     } else {
-                      setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                      setMessageSendError(language === "en" ? "That message didn’t go through. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
                     }
                   } catch {
-                    setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                    setMessageSendError(language === "en" ? "That message didn’t go through. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
                   } finally {
                     setMessageSending(false);
                   }
@@ -1531,10 +1531,10 @@ const SessionPage = () => {
                               if (sent) {
                                 setDraft("");
                               } else {
-                                setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                                setMessageSendError(language === "en" ? "That message didn’t go through. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
                               }
                             } catch {
-                              setMessageSendError(language === "en" ? "That message didn’t land. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
+                              setMessageSendError(language === "en" ? "That message didn’t go through. Try again." : "Το μήνυμα δεν στάλθηκε. Δοκίμασε ξανά.");
                             } finally {
                               setMessageSending(false);
                             }
@@ -1796,7 +1796,9 @@ const SessionPage = () => {
                   {language === "en" ? "Start a new room or go home" : "Νεο room ή αρχικη;"}
 
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-white/60">{copy.session.howWasIt}</p>
+                <p className="mt-2 text-sm leading-6 text-white/60">
+                  {language === "en" ? "A small reflection helps us keep Echoo calm and useful." : "Μια μικρή σκέψη μας βοηθά να κρατάμε το Echoo ήρεμο και χρήσιμο."}
+                </p>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                   <Button
                     className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
@@ -1831,7 +1833,7 @@ const SessionPage = () => {
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{language === "en" ? "Report room" : "Αναφορά room"}</DialogTitle>
+            <DialogTitle>{language === "en" ? "Raise a concern" : "Αναφορά room"}</DialogTitle>
             <DialogDescription className="text-white/55">
               {language === "en"
                 ? "Help us keep Echoo safe and respectful."

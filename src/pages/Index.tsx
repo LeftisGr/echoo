@@ -275,9 +275,17 @@ const Index = () => {
               <p className="text-sm text-white/50">{copy.nav.about}</p>
               <p className="mt-1 text-lg font-medium text-white">{copy.about.title}</p>
             </Link>
+            <Link to="/community-guidelines" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
+              <p className="text-sm text-white/50">{copy.nav.guidelines}</p>
+              <p className="mt-1 text-lg font-medium text-white">{language === "en" ? "Kindness first" : "Η καλοσύνη πρώτα"}</p>
+            </Link>
             <Link to="/privacy" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
               <p className="text-sm text-white/50">{copy.nav.privacy}</p>
               <p className="mt-1 text-lg font-medium text-white">{copy.legal.privacyTitle}</p>
+            </Link>
+            <Link to="/voice-unlock" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
+              <p className="text-sm text-white/50">{copy.nav.voiceUnlock}</p>
+              <p className="mt-1 text-lg font-medium text-white">{language === "en" ? "Why voice waits" : "Γιατί η φωνή περιμένει"}</p>
             </Link>
             <Link to="/retention" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
               <p className="text-sm text-white/50">{copy.nav.retention}</p>

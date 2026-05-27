@@ -14,6 +14,7 @@ import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
 import AboutPage from "@/pages/AboutPage";
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
+import CommunityGuidelinesPage from "@/pages/CommunityGuidelinesPage";
 import ContactPage from "@/pages/ContactPage";
 import DashboardPage from "@/pages/DashboardPage";
 import FAQPage from "@/pages/FAQPage";
@@ -28,6 +29,7 @@ import SessionPage from "@/pages/SessionPage";
 import SettingsPage from "@/pages/SettingsPage";
 import SupportPage from "@/pages/SupportPage";
 import TermsPage from "@/pages/TermsPage";
+import VoiceUnlockPage from "@/pages/VoiceUnlockPage";
 
 const queryClient = new QueryClient();
 const routeStorageKey = "presence-mvp-route";
@@ -104,7 +106,9 @@ function AppRoutes() {
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
         <Route path="/retention" element={<RetentionPage />} />
+        <Route path="/voice-unlock" element={<VoiceUnlockPage />} />
         <Route path="/safety" element={<SafetyPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />

@@ -56,17 +56,17 @@ export const ratingOptions: RatingScore[] = ["good", "neutral", "bad"];
 
 export const queueMessages = {
   en: [
-    "Listening for someone nearby...",
-    "Finding a live connection...",
+    "Listening for a calm connection...",
+    "Finding someone with the right pace...",
     "Matching by language and energy...",
-    "Your room is almost here...",
+    "Your room is nearly ready...",
 
   ],
   el: [
-    "Ακούμε για κάποιον κοντά σου...",
-    "Βρίσκουμε μια live σύνδεση...",
+    "Ακούμε για μια ήρεμη σύνδεση...",
+    "Βρίσκουμε κάποιον με τον σωστό ρυθμό...",
     "Κάνουμε match με βάση γλώσσα και ενέργεια...",
-    "Το room σου ερχεται σε λιγο...",
+    "Το room σου είναι σχεδόν έτοιμο...",
 
   ],
 } as const;
@@ -74,17 +74,17 @@ export const queueMessages = {
 export const partnerReplies = {
   en: [
     "That felt honest. What kind of conversations stay with you?",
-    "I like your pace. What made you open Echoo tonight?",
+    "I like your pace. What brought you to Echoo tonight?",
     "You sound thoughtful. What are you in the mood for right now?",
-    "That was a good first line. Want to go a little deeper?",
-    "Soft start. I like that. What matters to you lately?",
+    "Soft first line. Want to keep it gentle?",
+    "I like the quiet start. What matters to you lately?",
   ],
   el: [
     "Αυτό ακούστηκε ειλικρινές. Τι είδους κουβέντες σου μένουν;",
     "Μου αρέσει ο ρυθμός σου. Τι σε έφερε στο Echoo απόψε;",
     "Ακούγεσαι σκεπτικός/ή. Τι διάθεση έχεις αυτή τη στιγμή;",
-    "Καλή πρώτη ατάκα. Θες να πάμε λίγο πιο βαθιά;",
-    "Ήρεμο ξεκίνημα. Μου αρέσει. Τι σε νοιάζει τελευταία;",
+    "Ήρεμη πρώτη ατάκα. Θες να το κρατήσουμε απαλό;",
+    "Μου αρέσει το ήσυχο ξεκίνημα. Τι σε νοιάζει τελευταία;",
   ],
 } as const;
 
@@ -112,6 +112,8 @@ export const copy = {
 
       dashboard: "Dashboard",
       safety: "Safety",
+      guidelines: "Guidelines",
+      voiceUnlock: "Voice unlock",
       settings: "Settings",
       support: "Support",
       contact: "Contact",
@@ -202,16 +204,16 @@ export const copy = {
 
     },
     queue: {
-      title: "Listening for your next connection",
-      body: "We’re finding someone nearby or online who fits your current vibe and language.",
+      title: "Waiting for the next calm connection",
+      body: "We’re looking for someone nearby or online who matches your language and pace.",
       cancel: "Leave queue",
       changeFilters: "Adjust preferences",
       found: "A room is opening...",
 
-      relaxed: "No one is free right now. Stay in the queue?",
+      relaxed: "No one is ready just yet. Stay in the queue?",
       offline: "You’re offline. We’ll keep listening when the connection returns.",
-      loading: "The room is warming up...",
-      searching: "Listening for the right shape...",
+      loading: "Bringing the room into focus...",
+      searching: "Listening for the right pace...",
       matchFound: "A room is opening.",
 
     },
@@ -231,18 +233,18 @@ export const copy = {
       keepText: "Keep it text only",
       voiceStarting: "Voice is coming online...",
       connected: "You’re live",
-      listening: "Listening...",
+      listening: "Listening quietly...",
       ended: "Room ended.",
       findNew: "Start another room",
       backHome: "Back home",
       howWasIt: "How did it feel?",
       report: "Report room",
       block: "Block connection",
-      connectionLost: "The room was interrupted. Trying to reconnect...",
+      connectionLost: "The room paused for a moment. Trying to reconnect...",
 
-      partnerDisconnected: "The connection ended from the other side.",
+      partnerDisconnected: "The other side left the room.",
       you: "You",
-      partner: "Connection",
+      partner: "Room side",
       countdownLabel: "The room is opening",
 
       textPhase: "Text phase",
@@ -254,7 +256,7 @@ export const copy = {
       pttActive: "Your voice is live",
       pttRelease: "Release to settle back in",
 
-      mediaHint: "Share one photo or short clip when it feels earned.",
+      mediaHint: "Share one photo or short clip when it feels right.",
       whisper: "The room feels quiet. Say hello.",
     },
     safety: {
@@ -338,28 +340,28 @@ export const copy = {
       nonbinary: "Non-binary",
       preferNot: "Prefer not to say",
       online: "Online",
-      reconnecting: "Reconnecting...",
-      stable: "Live and stable",
-      noUsers: "No one is available right now. Stay in the queue?",
+      reconnecting: "Softly reconnecting...",
+      stable: "Live and calm",
+      noUsers: "No one is ready just yet. Stay in the queue?",
       sessionReady: "Your room is ready.",
-      profileSaved: "Profile updated.",
-      blocked: "Connection blocked.",
+      profileSaved: "Profile saved.",
+      blocked: "That connection is blocked.",
       reported: "Report sent.",
-      ratingSaved: "Thanks for the feedback.",
+      ratingSaved: "Thanks for taking a moment to rate the room.",
       signedIn: "You’re signed in anonymously.",
       signedOut: "You’ve signed out.",
       signIn: "Sign in",
-      guestSessionReady: "Guest session ready.",
+      guestSessionReady: "Guest room ready.",
       loading: "Loading...",
-      restoring: "Restoring your room...",
+      restoring: "Bringing your room back...",
 
       loadingProfile: "Loading your profile...",
       loadingSettings: "Loading your settings...",
-      listening: "Listening...",
-      reconnectingMoment: "Trying to reconnect...",
-      connectionInterrupted: "The room was interrupted.",
+      listening: "Listening quietly...",
+      reconnectingMoment: "Trying to reconnect the room...",
+      connectionInterrupted: "The room paused for a moment.",
 
-      connectionMissing: "Couldn’t reach the other side.",
+      connectionMissing: "We couldn’t reach the other side.",
       noChatYet: "Nothing shared yet.",
       noMediaYet: "No shared content yet.",
       permissionMic: "Microphone access is needed to begin.",
@@ -426,6 +428,8 @@ export const copy = {
 
       dashboard: "Πίνακας",
       safety: "Ασφάλεια",
+      guidelines: "Οδηγίες",
+      voiceUnlock: "Ξεκλείδωμα φωνής",
       settings: "Ρυθμίσεις",
       support: "Υποστήριξη",
       contact: "Επικοινωνία",
@@ -516,16 +520,16 @@ export const copy = {
 
     },
     queue: {
-      title: "Ακούμε για την επόμενη σύνδεσή σου",
-      body: "Βρίσκουμε κάποιον κοντά σου ή online που ταιριάζει με το vibe και τη γλώσσα σου.",
+      title: "Περιμένουμε την επόμενη ήρεμη σύνδεσή σου",
+      body: "Βρίσκουμε κάποιον κοντά σου ή online που ταιριάζει με τη γλώσσα και τον ρυθμό σου.",
       cancel: "Έξοδος από την ουρά",
       changeFilters: "Ρύθμισε προτιμήσεις",
       found: "Ενα room ανοίγει...",
 
-      relaxed: "Δεν είναι διαθέσιμος κανείς τώρα. Να μείνεις στην ουρά;",
+      relaxed: "Δεν είναι έτοιμος κανείς ακόμη. Να μείνεις στην ουρά;",
       offline: "Είσαι offline. Θα συνεχίσουμε όταν επιστρέψει η σύνδεση.",
-      loading: "Το room ζεσταίνεται...",
-      searching: "Ακούμε το σωστό σχήμα...",
+      loading: "Φέρνουμε το room σε εστίαση...",
+      searching: "Ακούμε τον σωστό ρυθμό...",
       matchFound: "Ένα room ανοίγει.",
 
     },
@@ -545,18 +549,18 @@ export const copy = {
       keepText: "Μείνε μόνο στο text",
       voiceStarting: "Η φωνή συνδέεται...",
       connected: "Είσαι live",
-      listening: "Ακούμε...",
+      listening: "Ακούμε ήσυχα...",
       ended: "Το room έληξε.",
       findNew: "Ξεκίνα άλλο room",
       backHome: "Πίσω στην αρχική",
       howWasIt: "Πώς σου φάνηκε;",
       report: "Αναφορά room",
       block: "Αποκλεισμός σύνδεσης",
-      connectionLost: "Το room διακόπηκε. Προσπαθούμε να επανασυνδεθούμε...",
+      connectionLost: "Το room έκανε παύση για λίγο. Προσπαθούμε να επανασυνδεθούμε...",
 
-      partnerDisconnected: "Η σύνδεση έκλεισε από την άλλη πλευρά.",
+      partnerDisconnected: "Το room έκλεισε από την άλλη πλευρά.",
       you: "Εσύ",
-      partner: "Η σύνδεση",
+      partner: "Η άλλη πλευρά",
       countdownLabel: "Το room ανοίγει",
 
       textPhase: "Φάση text",
@@ -566,7 +570,7 @@ export const copy = {
       noMessages: "Δεν μοιράστηκε τίποτα ακόμη.",
       pttIdle: "Κράτα για να μιλήσεις",
       pttActive: "Η φωνή σου είναι live",
-      pttRelease: "Άφησε για να ξαναμπεις στην ησυχία",
+      pttRelease: "Άφησε για να ξαναμπείς στην ησυχία",
 
       mediaHint: "Μοίρασε μία φωτογραφία ή ένα σύντομο clip όταν το room το αξίζει.",
 
@@ -671,7 +675,8 @@ export const copy = {
       loadingProfile: "Φορτώνουμε το προφίλ σου...",
       loadingSettings: "Φορτώνουμε τις ρυθμίσεις σου...",
       listening: "Ακούμε...",
-      reconnectingMoment: "Προσπαθούμε να επανασυνδεθούμε...",
+      reconnectingMoment: "Προσπαθούμε να επανασυνδέσουμε το room...",
+
       connectionInterrupted: "Το room διακόπηκε.",
 
       connectionMissing: "Δεν μπορέσαμε να φτάσουμε στην άλλη πλευρά.",

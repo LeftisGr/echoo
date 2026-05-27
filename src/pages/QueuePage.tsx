@@ -106,11 +106,11 @@ const QueuePage = () => {
         : "Ένας ήσυχος έλεγχος πριν ανοίξει το room."
       : phase === "searching"
         ? language === "en"
-          ? "The queue keeps moving so the room never feels frozen."
-          : "Η ουρά κινείται συνεχώς ώστε το room να μη νιώθει παγωμένο."
+          ? "The queue keeps moving so the room never feels stuck."
+          : "Η ουρά κινείται συνεχώς ώστε το room να μη νιώθει κολλημένο."
         : language === "en"
           ? "A connection has found its shape."
-          : "Μια σύνδεση έχει βρει το σχήμα της."
+          : "Μια σύνδεση έχει βρει τον ρυθμό της."
 ;
 
   const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
@@ -122,8 +122,8 @@ const QueuePage = () => {
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow="Echoo"
-            title={language === "en" ? "Waking the queue..." : "Ξυπνάμε την ουρά..."}
-            body={language === "en" ? "The room is being tuned before the first step." : "Το room συντονίζεται πριν από το πρώτο βήμα."}
+            title={language === "en" ? "Bringing the queue back..." : "Φέρνουμε την ουρά πίσω..."}
+            body={language === "en" ? "The room is settling before the first step." : "Το room ηρεμεί πριν από το πρώτο βήμα."}
             status={copy.misc.restoring}
             tone="violet"
           />

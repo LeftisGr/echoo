@@ -18,6 +18,8 @@ function MenuSheet() {
     { to: "/faq", label: copy.nav.faq, icon: Sparkles },
     { to: "/support", label: copy.nav.support, icon: Shield },
     { to: "/contact", label: copy.nav.contact, icon: Shield },
+    { to: "/community-guidelines", label: copy.nav.guidelines, icon: Shield },
+    { to: "/voice-unlock", label: copy.nav.voiceUnlock, icon: Sparkles },
     { to: "/safety", label: copy.nav.safety, icon: Shield },
     { to: "/settings", label: copy.nav.settings, icon: Globe },
     { to: "/privacy", label: copy.nav.privacy, icon: Shield },
