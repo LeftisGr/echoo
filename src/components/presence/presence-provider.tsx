@@ -21,8 +21,10 @@ import {
   leaveQueue,
   loadActiveRoomForUser,
   loadBlockedUserIds,
+  loadModerationState,
   loadProfile,
   loadRoomById,
+
   loadRoomMessages,
   matchQueueUser,
   persistBlock,
@@ -57,10 +59,12 @@ import {
 } from "@/lib/session-media";
 
 import type {
+  AccountRestriction,
   AdminMetrics,
   AppLanguage,
   AuthMethod,
   ChatMessage,
+
   PresenceProfile,
   PresenceStoredState,
   QueueFilters,
@@ -143,6 +147,7 @@ interface PresenceContextValue {
   userId: string | null;
   isAdmin: boolean;
   blockedUserCount: number;
+  accountRestriction: AccountRestriction;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
 
@@ -725,8 +730,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [matchTransition, setMatchTransition] = useState<MatchTransitionState | null>(null);
   const [guestMode, setGuestMode] = useState(readStoredGuestSession());
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accountRestriction, setAccountRestriction] = useState<AccountRestriction>({
+    status: "ok",
+    reason: null,
+    expiresAt: null,
+  });
 
   const [reportsCount, setReportsCount] = useState(stored.reportsCount ?? 0);
+
   const [ratings, setRatings] = useState<RatingScore[]>(stored.ratings ?? []);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [voiceMuted, setVoiceMutedState] = useState(false);
@@ -771,6 +782,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const queueTimersRef = useRef<number[]>([]);
   const typingStopTimeoutRef = useRef<number | null>(null);
+  const typingIndicatorTimeoutRef = useRef<number | null>(null);
   const typingIsActiveRef = useRef(false);
   const mediaUploadCooldownRef = useRef(0);
 
@@ -890,6 +902,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       typingStopTimeoutRef.current = null;
     }
 
+    if (typingIndicatorTimeoutRef.current !== null) {
+      window.clearTimeout(typingIndicatorTimeoutRef.current);
+      typingIndicatorTimeoutRef.current = null;
+    }
+
     typingIsActiveRef.current = false;
     setTypingIndicator(null);
 
@@ -1006,6 +1023,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [room?.id, room?.status, room?.typingUpdatedAt, room?.typingUserId, syncTypingIndicatorFromRoom]);
 
   useEffect(() => {
+    if (typingIndicatorTimeoutRef.current !== null) {
+      window.clearTimeout(typingIndicatorTimeoutRef.current);
+      typingIndicatorTimeoutRef.current = null;
+    }
+
+    if (!typingIndicator) {
+      return;
+    }
+
+    typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+      clearTypingIndicator("failsafe-timeout");
+    }, 2000);
+
+    return () => {
+      if (typingIndicatorTimeoutRef.current !== null) {
+        window.clearTimeout(typingIndicatorTimeoutRef.current);
+        typingIndicatorTimeoutRef.current = null;
+      }
+    };
+  }, [clearTypingIndicator, typingIndicator?.roomId, typingIndicator?.senderId, typingIndicator?.updatedAt]);
+
+  useEffect(() => {
+
     if (voiceState === "failed" || voiceState === "error") {
       clearTypingIndicator("voice-failed");
     }
@@ -1149,7 +1189,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setVoiceState("idle");
         setVoiceDiagnostics(null);
         setIsAdmin(false);
+        setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
         writeStoredGuestSession(false);
+
         writeStoredGuestProfile(null);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
@@ -1182,7 +1224,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setVoiceState("idle");
         setVoiceDiagnostics(null);
         setIsAdmin(false);
+        setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
         writeStoredRoomState(null, null);
+
         writeStoredMatchTransition(null);
       } finally {
         setAuthLoaded(true);
@@ -1479,8 +1523,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered"));
 
     setIsAdmin(profileToUse.role === "admin");
+    setAccountRestriction(await loadModerationState(currentUserId).catch(() => ({ status: "ok", reason: null, expiresAt: null })));
 
     if (loadedProfile) {
+
       setProfile(loadedProfile);
       setQueue((current) => ({
         ...current,
@@ -2234,7 +2280,28 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await syncProfile(activeProfile);
     }
 
+    if (accountRestriction.status === "suspended") {
+      toast.error(
+        accountRestriction.reason ??
+          (language === "en"
+            ? "Your account is temporarily paused from joining rooms."
+            : "Ο λογαριασμός σου έχει προσωρινά παγώσει από τα rooms."),
+      );
+      return;
+    }
+
+    if (accountRestriction.status === "banned") {
+      toast.error(
+        accountRestriction.reason ??
+          (language === "en"
+            ? "Your account can’t enter matchmaking."
+            : "Ο λογαριασμός σου δεν μπορεί να μπει στο matchmaking."),
+      );
+      return;
+    }
+
     const safety = await recordSafetyEvent("queue_join", null, null, {
+
       preference: activeProfile.preference,
       language: activeProfile.language,
     });
@@ -2302,7 +2369,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     writeStoredQueueState(nextQueue);
   }, [profile]);
 
+  useEffect(() => {
+    if (queue.active && (accountRestriction.status === "suspended" || accountRestriction.status === "banned")) {
+      void cancelQueue().catch(() => undefined);
+    }
+  }, [accountRestriction.status, cancelQueue, queue.active]);
+
   const unlockVoice = useCallback(() => {
+
     let nextRoom: RoomSession | null = null;
 
     setRoom((current) => {
@@ -2850,6 +2924,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId,
       isAdmin,
       blockedUserCount: blockedUserIds.length,
+      accountRestriction,
       login,
 
       logout,
@@ -2885,9 +2960,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       authenticated,
       blockCurrentPartner,
       blockedUserIds.length,
+      accountRestriction,
       cancelQueue,
 
       copy,
+
       hapticsEnabled,
       initializing,
       isAdmin,

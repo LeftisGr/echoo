@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Flag, Gauge, Home, MessagesSquare, RefreshCcw, UserPlus, Users } from "lucide-react";
+import { Activity, Flag, Gauge, Home, MessagesSquare, RefreshCcw, Shield, UserMinus, UserPlus, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { Link, Navigate } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
@@ -11,6 +12,7 @@ import { usePresence } from "@/components/presence/presence-provider";
 
 import { adminChartData } from "@/lib/presence-content";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const chartConfig = {
   sessions: { label: "Sessions", color: "#8b5cf6" },
@@ -24,25 +26,69 @@ type ReportRow = {
   reporter_id: string;
   reported_user: string;
   reason: string;
+  status: string;
+  reviewed_at: string | null;
+  moderation_action: string | null;
+  moderation_reason: string | null;
   created_at: string;
 };
+
+type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
 
 const AdminPage = () => {
   const { authenticated, adminMetrics, isAdmin, profile, copy, language } = usePresence();
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
 
   const loadReports = useCallback(async () => {
     setLoadingReports(true);
-    const { data } = await supabase
-      .from("reports")
-      .select("id, room_id, reporter_id, reported_user, reason, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5);
+    try {
+      const { data } = await supabase
+        .from("reports")
+        .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-    setRecentReports((data ?? []) as ReportRow[]);
-    setLoadingReports(false);
+      setRecentReports((data ?? []) as ReportRow[]);
+    } finally {
+      setLoadingReports(false);
+    }
   }, []);
+
+  const applyActionLocally = useCallback((reportId: string, next: Partial<ReportRow>) => {
+    setRecentReports((current) => current.map((report) => (report.id === reportId ? { ...report, ...next } : report)));
+  }, []);
+
+  const moderateReport = useCallback(async (report: ReportRow, action: ModerationAction) => {
+    setActiveAction(report.id + action);
+    try {
+      const { data, error } = await supabase.rpc("moderate_report_action", {
+        p_report_id: report.id,
+        p_action: action,
+        p_reason: report.reason,
+        p_duration_days: action === "suspend_user" ? 7 : action === "temporary_ban" ? 30 : null,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+      const nextStatus = result?.status ?? (action === "dismiss_report" ? "dismissed" : "reviewed");
+      applyActionLocally(report.id, {
+        status: nextStatus,
+        reviewed_at: new Date().toISOString(),
+        moderation_action: action,
+        moderation_reason: report.reason,
+      });
+      toast.success(language === "en" ? "Moderation updated." : "Η moderation ενημερώθηκε.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : language === "en" ? "Moderation action failed." : "Η ενέργεια moderation απέτυχε.");
+    } finally {
+      setActiveAction(null);
+    }
+  }, [applyActionLocally, language]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -210,27 +256,98 @@ const AdminPage = () => {
                   </div>
                 ) : recentReports.length ? (
 
-                  recentReports.map((report) => (
-                    <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-                      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
-                        <span>
-                          {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
-                        </span>
-                        <span>•</span>
-                        <span>{new Date(report.created_at).toLocaleString()}</span>
+                  recentReports.map((report) => {
+                    const statusTone =
+                      report.status === "dismissed"
+                        ? "border-white/10 bg-white/5 text-white/55"
+                        : report.moderation_action
+                          ? "border-emerald-300/15 bg-emerald-500/10 text-emerald-50"
+                          : "border-amber-300/15 bg-amber-500/10 text-amber-50";
+                    const isActionBusy = activeAction?.startsWith(report.id) ?? false;
+
+                    return (
+                      <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/45">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>
+                              {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
+                            </span>
+                            <span>•</span>
+                            <span>{new Date(report.created_at).toLocaleString()}</span>
+                          </div>
+                          <Badge className={`rounded-full border px-3 py-1 text-[10px] font-medium ${statusTone}`}>
+                            {report.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                            {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                            {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
+                          </span>
+                          {report.moderation_action && (
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                              {language === "en" ? "Action" : "Ενέργεια"} {report.moderation_action}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white"
+                            disabled={isActionBusy}
+                            onClick={() => void moderateReport(report, "mark_reviewed")}
+                          >
+                            <Shield className="mr-2 h-4 w-4" />
+                            {language === "en" ? "Mark reviewed" : "Σημείωση ως ελεγμένο"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                            disabled={isActionBusy}
+                            onClick={() => void moderateReport(report, "dismiss_report")}
+                          >
+                            {language === "en" ? "Dismiss" : "Απόρριψη"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-sky-300/15 bg-sky-500/10 text-sky-50 hover:bg-sky-500/15 hover:text-white"
+                            disabled={isActionBusy}
+                            onClick={() => void moderateReport(report, "suspend_user")}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            {language === "en" ? "Suspend" : "Αναστολή"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15 hover:text-white"
+                            disabled={isActionBusy}
+                            onClick={() => void moderateReport(report, "temporary_ban")}
+                          >
+                            {language === "en" ? "Temp ban" : "Προσωρινό ban"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white"
+                            disabled={isActionBusy}
+                            onClick={() => void moderateReport(report, "permanent_ban")}
+                          >
+                            {language === "en" ? "Permanent ban" : "Μόνιμο ban"}
+                          </Button>
+                        </div>
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                          {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                          {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
+
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
                     {language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}
                   </div>

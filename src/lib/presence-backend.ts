@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EPHEMERAL_CONTENT_TTL_SECONDS } from "@/lib/ephemeral-content";
 import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 import type {
+  AccountRestriction,
   ChatMessage,
   PresenceProfile,
   ProfileMode,
@@ -322,17 +323,86 @@ export async function loadBlockedUserIds(userId: string) {
     return [] as string[];
   }
 
-  const { data, error } = await supabase
-    .from("user_blocks")
-    .select("blocked_user_id")
-    .eq("blocker_id", userId)
-    .order("created_at", { ascending: false });
+  const [{ data: blockedUsersData, error: blockedUsersError }, { data: legacyBlocksData, error: legacyBlocksError }] = await Promise.all([
+    supabase
+      .from("blocked_users")
+      .select("blocked_id")
+      .eq("blocker_id", userId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("user_blocks")
+      .select("blocked_user_id")
+      .eq("blocker_id", userId)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  if (error) {
-    throw error;
+  if (blockedUsersError) {
+    throw blockedUsersError;
   }
 
-  return (data ?? []).map((row) => (row as { blocked_user_id: string }).blocked_user_id);
+  if (legacyBlocksError) {
+    throw legacyBlocksError;
+  }
+
+  return [...new Set([
+    ...((blockedUsersData ?? []) as { blocked_id: string }[]).map((row) => row.blocked_id),
+    ...((legacyBlocksData ?? []) as { blocked_user_id: string }[]).map((row) => row.blocked_user_id),
+  ])];
+}
+
+export async function loadModerationState(userId: string): Promise<AccountRestriction> {
+  if (!hasSupabaseConfig) {
+    return { status: "ok", reason: null, expiresAt: null };
+  }
+
+  const [suspensionsResult, bansResult] = await Promise.all([
+    supabase
+      .from("user_suspensions")
+      .select("reason, expires_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("user_bans")
+      .select("reason, expires_at, permanent")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (suspensionsResult.error) {
+    throw suspensionsResult.error;
+  }
+
+  if (bansResult.error) {
+    throw bansResult.error;
+  }
+
+  const now = Date.now();
+  const activeBan = (bansResult.data ?? []).find((row) => {
+    const expiresAt = row.permanent ? null : row.expires_at;
+    return row.permanent || (expiresAt ? new Date(expiresAt).getTime() > now : false);
+  }) as { reason: string; expires_at: string | null; permanent: boolean } | undefined;
+
+  if (activeBan) {
+    return {
+      status: "banned",
+      reason: activeBan.reason,
+      expiresAt: activeBan.permanent ? null : activeBan.expires_at,
+    };
+  }
+
+  const activeSuspension = (suspensionsResult.data ?? []).find((row) => row.expires_at && new Date(row.expires_at).getTime() > now) as
+    | { reason: string; expires_at: string }
+    | undefined;
+
+  if (activeSuspension) {
+    return {
+      status: "suspended",
+      reason: activeSuspension.reason,
+      expiresAt: activeSuspension.expires_at,
+    };
+  }
+
+  return { status: "ok", reason: null, expiresAt: null };
 }
 
 export async function joinQueue(userId: string, filters: QueueFilters) {

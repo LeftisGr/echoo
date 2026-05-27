@@ -7,9 +7,10 @@ export function SessionFreeConversationState({ language, className }: { language
   return (
     <div
       className={cn(
-        "relative mx-auto w-full max-w-[16rem] overflow-hidden rounded-full border border-white/10 bg-[#10182b]/90 px-4 py-2 text-left shadow-[0_16px_38px_rgba(2,6,23,0.24)] backdrop-blur-md",
+        "relative mx-auto w-full max-w-[15rem] overflow-hidden rounded-full border border-white/10 bg-[#10182b]/90 px-3.5 py-1.5 text-left shadow-[0_16px_38px_rgba(2,6,23,0.24)] backdrop-blur-md",
         className,
       )}
+
     >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-8 top-0 h-16 w-16 rounded-full bg-violet-400/10 blur-3xl" />
@@ -17,16 +18,16 @@ export function SessionFreeConversationState({ language, className }: { language
       </div>
 
       <div className="relative flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-violet-100">
-          <Infinity className="h-4 w-4" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-violet-100">
+          <Infinity className="h-3.5 w-3.5" />
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-medium uppercase tracking-[0.28em] text-violet-100/55">
-            {language === "en" ? "Conversation unlocked" : "Η συνομιλία ξεκλείδωσε"}
+            {language === "en" ? "Conversation open" : "Συνομιλία ανοιχτή"}
           </p>
-          <p className="truncate text-xs font-medium text-white/80">
-            {language === "en" ? "No more timers — stay with the moment." : "Χωρίς timers — μείνε στη στιγμή."}
+          <p className="truncate text-[11px] font-medium text-white/78">
+            {language === "en" ? "No more timers." : "Χωρίς timers."}
           </p>
         </div>
 

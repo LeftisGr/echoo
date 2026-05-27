@@ -21,8 +21,16 @@ export type RtcConnectionState = "idle" | "connecting" | "connected" | "reconnec
 export type ProfileRole = "member" | "admin";
 
 export type ProfileMode = "guest" | "registered";
+export type AccountRestrictionStatus = "ok" | "suspended" | "banned";
+
+export interface AccountRestriction {
+  status: AccountRestrictionStatus;
+  reason: string | null;
+  expiresAt: string | null;
+}
 
 export interface PresenceProfile {
+
   id: string;
   username: string;
   profileMode: ProfileMode;

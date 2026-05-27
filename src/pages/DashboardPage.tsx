@@ -9,7 +9,8 @@ import { usePresence } from "@/components/presence/presence-provider";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { authenticated, profile, copy, language, adminMetrics, startQueue, online } = usePresence();
+  const { authenticated, profile, copy, language, adminMetrics, startQueue, online, accountRestriction } = usePresence();
+
   const roleLabel = profile?.role === "admin" ? (language === "en" ? "Admin" : "Admin") : language === "en" ? "Member" : "Μέλος";
 
   if (!authenticated) {
@@ -32,7 +33,47 @@ const DashboardPage = () => {
     );
   }
 
+  if (accountRestriction.status !== "ok") {
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Account restricted" : "Ο λογαριασμός περιορίστηκε"}
+            title={accountRestriction.status === "banned" ? (language === "en" ? "Matchmaking paused" : "Το matchmaking σταμάτησε") : (language === "en" ? "Temporary suspension" : "Προσωρινή αναστολή")}
+            body={
+              accountRestriction.reason ??
+              (accountRestriction.status === "banned"
+                ? language === "en"
+                  ? "This account can’t enter rooms right now."
+                  : "Αυτός ο λογαριασμός δεν μπορεί να μπει σε rooms αυτή τη στιγμή."
+                : language === "en"
+                  ? "You can return when the suspension expires."
+                  : "Μπορείς να επιστρέψεις όταν λήξει η αναστολή.")
+            }
+            status={accountRestriction.expiresAt ? new Date(accountRestriction.expiresAt).toLocaleString() : undefined}
+            tone="rose"
+            action={
+              <Link to="/safety">
+                <Button className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
+                  {language === "en" ? "Review safety" : "Δες την ασφάλεια"}
+                </Button>
+              </Link>
+            }
+            secondaryAction={
+              <Link to="/">
+                <Button variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                  {copy.nav.home}
+                </Button>
+              </Link>
+            }
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
+
     <PageShell className="space-y-6">
       <Surface className="space-y-6 p-6 sm:p-8">
         <SectionTitle title={copy.dashboard.title} body={copy.dashboard.body} />

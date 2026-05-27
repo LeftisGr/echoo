@@ -422,7 +422,8 @@ const SessionPage = () => {
 
     typingStopTimeoutRef.current = window.setTimeout(() => {
       stopTyping("debounce");
-    }, 1200);
+    }, 2000);
+
   }, [stopTyping]);
 
   useEffect(() => () => stopTyping("unmount"), [stopTyping]);
@@ -435,6 +436,11 @@ const SessionPage = () => {
 
     if (voiceState === "failed" || voiceState === "error") {
       stopTyping("reconnect-failed");
+      return;
+    }
+
+    if (voiceState === "reconnecting" || voiceState === "connecting") {
+      stopTyping("reconnect");
       return;
     }
 
@@ -1271,11 +1277,15 @@ const SessionPage = () => {
               const arrivedHot = message.id === recentMessageId;
 
               if (isSystem) {
+                const isPositiveSystemMessage = /connection opened|stay curious|voice is now open|room opens|unlocked/i.test(message.content);
                 return (
                   <div
                     key={message.id}
                     className={cn(
-                      "mx-auto max-w-[min(92%,34rem)] rounded-full border border-white/8 bg-white/5 px-4 py-2 text-center text-xs leading-5 text-white/45 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                      "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                      isPositiveSystemMessage
+                        ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50"
+                        : "border-white/8 bg-white/5 text-white/45",
                       arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
                     )}
 
@@ -1470,6 +1480,7 @@ const SessionPage = () => {
                     <Input
                       value={draft}
                       onChange={(event) => handleDraftChange(event.target.value)}
+                      onBlur={() => stopTyping("blur")}
                       placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
                       className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
                     />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
 
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics } = usePresence();
+  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction } = usePresence();
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
@@ -139,11 +140,47 @@ const QueuePage = () => {
     return <Navigate to={`/session/${room.id}`} replace />;
   }
 
+  if (accountRestriction.status !== "ok" && !room && !matchTransition) {
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Account restricted" : "Ο λογαριασμός περιορίστηκε"}
+            title={accountRestriction.status === "banned" ? (language === "en" ? "Matchmaking blocked" : "Το matchmaking μπλοκαρίστηκε") : (language === "en" ? "Suspension active" : "Ενεργή αναστολή")}
+            body={
+              accountRestriction.reason ??
+              (accountRestriction.status === "banned"
+                ? language === "en"
+                  ? "This account cannot enter the queue or start new rooms."
+                  : "Αυτός ο λογαριασμός δεν μπορεί να μπει στην ουρά ή να ξεκινήσει νέα rooms."
+                : language === "en"
+                  ? "You can return when the suspension expires."
+                  : "Μπορείς να επιστρέψεις όταν λήξει η αναστολή.")
+            }
+            status={accountRestriction.expiresAt ? new Date(accountRestriction.expiresAt).toLocaleString() : undefined}
+            tone="rose"
+            action={
+              <Button asChild className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
+                <Link to="/safety">{language === "en" ? "Safety & rules" : "Ασφάλεια & κανόνες"}</Link>
+              </Button>
+            }
+            secondaryAction={
+              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Link to="/">{copy.nav.home}</Link>
+              </Button>
+            }
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
   if (!queue.active && !room && !matchTransition) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return (
+
     <PageShell className="flex items-center">
       <Surface className="relative mx-auto w-full max-w-2xl overflow-hidden p-0 shadow-2xl shadow-black/20">
         <div className="absolute inset-0 bg-[#0b1020]" />
