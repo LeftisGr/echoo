@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ArrowRight, Camera, LoaderCircle, MoonStar, PencilLine, Shield, Sparkles, Upload, X } from "lucide-react";
+import { ArrowRight, Camera, LoaderCircle, MoonStar, PencilLine, Shield, Upload, X } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -49,7 +49,6 @@ const ProfilePage = () => {
     copy,
     language,
     updateProfile,
-    rerollUsername,
     login,
     blockedUserCount,
   } = usePresence();
@@ -107,7 +106,6 @@ const ProfilePage = () => {
     setSaving(true);
     try {
       await updateProfile({
-        username: draftUsername.trim() || profile.username,
         bio: isRegistered ? draftBio.trim() || null : profile.bio,
         avatarEmoji: draftAvatarEmoji || null,
         avatarUrl: draftAvatarUrl || null,
@@ -199,23 +197,20 @@ const ProfilePage = () => {
 
               <div className="min-w-0 flex-1 space-y-2">
                 <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Identity" : "Ταυτότητα"}</p>
-                <div className="flex items-center gap-2">
+                <div className="space-y-2">
                   <Input
                     value={draftUsername}
-                    onChange={(event) => setDraftUsername(event.target.value)}
-                    className="h-12 rounded-full border-white/10 bg-white/5 text-white placeholder:text-white/30"
+                    readOnly
+                    tabIndex={-1}
+                    className="h-12 rounded-full border-violet-400/15 bg-violet-400/10 text-white placeholder:text-white/30"
                     placeholder={language === "en" ? "Your nickname" : "Το ψευδώνυμό σου"}
                     maxLength={28}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-12 rounded-full border-white/10 bg-white/5 px-4 text-white hover:bg-white/10 hover:text-white"
-                    onClick={rerollUsername}
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    {copy.auth.reroll}
-                  </Button>
+                  <p className="text-xs leading-5 text-white/40">
+                    {language === "en"
+                      ? "Echoo assigns a random nickname automatically, and it stays locked for privacy and consistency."
+                      : "Το Echoo αποδίδει αυτόματα ένα τυχαίο ψευδώνυμο και μένει κλειδωμένο για ιδιωτικότητα και συνέπεια."}
+                  </p>
                 </div>
               </div>
             </div>

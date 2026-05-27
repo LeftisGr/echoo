@@ -2293,38 +2293,27 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [copy.misc.signedOut, profile, stopVoiceChat]);
 
 
-  const rerollUsername = useCallback(() => {
-    setProfile((current) => {
-      const nextProfile = {
-        ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered")),
-        username: generateUsername(),
-        updatedAt: new Date().toISOString(),
-      };
-      void syncProfile(nextProfile);
-      return nextProfile;
-    });
-    if (hapticsEnabled) {
-      vibrate(20);
-    }
-  }, [guestMode, hapticsEnabled, userId]);
+  const rerollUsername = useCallback(() => {}, []);
 
   const updateProfile = useCallback(
     (updates: Partial<PresenceProfile>) => {
+      const safeUpdates = { ...updates };
+      delete safeUpdates.username;
       setProfile((current) => {
         const nextProfile = {
           ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered")),
-          ...updates,
+          ...safeUpdates,
           updatedAt: new Date().toISOString(),
         };
         void syncProfile(nextProfile);
         return nextProfile;
       });
-      if (updates.preference || updates.language) {
+      if (safeUpdates.preference || safeUpdates.language) {
         setQueue((current) => ({
           ...current,
           filters: {
-            preference: (updates.preference as QueueFilters["preference"]) ?? current.filters.preference,
-            language: (updates.language as QueueFilters["language"]) ?? current.filters.language,
+            preference: (safeUpdates.preference as QueueFilters["preference"]) ?? current.filters.preference,
+            language: (safeUpdates.language as QueueFilters["language"]) ?? current.filters.language,
           },
         }));
       }

@@ -1,4 +1,4 @@
-import { RefreshCcw, Shield, Sparkles, UserRound } from "lucide-react";
+import { Shield, Sparkles, UserRound } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/presence-content";
 
 const AuthPage = () => {
-  const { copy, language, login, profile, rerollUsername, updateProfile, authenticated } = usePresence();
+  const { copy, language, login, profile, updateProfile, authenticated } = usePresence();
 
   if (authenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -71,15 +71,10 @@ const AuthPage = () => {
                   <p className="text-sm text-white/50">{copy.auth.profileTitle}</p>
                   <h2 className="mt-1 text-2xl font-semibold text-white">{profile.username}</h2>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={rerollUsername}
-                >
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  {copy.auth.reroll}
-                </Button>
+                <div className="inline-flex items-center rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-medium text-violet-50">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο"}
+                </div>
               </div>
               <div className="rounded-[24px] border border-white/10 bg-[#0a0d18] p-4 text-sm text-white/70">
                 <p>{copy.brand.tagline}</p>

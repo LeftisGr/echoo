@@ -17,7 +17,6 @@ const SettingsPage = () => {
     language,
     setLanguage,
     updateProfile,
-    rerollUsername,
     hapticsEnabled,
     reconnectEnabled,
     matchSoundEnabled,
@@ -59,14 +58,9 @@ const SettingsPage = () => {
           <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
             <p className="text-sm text-white/50">{language === "en" ? "Nickname" : "Ψευδώνυμο"}</p>
             <p className="mt-2 text-2xl font-semibold text-white">{profile.username}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4 h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={rerollUsername}
-            >
-              {copy.auth.reroll}
-            </Button>
+            <div className="mt-4 inline-flex items-center rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-medium text-violet-50">
+              {language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο"}
+            </div>
           </div>
           <div className="flex gap-3">
             <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
