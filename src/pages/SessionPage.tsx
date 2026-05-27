@@ -1158,18 +1158,18 @@ const SessionPage = () => {
     <div className="h-[100dvh] overflow-hidden bg-[#08101b] text-white">
       <div className="flex h-full min-h-0 flex-col">
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-4 py-3 pt-[calc(env(safe-area-inset-top,0px)+12px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6 sm:py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-2 text-left">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
+            <div className="min-w-0 space-y-2 text-left">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
                 <h1 className="mt-1 truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-6 rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
+                  className="h-6 w-fit rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
                   aria-label={language === "en" ? "Open report" : "Άνοιγμα αναφοράς"}
                   onClick={() => setReportDialogOpen(true)}
                 >
@@ -1179,7 +1179,7 @@ const SessionPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-6 rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
+                  className="h-6 w-fit rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
                   onClick={() => {
                     void blockCurrentPartner();
                   }}
@@ -1191,7 +1191,7 @@ const SessionPage = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-6 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2 text-[10px] font-medium text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
+                    className="h-6 w-fit rounded-full border-emerald-300/20 bg-emerald-300/10 px-2 text-[10px] font-medium text-emerald-50 hover:bg-emerald-300/15 hover:text-white"
                     onClick={async () => {
                       await enableVoicePlayback();
                     }}
@@ -1202,7 +1202,7 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="flex flex-col items-center gap-2 justify-self-center text-center">
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 shadow-sm">
                 <SessionProgressHeader
                   phase={phase}
@@ -1213,7 +1213,9 @@ const SessionPage = () => {
                   sessionComplete={sessionComplete}
                 />
               </div>
+            </div>
 
+            <div className="flex justify-end justify-self-end pl-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button

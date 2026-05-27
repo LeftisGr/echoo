@@ -23,7 +23,7 @@ export function SessionProgressHeader({
   return (
     <div className="space-y-2 text-center">
       {sessionComplete ? (
-        <div className="animate-[echo-message-in_260ms_ease-out]">
+        <div className="animate-[echo-message-in_260ms_ease-out] text-sm font-medium tracking-[0.12em] text-white/80">
           <SessionFreeConversationState language={language} />
         </div>
       ) : (
