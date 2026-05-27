@@ -25,6 +25,10 @@ const QueuePage = () => {
   const [messageFading, setMessageFading] = useState(false);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  useEffect(() => {
     if (!authenticated) {
       return;
     }
@@ -59,8 +63,8 @@ const QueuePage = () => {
       window.setTimeout(() => {
         setMessageIndex((current) => (current + 1) % queueMessages[language].length);
         setMessageFading(false);
-      }, 180);
-    }, 2600);
+      }, 160);
+    }, 3000);
 
     return () => window.clearInterval(interval);
   }, [language, queue.active, room, matchTransition]);
@@ -86,7 +90,6 @@ const QueuePage = () => {
 
   const estimatedWait = Math.max(queue.estimatedWaitSeconds, phase === "searching" ? secondsLeft : queue.estimatedWaitSeconds);
   const liveUsers = Math.max(adminMetrics.usersOnlineNow, 14);
-  const matchingStage = phase === "loading" ? 1 : phase === "searching" ? 2 : 3;
   const currentPreferenceLabel = localizePreference(language, queue.filters.preference);
   const currentLanguageLabel = localizeLanguagePreference(language, queue.filters.language);
 
@@ -102,15 +105,15 @@ const QueuePage = () => {
   const statusNote =
     phase === "loading"
       ? language === "en"
-        ? "A quiet check before the room opens."
-        : "Ένας ήσυχος έλεγχος πριν ανοίξει το room."
+        ? "A quiet check before the room settles."
+        : "Ένας ήσυχος έλεγχος πριν ηρεμήσει το room."
       : phase === "searching"
         ? language === "en"
-          ? "The queue keeps moving so the room never feels stuck."
-          : "Η ουρά κινείται συνεχώς ώστε το room να μη νιώθει κολλημένο."
+          ? "The queue keeps moving softly so nothing feels stuck."
+          : "Η ουρά κινείται απαλά ώστε τίποτα να μη νιώθει κολλημένο."
         : language === "en"
           ? "A connection has found its shape."
-          : "Μια σύνδεση έχει βρει τον ρυθμό της."
+          : "Μια σύνδεση έχει βρει το σχήμα της."
 ;
 
   const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
@@ -179,17 +182,23 @@ const QueuePage = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const stageToneClass =
+    phase === "loading"
+      ? "border-white/10 bg-white/5 text-white/65"
+      : phase === "searching"
+        ? "border-violet-300/20 bg-violet-500/10 text-violet-50"
+        : "border-emerald-300/20 bg-emerald-500/10 text-emerald-50";
+
   return (
-
     <PageShell className="flex items-center">
-      <Surface className="relative mx-auto w-full max-w-2xl overflow-hidden p-0 shadow-2xl shadow-black/20">
+      <Surface className="relative mx-auto w-full max-w-3xl overflow-hidden p-0 shadow-2xl shadow-black/20">
         <div className="absolute inset-0 bg-[#0b1020]" />
-        <div className="absolute -left-24 top-8 h-44 w-44 rounded-full bg-violet-500/15 blur-3xl animate-pulse" />
-        <div className="absolute -right-24 bottom-12 h-44 w-44 rounded-full bg-cyan-400/10 blur-3xl animate-pulse [animation-delay:700ms]" />
+        <div className="absolute -left-24 top-10 h-48 w-48 rounded-full bg-violet-500/12 blur-3xl" />
+        <div className="absolute -right-24 bottom-0 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <div className="relative space-y-6 p-5 sm:p-8">
+        <div className="relative space-y-6 p-5 sm:p-7 lg:p-8">
           {!online && (
-            <div className="rounded-[22px] border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
               <div className="flex items-center justify-center gap-2">
                 <WifiOff className="h-4 w-4" />
                 {copy.queue.offline}
@@ -197,117 +206,110 @@ const QueuePage = () => {
             </div>
           )}
 
-          <div className="flex items-center gap-3 text-left">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-violet-100 shadow-lg shadow-violet-500/10">
-              <div className="absolute inset-1 rounded-[20px] bg-violet-500/15 animate-pulse" />
-              <div className="relative flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100 [animation-delay:-0.16s]" />
-                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100 [animation-delay:-0.08s]" />
-                <span className="h-1.5 w-1.5 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-violet-100" />
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl space-y-3 text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-xs text-violet-50/80">
+                <Sparkles className="h-4 w-4 text-violet-200" />
+                {language === "en" ? "Quiet queue" : "Ήσυχη ουρά"}
               </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.32em] text-white/35">Echoo</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                  {copy.queue.title}
+                </h1>
+              </div>
+              <p className="max-w-2xl text-sm leading-7 text-white/62 sm:text-base">{copy.queue.body}</p>
             </div>
 
-            <div className="flex-1">
-              <p className="text-xs uppercase tracking-[0.32em] text-white/40">Echoo listening room</p>
-
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">{copy.queue.title}</h1>
-            </div>
-            <Badge className="rounded-full border border-violet-400/15 bg-violet-400/10 px-3 py-1 text-violet-50 hover:bg-violet-400/10">
-              <Sparkles className="mr-1 h-3.5 w-3.5" />
-              Live
+            <Badge className={cn("w-fit rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.18em]", stageToneClass)}>
+              {phase === "loading"
+                ? language === "en"
+                  ? "Listening"
+                  : "Ακούμε"
+                : phase === "searching"
+                  ? language === "en"
+                    ? "Searching"
+                    : "Αναζήτηση"
+                  : language === "en"
+                    ? "Opening"
+                    : "Άνοιγμα"}
             </Badge>
           </div>
 
-          <p className="max-w-xl text-sm leading-6 text-white/60">{copy.queue.body}</p>
-
-          <div className="grid gap-3 rounded-[28px] border border-white/10 bg-white/5 p-4 sm:grid-cols-2 sm:p-5">
-            <div className="space-y-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                {language === "en" ? "Your match settings" : "Οι ρυθμίσεις σου"}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 hover:bg-white/5">
-                  {currentPreferenceLabel}
-                </Badge>
-                <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 hover:bg-white/5">
-                  {currentLanguageLabel}
-                </Badge>
+          <div className="grid gap-4 rounded-[28px] border border-white/10 bg-white/5 p-4 sm:p-5 lg:grid-cols-[1.25fr_0.75fr]">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-[0.32em] text-white/40">
+                  {language === "en" ? "Current pace" : "Τρέχων ρυθμός"}
+                </p>
+                <span className="text-xs text-white/45">{phase === "match-found" ? `${matchTransition?.secondsLeft ?? 0}s` : `${secondsLeft}s`}</span>
               </div>
-            </div>
-            <div className="space-y-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                {language === "en" ? "Match flow" : "Ροή matching"}
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.18em] text-white/45">
-                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 1 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  1 · {upperWithoutAccents(language === "en" ? "Ready" : "Έτοιμο", language)}
-                </div>
-                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 2 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  2 · {upperWithoutAccents(language === "en" ? "Listening" : "Ακούμε", language)}
-                </div>
-                <div className={`rounded-full border px-2 py-2 ${matchingStage >= 3 ? "border-violet-300/30 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/5"}`}>
-                  3 · {upperWithoutAccents(language === "en" ? "Opening" : "Ανοίγει", language)}
-                </div>
 
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Estimated wait" : "Εκτίμηση αναμονής"}</p>
-              <div className="mt-2 flex items-end gap-2 text-white">
-                <Clock3 className="mb-1 h-5 w-5 text-violet-200" />
-                <span className="text-3xl font-semibold tracking-tight">~{estimatedWait}s</span>
-              </div>
-            </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Live τώρα"}</p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
-              <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
-            </div>
-            <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-white/5") }>
-              <p className={cn("text-xs uppercase tracking-[0.24em]", queueUrgent ? "text-rose-100/70" : "text-white/40")}>{language === "en" ? "Status" : "Κατάσταση"}</p>
-              <p className={cn("mt-2 text-sm font-medium", queueUrgent ? "text-rose-100" : "text-violet-100")}>
-                {phase === "loading" ? copy.queue.loading : phase === "searching" ? copy.queue.searching : copy.queue.matchFound}
-              </p>
-              <p className={cn("mt-1 text-sm", queueUrgent ? "text-rose-50/80" : "text-white/50")}>{secondsLeft}s</p>
-            </div>
-
-          </div>
-
-          <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white transition-opacity duration-300 ease-out" style={{ opacity: messageFading ? 0.4 : 1 }}>
+              <div className="space-y-2 rounded-[24px] border border-white/10 bg-[#0b1020] p-4">
+                <p className="text-sm font-medium text-white transition-opacity duration-300 ease-out" style={{ opacity: messageFading ? 0.45 : 1 }}>
                   {currentMessage}
                 </p>
-                <p className="mt-2 text-sm text-white/50">{statusNote}</p>
-
+                <p className="text-sm leading-6 text-white/50">{statusNote}</p>
               </div>
-              <Badge className="rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/5">
-                {phase === "match-found" ? `${matchTransition?.secondsLeft ?? 0}...` : `${secondsLeft}s`}
-              </Badge>
+
+              {queueNotice && phase !== "match-found" && (
+                <div className="rounded-[24px] border border-violet-300/10 bg-violet-500/10 px-4 py-3 text-sm text-violet-50">
+                  <p className="font-medium">{queueNotice}</p>
+                  <p className="mt-1 text-xs text-violet-50/70">
+                    {language === "en"
+                      ? "Leave this tab open and the queue will keep listening in the background."
+                      : "Άφησε αυτό το tab ανοιχτό και η ουρά θα συνεχίσει να ακούει στο παρασκήνιο."}
+                  </p>
+                </div>
+              )}
+
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65 hover:bg-white/5">
+                    {currentPreferenceLabel}
+                  </Badge>
+                  <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65 hover:bg-white/5">
+                    {currentLanguageLabel}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={cn("h-full rounded-full transition-[width,background-color] duration-700 ease-out", queueUrgent ? "bg-rose-400" : "bg-violet-400")}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.22em] text-white/35">
+                  <div className={cn("rounded-full border px-2 py-2", phase === "loading" ? "border-violet-300/25 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5")}>1 · {upperWithoutAccents(language === "en" ? "Settling" : "Ηρεμία", language)}</div>
+                  <div className={cn("rounded-full border px-2 py-2", phase === "searching" ? "border-violet-300/25 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5")}>2 · {upperWithoutAccents(language === "en" ? "Finding" : "Εύρεση", language)}</div>
+                  <div className={cn("rounded-full border px-2 py-2", phase === "match-found" ? "border-violet-300/25 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5")}>3 · {upperWithoutAccents(language === "en" ? "Opening" : "Άνοιγμα", language)}</div>
+                </div>
+              </div>
             </div>
 
-            {queueNotice && phase !== "match-found" && (
-              <div className="mt-4 rounded-[22px] border border-violet-300/10 bg-violet-500/10 px-4 py-3 text-sm text-violet-50">
-                <p className="font-medium">{queueNotice}</p>
-                <p className="mt-1 text-xs text-violet-50/70">
-                  {language === "en"
-                    ? "Keep this tab open and we will keep listening for your next connection."
-                    : "Άφησε αυτό το tab ανοιχτό και θα συνεχίσουμε να ακούμε για την επόμενη σύνδεσή σου."}
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-[24px] border border-white/10 bg-[#0b1020] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Estimated wait" : "Εκτίμηση αναμονής"}</p>
+                <div className="mt-3 flex items-end gap-2 text-white">
+                  <Clock3 className="mb-1 h-5 w-5 text-violet-200" />
+                  <span className="text-3xl font-semibold tracking-tight">~{estimatedWait}s</span>
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-[#0b1020] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Live τώρα"}</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
+                <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
+              </div>
+              <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-[#0b1020]") }>
+                <p className={cn("text-xs uppercase tracking-[0.24em]", queueUrgent ? "text-rose-100/70" : "text-white/40")}>{language === "en" ? "Status" : "Κατάσταση"}</p>
+                <p className={cn("mt-3 text-sm font-medium", queueUrgent ? "text-rose-100" : "text-violet-100")}>
+                  {phase === "loading" ? copy.queue.loading : phase === "searching" ? copy.queue.searching : copy.queue.matchFound}
                 </p>
+                <p className={cn("mt-1 text-sm", queueUrgent ? "text-rose-50/80" : "text-white/50")}>{secondsLeft}s</p>
               </div>
-            )}
-
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
-              <div
-                className={cn("h-full rounded-full transition-[width,background-color] duration-700 ease-out", queueUrgent ? "bg-rose-400" : "bg-violet-400")}
-                style={{ width: `${progress}%` }}
-              />
             </div>
-
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -334,16 +336,14 @@ const QueuePage = () => {
         </div>
 
         {matchTransition && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#050814]/90 backdrop-blur-xl transition-opacity duration-500">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.24),transparent_55%)] opacity-90" />
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#050814]/88 backdrop-blur-xl transition-opacity duration-500">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.22),transparent_55%)] opacity-90" />
             <div className="relative mx-auto w-full max-w-md px-6 text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.25)]">
-                  <div className="flex items-center gap-1.5 text-violet-100">
-                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.16s]" />
-                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.08s]" />
-                    <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current" />
-                  </div>
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.2)]">
+                <div className="flex items-center gap-1.5 text-violet-100">
+                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.16s]" />
+                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.08s]" />
+                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current" />
                 </div>
               </div>
 
@@ -352,7 +352,7 @@ const QueuePage = () => {
                 {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
               </h2>
               <p className="mt-3 text-sm leading-6 text-white/65">
-                {language === "en" ? "A moment is opening just for you." : "Ένα moment ανοίγει ειδικά για εσένα."}
+                {language === "en" ? "A quiet match is opening for you." : "Ένα ήσυχο match ανοίγει για εσένα."}
               </p>
               <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
                 <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">

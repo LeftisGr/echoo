@@ -1,327 +1,349 @@
-import { ArrowRight, Clock3, Mic, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Clock3, LogOut, MessageCircle, Mic, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, StickyBottomBar, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
-import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 const Index = () => {
-  const { copy, adminMetrics, language } = usePresence();
+  const { adminMetrics, language } = usePresence();
 
   const steps = [
     {
       icon: Users,
-      title: language === "en" ? "Discover someone nearby or online" : "Ανακάλυψε κάποιον κοντά σου ή online",
+      number: "01",
+      title: language === "en" ? "Match quietly" : "Συνδέσου ήσυχα",
       body:
         language === "en"
-          ? "Echoo listens for the next live connection that fits your language and energy."
-          : "Το Echoo ακούει για την επόμενη live σύνδεση που ταιριάζει με τη γλώσσα και την ενέργειά σου.",
+          ? "Echoo finds a calm, live match based on your language and pace."
+          : "Το Echoo βρίσκει μια ήρεμη live σύνδεση με βάση τη γλώσσα και τον ρυθμό σου.",
     },
     {
-      icon: Sparkles,
-      title: language === "en" ? "Connect anonymously" : "Συνδέσου ανώνυμα",
+      icon: MessageCircle,
+      number: "02",
+      title: language === "en" ? "Start with anonymous text" : "Ξεκίνα με ανώνυμο text",
       body:
         language === "en"
-          ? "No real name is needed. Your profile stays light, private, and easy to leave behind."
-          : "Δεν χρειάζεται πραγματικό όνομα. Το προφίλ σου μένει ελαφρύ, ιδιωτικό και εύκολο να το αφήσεις πίσω.",
+          ? "Say a little first. You do not need a name, a photo, or a performance."
+          : "Πες λίγα πρώτα. Δεν χρειάζεσαι όνομα, φωτογραφία ή καμία επίδοση.",
     },
     {
       icon: Mic,
-      title: language === "en" ? "Move from text to voice" : "Πέρνα από text σε φωνή",
+      number: "03",
+      title: language === "en" ? "Unlock voice naturally" : "Ξεκλείδωσε τη φωνή φυσικά",
       body:
         language === "en"
-          ? "Start with words, then hold to talk when the moment feels ready."
-          : "Ξεκίνα με λέξεις και μετά κράτα για να μιλήσεις όταν το moment είναι έτοιμο.",
+          ? "Voice opens inside the room when the moment feels settled."
+          : "Η φωνή ανοίγει μέσα στο room όταν η στιγμή νιώσει αρκετά ήρεμη.",
+    },
+    {
+      icon: Clock3,
+      number: "04",
+      title: language === "en" ? "Share temporary moments" : "Μοιράσου προσωρινές στιγμές",
+      body:
+        language === "en"
+          ? "Photos, audio, and conversation stay light and fade with the room."
+          : "Φωτογραφίες, ήχος και κουβέντα μένουν ελαφριά και σβήνουν μαζί με το room.",
+    },
+    {
+      icon: LogOut,
+      number: "05",
+      title: language === "en" ? "Leave anytime" : "Φεύγεις όποτε θες",
+      body:
+        language === "en"
+          ? "If it no longer feels right, step away without friction or drama."
+          : "Αν δεν σου ταιριάζει πια, μπορείς να φύγεις χωρίς τριβή ή ένταση.",
     },
   ];
 
-  const pillars = [
+  const principles = [
     {
       title: language === "en" ? "Anonymous by design" : "Ανώνυμο by design",
       body:
         language === "en"
-          ? "Echoo keeps the focus on the live moment, not on profiles or a public feed."
-          : "Το Echoo κρατά το focus στο live moment, όχι σε προφίλ ή σε δημόσιο feed.",
+          ? "No public feed, no social pressure, and no profile browsing."
+          : "Χωρίς δημόσιο feed, χωρίς social πίεση και χωρίς περιήγηση σε προφίλ.",
     },
     {
-      title: language === "en" ? "Temporary conversations" : "Προσωρινές κουβέντες",
+      title: language === "en" ? "Temporary by default" : "Προσωρινό by default",
       body:
         language === "en"
-          ? "Text, voice, and shared media are built to fade when the room closes."
-          : "Το text, η φωνή και τα shared media είναι φτιαγμένα να σβήνουν όταν κλείσει το room.",
+          ? "The room is meant to feel present, not permanent."
+          : "Το room είναι φτιαγμένο να νιώθει παρόν, όχι μόνιμο.",
     },
     {
-      title: language === "en" ? "Privacy first" : "Privacy first",
+      title: language === "en" ? "Safety stays visible" : "Η ασφάλεια παραμένει ορατή",
       body:
         language === "en"
-          ? "Minimal identity, clear controls, and no permanent public history."
-          : "Ελάχιστη ταυτότητα, καθαροί έλεγχοι και κανένα μόνιμο δημόσιο ιστορικό.",
-
-    },
-    {
-      title: language === "en" ? "Safety and respect" : "Ασφάλεια και σεβασμός",
-      body:
-        language === "en"
-          ? "Block, report, and leave instantly if the connection stops feeling right."
-          : "Block, report και άμεση έξοδος αν η σύνδεση πάψει να σου ταιριάζει.",
+          ? "Block, report, and exit are always close at hand."
+          : "Block, report και έξοδος είναι πάντα κοντά σου.",
     },
   ];
 
-  const ctas = {
-    hero: language === "en" ? "Open a room" : "Άνοιξε ένα room",
-    final: language === "en" ? "Step in quietly" : "Μπες ήσυχα",
-  };
-
-  const voiceCards = [
-    {
-      title: language === "en" ? "Voice moments" : "Voice moments",
-
-      body:
-        language === "en"
-          ? "Hold to talk when the conversation has earned a little more presence."
-          : "Κράτα για να μιλήσεις όταν η κουβέντα έχει κερδίσει λίγη παραπάνω παρουσία.",
-    },
-    {
-      title: language === "en" ? "Live timing" : "Live timing",
-      body:
-        language === "en"
-          ? "Voice unlocks inside the room, not before. The moment decides the pace."
-          : "Η φωνή ξεκλειδώνει μέσα στο room, όχι πριν. Το moment ορίζει τον ρυθμό.",
-    },
+  const quickLinks = [
+    { to: "/safety", label: language === "en" ? "Safety" : "Ασφάλεια" },
+    { to: "/voice-unlock", label: language === "en" ? "Voice unlock" : "Ξεκλείδωμα φωνής" },
+    { to: "/privacy", label: language === "en" ? "Privacy" : "Απόρρητο" },
   ];
 
   return (
     <PageShell className="space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
-        <Surface className="space-y-6 p-6 sm:p-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
-            <Sparkles className="h-4 w-4 text-violet-300" />
-            {copy.landing.heroEyebrow}
-          </div>
-          <div className="space-y-4">
-            <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              {copy.landing.heroTitle}
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-white/70 sm:text-base">{copy.landing.heroBody}</p>
+      <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-stretch">
+        <Surface className="relative overflow-hidden p-6 sm:p-8">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-20 top-0 h-44 w-44 rounded-full bg-violet-500/12 blur-3xl" />
+            <div className="absolute -right-10 bottom-0 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/auth">
-              <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
-                {ctas.hero}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+          <div className="relative space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-2 text-xs text-violet-50/80">
+              <Sparkles className="h-4 w-4 text-violet-200" />
+              {language === "en" ? "Calm anonymous conversation" : "Ήρεμη ανώνυμη κουβέντα"}
+            </div>
 
-            </Link>
-            <a href="#how-echoo-works">
-              <Button
-                variant="outline"
-                className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
-              >
-                {copy.landing.heroSecondary}
-              </Button>
-            </a>
-            <PwaInstallButton />
-          </div>
+            <div className="space-y-4">
+              <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                {language === "en"
+                  ? "Echoo helps people meet slowly, privately, and with less pressure."
+                  : "Το Echoo βοηθά ανθρώπους να γνωριστούν αργά, ιδιωτικά και με λιγότερη πίεση."}
+              </h1>
+              <p className="max-w-xl text-sm leading-7 text-white/68 sm:text-base">
+                {language === "en"
+                  ? "Start with anonymous text, let trust build naturally, and unlock voice only when the room feels ready."
+                  : "Ξεκίνα με ανώνυμο text, άσε την εμπιστοσύνη να χτιστεί φυσικά και άνοιξε τη φωνή μόνο όταν το room νιώσει έτοιμο."}
+              </p>
+            </div>
 
-          <p className="text-xs text-white/45">
-            {language === "en"
-              ? "Echoo works best in a modern browser on mobile or desktop."
-              : "Το Echoo λειτουργεί καλύτερα σε σύγχρονο browser σε mobile ή desktop."}
-          </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link to="/auth">
+                <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+                  {language === "en" ? "Open a room" : "Άνοιξε ένα room"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="#how-it-works">
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
+                >
+                  {language === "en" ? "See how it works" : "Δες πώς λειτουργεί"}
+                </Button>
+              </a>
+            </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MetricCard value={adminMetrics.usersOnlineNow.toString()} label={copy.landing.statUsers} />
-            <MetricCard value={`${adminMetrics.avgWaitTimeSeconds}s`} label={copy.landing.statWait} />
-            <MetricCard value="4" label={copy.landing.statSafety} />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MetricCard value={String(adminMetrics.usersOnlineNow)} label={language === "en" ? "people online now" : "άτομα online τώρα"} />
+              <MetricCard value={`${adminMetrics.avgWaitTimeSeconds}s`} label={language === "en" ? "average wait" : "μέση αναμονή"} />
+              <MetricCard value="4" label={language === "en" ? "safety layers" : "στρώματα ασφάλειας"} />
+            </div>
           </div>
         </Surface>
 
-        <div className="grid gap-4">
-          <Surface className="space-y-4 p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-violet-500/15 text-violet-100">
-                <Users className="h-6 w-6" />
-              </div>
+        <Surface className="relative overflow-hidden p-6 sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_50%)]" />
+          <div className="relative space-y-5">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/45">{copy.landing.whatIsTitle}</p>
-                <p className="mt-2 text-sm leading-6 text-white/75">{copy.landing.whatIsBody}</p>
+                <p className="text-xs uppercase tracking-[0.28em] text-white/35">
+                  {language === "en" ? "Experience flow" : "Ροή εμπειρίας"}
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                  {language === "en" ? "A slower path into the room" : "Μια πιο αργή είσοδος στο room"}
+                </h2>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-violet-100">
+                <ShieldCheck className="h-5 w-5" />
               </div>
             </div>
-          </Surface>
 
-          <Surface className="space-y-4 p-6" id="how-echoo-works">
-            <div className="flex items-center gap-3 text-white">
-              <Clock3 className="h-5 w-5 text-violet-300" />
-              <span className="text-sm font-medium">{copy.session.countdownLabel}</span>
+            <div className="space-y-3 rounded-[28px] border border-white/10 bg-[#0b1020] p-4 sm:p-5">
+              {steps.slice(0, 3).map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.number} className="flex gap-3 rounded-[22px] border border-white/5 bg-white/[0.03] p-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-300/10 bg-violet-500/10 text-violet-100">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">{step.number}</p>
+                        {index === 0 && (
+                          <Badge className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-white/60 hover:bg-white/5">
+                            {language === "en" ? "Quiet" : "Ήσυχα"}
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="mt-1 text-sm font-medium text-white">{step.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-white/56">{step.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="rounded-[26px] border border-white/10 bg-[#0b0f1a] p-4">
-              <div className="mb-3 flex items-center justify-between text-xs text-white/50">
-                <span>{language === "en" ? "Text first" : "Πρώτα text"}</span>
-                <span>10:00</span>
-              </div>
-              <div className="space-y-3 text-sm text-white/80">
-                <div className="max-w-[80%] rounded-3xl rounded-bl-md bg-white px-4 py-3 text-slate-950">
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/35">
+                  {language === "en" ? "What to expect" : "Τι να περιμένεις"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/65">
                   {language === "en"
-                    ? "Start small. The room opens as it feels safe."
-                    : "Ξεκίνα μικρά. Το room ανοίγει όσο νιώθει ασφαλές."}
-                </div>
-                <div className="ml-auto max-w-[80%] rounded-3xl rounded-br-md bg-violet-500/20 px-4 py-3 text-white">
-                  {language === "en"
-                    ? "Then voice unlocks when the moment is ready."
-                    : "Μετά η φωνή ξεκλειδώνει όταν το moment είναι έτοιμο."}
-                </div>
+                    ? "Conversation begins softly and only becomes fuller if both people want it to."
+                    : "Η κουβέντα ξεκινά απαλά και γίνεται πιο πλήρης μόνο αν το θέλουν και οι δύο."}
+                </p>
               </div>
-              <div className="mt-4 rounded-2xl border border-violet-400/20 bg-violet-400/10 px-4 py-3 text-sm text-violet-50">
-                {copy.session.voiceUnlocked}
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/35">
+                  {language === "en" ? "Mood" : "Ατμόσφαιρα"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  {language === "en"
+                    ? "Premium, dark, and quiet — more like a private lounge than a loud feed."
+                    : "Premium, σκοτεινό και ήσυχο — πιο κοντά σε ιδιωτικό lounge παρά σε θορυβώδες feed."}
+                </p>
               </div>
             </div>
-          </Surface>
-        </div>
+          </div>
+        </Surface>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-        <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.sections.howItWorks} body={copy.landing.whatIsBody} />
-          <div className="grid gap-4">
-            {steps.map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-100">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-medium text-white">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/60">{body}</p>
-              </div>
-            ))}
-          </div>
-        </Surface>
+      <section id="how-it-works" className="space-y-5">
+        <SectionTitle
+          eyebrow={language === "en" ? "Onboarding" : "Onboarding"}
+          title={language === "en" ? "How Echoo works" : "Πώς λειτουργεί το Echoo"}
+          body={
+            language === "en"
+              ? "Five small steps. No rush, no feed, and no pressure to perform."
+              : "Πέντε μικρά βήματα. Χωρίς βιασύνη, χωρίς feed και χωρίς πίεση να κάνεις επίδειξη."
+          }
+        />
 
-        <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.sections.different} body={copy.landing.whyPhotosBody} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {pillars.map((pillar) => (
-              <div key={pillar.title} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                <h3 className="text-base font-medium text-white">{pillar.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/60">{pillar.body}</p>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <div
+                key={step.number}
+                className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/10 bg-violet-500/10 text-violet-100">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/30">{step.number}</span>
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-white">{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/58">{step.body}</p>
               </div>
-            ))}
-          </div>
-        </Surface>
+            );
+          })}
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.sections.voice} body={copy.session.textNote} />
+          <SectionTitle
+            title={language === "en" ? "Why it feels calmer" : "Γιατί νιώθει πιο ήρεμο"}
+            body={
+              language === "en"
+                ? "Echoo avoids the patterns that make chat apps feel noisy, fast, or performative."
+                : "Το Echoo αποφεύγει τα μοτίβα που κάνουν τα chat apps να νιώθουν θορυβώδη, γρήγορα ή επιτηδευμένα."
+            }
+          />
           <div className="grid gap-3">
-            {voiceCards.map((card) => (
-              <div key={card.title} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                <h3 className="text-base font-medium text-white">{card.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/60">{card.body}</p>
+            {principles.map((item) => (
+              <div key={item.title} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                <h3 className="text-base font-medium text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/60">{item.body}</p>
               </div>
             ))}
           </div>
         </Surface>
 
         <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.sections.safety} body={copy.landing.safetyBody} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              copy.safety.actions[0],
-              copy.safety.actions[1],
-              copy.safety.actions[2],
-              copy.safety.rules[0],
-            ].map((item) => (
-              <div key={item} className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/65">
-                {item}
-              </div>
-            ))}
-          </div>
-        </Surface>
-      </section>
+          <SectionTitle
+            title={language === "en" ? "Small details, bigger clarity" : "Μικρές λεπτομέρειες, μεγαλύτερη καθαρότητα"}
+            body={
+              language === "en"
+                ? "The homepage should answer the three questions people ask first: what is this, how does it work, and what happens if I stay?"
+                : "Η αρχική σελίδα πρέπει να απαντά στις τρεις πρώτες ερωτήσεις: τι είναι, πώς λειτουργεί και τι γίνεται αν μείνω;"
+            }
+          />
 
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-        <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.faqTitle} body={copy.faqPage.body} />
-          <Accordion type="single" collapsible className="w-full space-y-2">
-            {copy.faq.slice(0, 4).map((item, index) => (
-              <AccordionItem
-                key={item.question}
-                value={`faq-${index}`}
-                className="rounded-[22px] border border-white/10 bg-black/20 px-4"
+          <div className="rounded-[28px] border border-white/10 bg-[#0b1020] p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-100">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">{language === "en" ? "Quiet by default" : "Ήσυχο by default"}</p>
+                <p className="text-sm text-white/55">
+                  {language === "en"
+                    ? "A conversation that starts softly tends to feel safer, slower, and more human."
+                    : "Μια κουβέντα που ξεκινά απαλά τείνει να νιώθει πιο ασφαλής, πιο αργή και πιο ανθρώπινη."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {quickLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/72 transition hover:bg-white/[0.06] hover:text-white"
               >
-                <AccordionTrigger className="text-left text-sm text-white hover:no-underline">
-                  {item.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-sm leading-6 text-white/65">{item.answer}</AccordionContent>
-              </AccordionItem>
+                {link.label}
+              </Link>
             ))}
-          </Accordion>
-        </Surface>
-
-        <Surface className="space-y-4 p-6">
-          <SectionTitle title={copy.landing.contactTitle} body={copy.landing.contactBody} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link to="/support" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.support}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.support.responseValue}</p>
-            </Link>
-            <Link to="/contact" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.contact}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.contact.email}</p>
-            </Link>
-            <Link to="/about" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.about}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.about.title}</p>
-            </Link>
-            <Link to="/community-guidelines" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.guidelines}</p>
-              <p className="mt-1 text-lg font-medium text-white">{language === "en" ? "Kindness first" : "Η καλοσύνη πρώτα"}</p>
-            </Link>
-            <Link to="/privacy" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.privacy}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.legal.privacyTitle}</p>
-            </Link>
-            <Link to="/voice-unlock" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.voiceUnlock}</p>
-              <p className="mt-1 text-lg font-medium text-white">{language === "en" ? "Why voice waits" : "Γιατί η φωνή περιμένει"}</p>
-            </Link>
-            <Link to="/retention" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.retention}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.retention.title}</p>
-            </Link>
-            <Link to="/terms" className="rounded-[24px] border border-white/10 bg-black/20 p-4 transition hover:bg-black/30">
-              <p className="text-sm text-white/50">{copy.nav.terms}</p>
-              <p className="mt-1 text-lg font-medium text-white">{copy.legal.termsTitle}</p>
-            </Link>
           </div>
         </Surface>
       </section>
 
       <section>
         <Surface className="space-y-5 p-6 sm:p-8">
-          <SectionTitle title={copy.landing.ctaTitle} body={copy.landing.ctaBody} />
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <SectionTitle
+              title={language === "en" ? "Ready when you are" : "Έτοιμο όταν είσαι κι εσύ"}
+              body={
+                language === "en"
+                  ? "Open Echoo, step into the queue, and let the room form with a little patience."
+                  : "Άνοιξε το Echoo, μπες στην ουρά και άφησε το room να σχηματιστεί με λίγη υπομονή."
+              }
+            />
+            <div className="flex flex-wrap gap-2">
+              {quickLinks.map((link) => (
+                <Badge key={link.to} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/65 hover:bg-white/5">
+                  {link.label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link to="/auth">
               <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
-                {ctas.final}
+                {language === "en" ? "Step in quietly" : "Μπες ήσυχα"}
               </Button>
-
             </Link>
             <Link to="/dashboard">
               <Button
                 variant="outline"
                 className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
               >
-                {copy.nav.dashboard}
+                {language === "en" ? "Go to dashboard" : "Στον πίνακα"}
               </Button>
             </Link>
           </div>
         </Surface>
       </section>
 
-      <footer className="pb-6 text-center text-xs text-white/40">{copy.brand.tagline}</footer>
+      <footer className="pb-6 text-center text-xs text-white/40">
+        {language === "en"
+          ? "Anonymous rooms. Slower interaction. Temporary moments."
+          : "Ανώνυμα rooms. Πιο αργή αλληλεπίδραση. Προσωρινές στιγμές."}
+      </footer>
 
       <StickyBottomBar />
     </PageShell>
@@ -330,9 +352,9 @@ const Index = () => {
 
 function MetricCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-black/30 p-4">
-      <p className="text-2xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs text-white/50">{label}</p>
+    <div className="rounded-[24px] border border-white/10 bg-black/25 p-4 backdrop-blur-sm">
+      <p className="text-2xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/45">{label}</p>
     </div>
   );
 }

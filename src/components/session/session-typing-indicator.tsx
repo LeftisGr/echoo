@@ -13,7 +13,7 @@ export function SessionTypingIndicator({ className }: { className?: string }) {
         <span className="h-1 w-1 rounded-full bg-violet-100/90 animate-[echo-typing-dots_1.05s_ease-in-out_infinite] [animation-delay:-0.08s]" />
         <span className="h-1 w-1 rounded-full bg-violet-100/90 animate-[echo-typing-dots_1.05s_ease-in-out_infinite]" />
       </span>
-      <span className="whitespace-nowrap text-white/68">Typing…</span>
+      <span className="whitespace-nowrap text-white/68">Writing softly…</span>
     </div>
   );
 }
