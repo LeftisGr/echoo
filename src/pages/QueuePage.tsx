@@ -18,7 +18,8 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics } = usePresence();
+  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountModeration } = usePresence();
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
@@ -133,6 +134,35 @@ const QueuePage = () => {
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (accountModeration?.isBanned || accountModeration?.isSuspended) {
+    const isBanned = accountModeration.isBanned;
+    const until = accountModeration.suspendedUntil ?? accountModeration.banExpiresAt;
+    const reason = isBanned ? accountModeration.banReason : accountModeration.suspensionReason;
+
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={isBanned ? (language === "en" ? "Account restricted" : "Λογαριασμός περιορισμένος") : language === "en" ? "Pause active" : "Η παύση είναι ενεργή"}
+            title={isBanned ? (language === "en" ? "This account cannot join Echoo right now." : "Αυτός ο λογαριασμός δεν μπορεί να μπει στο Echoo τώρα.") : language === "en" ? "This account is temporarily paused." : "Αυτός ο λογαριασμός είναι προσωρινά σε παύση."}
+            body={
+              language === "en"
+                ? `${reason ?? "A moderation action is active."}${until ? ` Until ${new Date(until).toLocaleString()}.` : ""}`
+                : `${reason ?? "Υπάρχει ενεργή ενέργεια moderation."}${until ? ` Έως ${new Date(until).toLocaleString()}.` : ""}`
+            }
+            status={isBanned ? (language === "en" ? "No matching is available." : "Δεν υπάρχει διαθέσιμο matching.") : language === "en" ? "Queue access paused." : "Η πρόσβαση στην ουρά είναι σε παύση."}
+            tone={isBanned ? "rose" : "amber"}
+            action={
+              <Button className="h-12 rounded-full bg-violet-500 px-5 text-white hover:bg-violet-400" onClick={() => navigate("/")}>
+                {language === "en" ? "Go home" : "Πήγαινε αρχική"}
+              </Button>
+            }
+          />
+        </div>
+      </PageShell>
+    );
   }
 
   if (room && !matchTransition) {

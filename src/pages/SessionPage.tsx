@@ -146,7 +146,9 @@ const SessionPage = () => {
   const shouldForceScrollRef = useRef(true);
 
   const isNearBottomRef = useRef(true);
+  const previousOnlineRef = useRef(online);
   const previousLastMessageIdRef = useRef<string | null>(null);
+
   const lastVoiceUnlockAtRef = useRef<string | null>(null);
   const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
   const lastProgressionPhaseRef = useRef<string | null>(null);
@@ -428,6 +430,37 @@ const SessionPage = () => {
   useEffect(() => () => stopTyping("unmount"), [stopTyping]);
 
   useEffect(() => {
+    const handleBlur = () => stopTyping("blur");
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        stopTyping("blur");
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [stopTyping]);
+
+  useEffect(() => {
+    if (previousOnlineRef.current === online) {
+      return;
+    }
+
+    previousOnlineRef.current = online;
+
+    if (!room || room.status !== "active") {
+      return;
+    }
+
+    stopTyping(online ? "reconnect" : "disconnect");
+  }, [online, room?.id, room?.status, stopTyping]);
+
+  useEffect(() => {
     if (!room || room.status !== "active") {
       stopTyping("room-closed");
       return;
@@ -437,11 +470,7 @@ const SessionPage = () => {
       stopTyping("reconnect-failed");
       return;
     }
-
-    if (!online) {
-      stopTyping("disconnect");
-    }
-  }, [online, room?.id, room?.status, stopTyping, voiceState]);
+  }, [room?.id, room?.status, stopTyping, voiceState]);
 
   useEffect(() => {
     const handlePageHide = () => {

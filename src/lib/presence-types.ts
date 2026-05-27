@@ -135,6 +135,15 @@ export interface AdminMetrics {
   avgWaitTimeSeconds: number;
 }
 
+export interface AccountModerationState {
+  isSuspended: boolean;
+  suspendedUntil: string | null;
+  suspensionReason: string | null;
+  isBanned: boolean;
+  banExpiresAt: string | null;
+  banReason: string | null;
+}
+
 export interface PresenceStoredState {
   language: AppLanguage;
   authenticated: boolean;

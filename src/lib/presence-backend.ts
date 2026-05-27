@@ -323,8 +323,8 @@ export async function loadBlockedUserIds(userId: string) {
   }
 
   const { data, error } = await supabase
-    .from("user_blocks")
-    .select("blocked_user_id")
+    .from("blocked_users")
+    .select("blocked_id")
     .eq("blocker_id", userId)
     .order("created_at", { ascending: false });
 
@@ -332,10 +332,66 @@ export async function loadBlockedUserIds(userId: string) {
     throw error;
   }
 
-  return (data ?? []).map((row) => (row as { blocked_user_id: string }).blocked_user_id);
+  return (data ?? []).map((row) => (row as { blocked_id: string }).blocked_id);
+}
+
+export interface AccountModerationState {
+  isSuspended: boolean;
+  suspendedUntil: string | null;
+  suspensionReason: string | null;
+  isBanned: boolean;
+  banExpiresAt: string | null;
+  banReason: string | null;
+}
+
+export async function loadModerationState(userId: string) {
+  if (!hasSupabaseConfig) {
+    return {
+      isSuspended: false,
+      suspendedUntil: null,
+      suspensionReason: null,
+      isBanned: false,
+      banExpiresAt: null,
+      banReason: null,
+    } satisfies AccountModerationState;
+  }
+
+  const [{ data: suspensionRow }, { data: banRow }] = await Promise.all([
+    supabase
+      .from("user_suspensions")
+      .select("reason, expires_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("user_bans")
+      .select("reason, permanent, expires_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const now = new Date().toISOString();
+  const suspension = suspensionRow && suspensionRow.expires_at > now ? suspensionRow : null;
+  const ban =
+    banRow && (Boolean(banRow.permanent) || !banRow.expires_at || banRow.expires_at > now)
+      ? banRow
+      : null;
+
+  return {
+    isSuspended: Boolean(suspension),
+    suspendedUntil: suspension?.expires_at ?? null,
+    suspensionReason: suspension?.reason ?? null,
+    isBanned: Boolean(ban),
+    banExpiresAt: ban?.expires_at ?? null,
+    banReason: ban?.reason ?? null,
+  } satisfies AccountModerationState;
 }
 
 export async function joinQueue(userId: string, filters: QueueFilters) {
+
   if (!hasSupabaseConfig) {
     return createOfflineResult({ ok: true, userId, filters });
   }
@@ -358,7 +414,32 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
   return { ok: true, userId, filters };
 }
 
+export async function moderateReport(input: {
+  reportId: string;
+  action: "mark_reviewed" | "dismiss_report" | "suspend_user" | "temporary_ban" | "permanent_ban";
+  reason?: string;
+  durationDays?: number;
+}) {
+  if (!hasSupabaseConfig) {
+    return createOfflineResult({ ok: true, ...input });
+  }
+
+  const { error } = await supabase.rpc("admin_moderate_report", {
+    p_report_id: input.reportId,
+    p_action: input.action,
+    p_reason: input.reason ?? null,
+    p_duration_days: input.durationDays ?? null,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return { ok: true, ...input };
+}
+
 export async function recordSafetyEvent(
+
   eventType: "queue_join" | "text_send" | "media_upload" | "reconnect",
   roomId?: string | null,
   targetUserId?: string | null,
@@ -814,12 +895,19 @@ export async function persistReport(roomId: string, reporterId: string, reported
     return createOfflineResult({ ok: true, roomId, reporterId, reportedUser, reason });
   }
 
-  const { error } = await supabase.from("reports").insert({
-    room_id: roomId,
-    reporter_id: reporterId,
-    reported_user: reportedUser,
-    reason,
-  });
+  const { error } = await supabase.from("reports").upsert(
+    {
+      room_id: roomId,
+      reporter_id: reporterId,
+      reported_user: reportedUser,
+      reason,
+      status: "open",
+    },
+    {
+      onConflict: "room_id,reporter_id",
+      ignoreDuplicates: true,
+    },
+  );
 
   if (error) {
     throw error;

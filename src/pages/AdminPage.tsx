@@ -10,7 +10,9 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { adminChartData } from "@/lib/presence-content";
+import { moderateReport } from "@/lib/presence-backend";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const chartConfig = {
   sessions: { label: "Sessions", color: "#8b5cf6" },
@@ -24,6 +26,11 @@ type ReportRow = {
   reporter_id: string;
   reported_user: string;
   reason: string;
+  status: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  moderation_action: string | null;
+  moderation_reason: string | null;
   created_at: string;
 };
 
@@ -31,20 +38,68 @@ const AdminPage = () => {
   const { authenticated, adminMetrics, isAdmin, profile, copy, language } = usePresence();
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [pendingActionByReportId, setPendingActionByReportId] = useState<Record<string, string>>({});
 
   const loadReports = useCallback(async () => {
     setLoadingReports(true);
-    const { data } = await supabase
-      .from("reports")
-      .select("id, room_id, reporter_id, reported_user, reason, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5);
+    try {
+      const { data } = await supabase
+        .from("reports")
+        .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, reviewed_by, moderation_action, moderation_reason, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-    setRecentReports((data ?? []) as ReportRow[]);
-    setLoadingReports(false);
+      setRecentReports((data ?? []) as ReportRow[]);
+    } finally {
+      setLoadingReports(false);
+    }
   }, []);
 
+  const moderateRecentReport = useCallback(
+    async (
+      reportId: string,
+      action: "mark_reviewed" | "dismiss_report" | "suspend_user" | "temporary_ban" | "permanent_ban",
+      reason?: string,
+      durationDays?: number,
+    ) => {
+      const fallbackReason = reason ?? undefined;
+      setPendingActionByReportId((current) => ({ ...current, [reportId]: action }));
+
+      setRecentReports((current) =>
+        current.map((report) =>
+          report.id === reportId
+            ? {
+                ...report,
+                status: action === "dismiss_report" ? "dismissed" : action === "mark_reviewed" ? "reviewed" : "actioned",
+                reviewed_at: new Date().toISOString(),
+                reviewed_by: profile?.id ?? null,
+                moderation_action: action,
+                moderation_reason: fallbackReason ?? report.reason,
+              }
+            : report,
+        ),
+      );
+
+      try {
+        await moderateReport({ reportId, action, reason: fallbackReason, durationDays });
+      } catch (error) {
+        await loadReports();
+        toast.error(error instanceof Error ? error.message : language === "en" ? "Moderation action failed." : "Η ενέργεια moderation απέτυχε.");
+        throw error;
+      } finally {
+
+        setPendingActionByReportId((current) => {
+          const next = { ...current };
+          delete next[reportId];
+          return next;
+        });
+      }
+    },
+    [language, loadReports, profile?.id],
+  );
+
   useEffect(() => {
+
     if (isAdmin) {
       void loadReports();
     }
@@ -209,28 +264,143 @@ const AdminPage = () => {
                     </div>
                   </div>
                 ) : recentReports.length ? (
+                  recentReports.map((report) => {
+                    const pendingAction = pendingActionByReportId[report.id];
+                    const isOpen = report.status === "open";
+                    const statusLabel =
+                      report.status === "dismissed"
+                        ? language === "en"
+                          ? "Dismissed"
+                          : "Απορρίφθηκε"
+                        : report.status === "reviewed"
+                          ? language === "en"
+                            ? "Reviewed"
+                            : "Ελέγχθηκε"
+                          : report.status === "actioned"
+                            ? language === "en"
+                              ? "Actioned"
+                              : "Επιβλήθηκε"
+                            : language === "en"
+                              ? "Open"
+                              : "Ανοιχτό";
 
-                  recentReports.map((report) => (
-                    <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-                      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
-                        <span>
-                          {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
-                        </span>
-                        <span>•</span>
-                        <span>{new Date(report.created_at).toLocaleString()}</span>
+                    return (
+                      <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/45">
+                          <span>
+                            {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
+                          </span>
+                          <span>•</span>
+                          <span>{new Date(report.created_at).toLocaleString()}</span>
+                          <span>•</span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-white/70">{statusLabel}</span>
+                        </div>
+                        <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                            {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                            {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                            disabled={Boolean(pendingAction)}
+                            onClick={() => {
+                              void moderateRecentReport(report.id, "mark_reviewed", report.reason).catch(() => undefined);
+                            }}
+                          >
+                            {pendingAction === "mark_reviewed"
+                              ? language === "en"
+                                ? "Marking..."
+                                : "Σήμανση..."
+                              : language === "en"
+                                ? "Mark reviewed"
+                                : "Σήμανση ως ελεγμένο"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                            disabled={Boolean(pendingAction)}
+                            onClick={() => {
+                              void moderateRecentReport(report.id, "dismiss_report", report.reason).catch(() => undefined);
+                            }}
+                          >
+                            {pendingAction === "dismiss_report"
+                              ? language === "en"
+                                ? "Dismissing..."
+                                : "Απόρριψη..."
+                              : language === "en"
+                                ? "Dismiss"
+                                : "Απόρριψη"}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-9 rounded-full bg-violet-500 px-3 text-white hover:bg-violet-400"
+                            disabled={Boolean(pendingAction)}
+                            onClick={() => {
+                              void moderateRecentReport(report.id, "suspend_user", report.reason, 7).catch(() => undefined);
+                            }}
+                          >
+                            {pendingAction === "suspend_user"
+                              ? language === "en"
+                                ? "Suspending..."
+                                : "Αναστολή..."
+                              : language === "en"
+                                ? "Suspend 7d"
+                                : "Αναστολή 7ημ."}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-9 rounded-full bg-amber-500 px-3 text-white hover:bg-amber-400"
+                            disabled={Boolean(pendingAction)}
+                            onClick={() => {
+                              void moderateRecentReport(report.id, "temporary_ban", report.reason, 30).catch(() => undefined);
+                            }}
+                          >
+                            {pendingAction === "temporary_ban"
+                              ? language === "en"
+                                ? "Banning..."
+                                : "Ban..."
+                              : language === "en"
+                                ? "Temp ban 30d"
+                                : "Προσωρινό ban 30ημ."}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-9 rounded-full bg-rose-500 px-3 text-white hover:bg-rose-400"
+                            disabled={Boolean(pendingAction)}
+                            onClick={() => {
+                              void moderateRecentReport(report.id, "permanent_ban", report.reason).catch(() => undefined);
+                            }}
+                          >
+                            {pendingAction === "permanent_ban"
+                              ? language === "en"
+                                ? "Banning..."
+                                : "Ban..."
+                              : language === "en"
+                                ? "Permanent ban"
+                                : "Μόνιμο ban"}
+                          </Button>
+                        </div>
+                        {!isOpen && report.moderation_action && (
+                          <p className="mt-3 text-xs text-white/45">
+                            {language === "en"
+                              ? `Last action: ${report.moderation_action.replaceAll("_", " ")}`
+                              : `Τελευταία ενέργεια: ${report.moderation_action.replaceAll("_", " ")}`}
+                          </p>
+                        )}
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                          {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                          {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
+
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
                     {language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}
                   </div>
