@@ -101,7 +101,7 @@ export function LanguageToggle() {
 
 function ProfileButton() {
   const { authenticated, profile, copy } = usePresence();
-  const to = authenticated ? "/settings" : "/auth";
+  const to = authenticated ? "/profile" : "/auth";
   const label = authenticated ? profile?.username ?? copy.auth.profileTitle : copy.misc.signIn;
 
   return (

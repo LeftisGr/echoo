@@ -20,16 +20,27 @@ export type RtcConnectionState = "idle" | "connecting" | "connected" | "reconnec
 
 export type ProfileRole = "member" | "admin";
 
+export type ProfileMode = "guest" | "registered";
+
 export interface PresenceProfile {
   id: string;
   username: string;
+  profileMode: ProfileMode;
+  bio: string | null;
+  avatarEmoji: string | null;
+  avatarUrl: string | null;
   ageRange: AgeRange;
   gender: GenderOption;
   preference: PreferenceOption;
   language: LanguagePreference;
   interests: string[];
+  vibeLabel: string;
+  conversationsCompleted: number;
+  streakDays: number;
+  lastCompletedAt: string | null;
   role: ProfileRole;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface QueueFilters {

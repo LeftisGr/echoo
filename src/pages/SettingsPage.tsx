@@ -68,10 +68,16 @@ const SettingsPage = () => {
               {copy.auth.reroll}
             </Button>
           </div>
+          <div className="flex gap-3">
+            <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
+              <Link to="/profile">{language === "en" ? "Edit profile" : "Επεξεργασία προφίλ"}</Link>
+            </Button>
+          </div>
           <p className="text-sm leading-6 text-white/60">{copy.auth.helper}</p>
         </Surface>
 
         <div className="space-y-4">
+
           <SettingPills
             label={copy.settings.appLanguage}
             values={["en", "el"] as const}

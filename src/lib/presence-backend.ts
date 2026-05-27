@@ -4,6 +4,7 @@ import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 import type {
   ChatMessage,
   PresenceProfile,
+  ProfileMode,
   ProfileRole,
   QueueFilters,
   RatingScore,
@@ -16,16 +17,24 @@ const PERMANENT_MESSAGE_TTL_SECONDS = 60 * 60 * 24 * 365 * 100;
 
 export const presenceSchemaSql = `
 create table if not exists public.profiles (
-
   id uuid not null references auth.users(id) on delete cascade,
   username text not null unique,
+  profile_mode text not null default 'guest',
+  bio text,
+  avatar_emoji text,
+  avatar_url text,
   age_range text not null,
   gender text not null,
   preference text not null,
   language text not null,
   interests text[] not null default '{}',
+  vibe_label text not null default 'night owl',
+  conversations_completed integer not null default 0,
+  streak_days integer not null default 0,
+  last_completed_at timestamptz,
   role text not null default 'member',
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   primary key (id)
 );
 
@@ -68,7 +77,6 @@ create table if not exists public.messages (
   media_height integer,
   media_consumed_at timestamptz,
   expires_at timestamptz not null default (now() + interval '100 years'),
-
   created_at timestamptz not null default now()
 );
 
@@ -88,6 +96,14 @@ create table if not exists public.reports (
   reason text not null,
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.user_blocks (
+  blocker_id uuid not null references auth.users(id) on delete cascade,
+  blocked_user_id uuid not null references auth.users(id) on delete cascade,
+  room_id uuid references public.rooms(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_user_id)
+);
 `;
 
 interface QueueRow {
@@ -97,7 +113,26 @@ interface QueueRow {
   active: boolean;
 }
 
-interface LiveProfileRow extends PresenceProfile {}
+interface LiveProfileRow {
+  id: string;
+  username: string;
+  profile_mode: ProfileMode;
+  bio: string | null;
+  avatar_emoji: string | null;
+  avatar_url: string | null;
+  age_range: PresenceProfile["ageRange"];
+  gender: PresenceProfile["gender"];
+  preference: PresenceProfile["preference"];
+  language: PresenceProfile["language"];
+  interests: string[] | null;
+  vibe_label: string | null;
+  conversations_completed: number | null;
+  streak_days: number | null;
+  last_completed_at: string | null;
+  role: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
 
 interface LiveRoomRow {
   id: string;
@@ -161,7 +196,35 @@ function normalizeRole(role: string | null | undefined): ProfileRole {
   return role === "admin" ? "admin" : "member";
 }
 
+function normalizeProfileMode(mode: string | null | undefined): ProfileMode {
+  return mode === "registered" ? "registered" : "guest";
+}
+
+function mapProfileRow(row: LiveProfileRow): PresenceProfile {
+  return {
+    id: row.id,
+    username: row.username,
+    profileMode: normalizeProfileMode(row.profile_mode),
+    bio: row.bio,
+    avatarEmoji: row.avatar_emoji,
+    avatarUrl: row.avatar_url,
+    ageRange: row.age_range,
+    gender: row.gender,
+    preference: row.preference,
+    language: row.language,
+    interests: row.interests ?? [],
+    vibeLabel: row.vibe_label ?? "night owl",
+    conversationsCompleted: row.conversations_completed ?? 0,
+    streakDays: row.streak_days ?? 0,
+    lastCompletedAt: row.last_completed_at,
+    role: normalizeRole(row.role),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+  };
+}
+
 export function isLanguageCompatible(
+
   targetLanguage: PresenceProfile["language"],
   candidateLanguage: PresenceProfile["language"],
   relaxed = false,
@@ -208,12 +271,21 @@ export async function syncProfile(profile: PresenceProfile) {
   const { error } = await supabase.from("profiles").upsert({
     id: profile.id,
     username: profile.username,
+    profile_mode: profile.profileMode,
+    bio: profile.bio,
+    avatar_emoji: profile.avatarEmoji,
+    avatar_url: profile.avatarUrl,
     age_range: profile.ageRange,
     gender: profile.gender,
     preference: profile.preference,
     language: profile.language,
     interests: profile.interests,
+    vibe_label: profile.vibeLabel,
+    conversations_completed: profile.conversationsCompleted,
+    streak_days: profile.streakDays,
+    last_completed_at: profile.lastCompletedAt,
     role: profile.role,
+    updated_at: profile.updatedAt,
   });
 
   if (error) {
@@ -230,7 +302,7 @@ export async function loadProfile(userId: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, age_range, gender, preference, language, interests, role, created_at")
+    .select("id, username, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -242,23 +314,25 @@ export async function loadProfile(userId: string) {
     return null;
   }
 
-  const row = data as unknown as LiveProfileRow & {
-    age_range: PresenceProfile["ageRange"];
-    created_at: string;
-  };
+  return mapProfileRow(data as LiveProfileRow);
+}
 
-  return {
-    id: row.id,
-    username: row.username,
-    ageRange: row.age_range,
-    gender: row.gender,
-    preference: row.preference,
-    language: row.language,
-    interests: row.interests ?? [],
-    role: normalizeRole(row.role),
-    createdAt: row.created_at,
-  } satisfies PresenceProfile;
+export async function loadBlockedUserIds(userId: string) {
+  if (!hasSupabaseConfig) {
+    return [] as string[];
+  }
 
+  const { data, error } = await supabase
+    .from("user_blocks")
+    .select("blocked_user_id")
+    .eq("blocker_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => (row as { blocked_user_id: string }).blocked_user_id);
 }
 
 export async function joinQueue(userId: string, filters: QueueFilters) {
@@ -422,7 +496,7 @@ export async function findBestMatch(user: PresenceProfile, relaxed = false) {
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, username, age_range, gender, preference, language, interests, created_at")
+    .select("id, username, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
     .in("id", candidateIds);
 
   if (profilesError) {
@@ -431,22 +505,8 @@ export async function findBestMatch(user: PresenceProfile, relaxed = false) {
 
   const profileMap = new Map<string, PresenceProfile>();
   (profiles ?? []).forEach((row) => {
-    const profileRow = row as unknown as LiveProfileRow & {
-      age_range: PresenceProfile["ageRange"];
-      created_at: string;
-    };
-    profileMap.set(profileRow.id, {
-      id: profileRow.id,
-      username: profileRow.username,
-      ageRange: profileRow.age_range,
-      gender: profileRow.gender,
-      preference: profileRow.preference,
-      language: profileRow.language,
-      interests: profileRow.interests ?? [],
-      role: normalizeRole((profileRow as { role?: string }).role),
-      createdAt: profileRow.created_at,
-    });
-
+    const profileRow = row as LiveProfileRow;
+    profileMap.set(profileRow.id, mapProfileRow(profileRow));
   });
 
   for (const candidateId of candidateIds) {

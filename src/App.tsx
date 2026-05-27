@@ -20,6 +20,7 @@ import FAQPage from "@/pages/FAQPage";
 import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import PrivacyPage from "@/pages/PrivacyPage";
+import ProfilePage from "@/pages/ProfilePage";
 import QueuePage from "@/pages/QueuePage";
 import RetentionPage from "@/pages/RetentionPage";
 import SafetyPage from "@/pages/SafetyPage";
@@ -95,6 +96,7 @@ function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/queue" element={<QueuePage />} />
         <Route path="/session" element={<SessionPage />} />
         <Route path="/session/:roomId" element={<SessionPage />} />
@@ -106,6 +108,7 @@ function AppRoutes() {
         <Route path="/safety" element={<SafetyPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/admin/presence" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />

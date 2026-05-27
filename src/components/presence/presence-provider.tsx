@@ -16,11 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCopy, queueMessages, usernamePrefixes, usernameSuffixes } from "@/lib/presence-content";
 import {
   endRoom,
-
   hasSupabaseConfig,
   joinQueue,
   leaveQueue,
   loadActiveRoomForUser,
+  loadBlockedUserIds,
   loadProfile,
   loadRoomById,
   loadRoomMessages,
@@ -142,8 +142,10 @@ interface PresenceContextValue {
   adminMetrics: AdminMetrics;
   userId: string | null;
   isAdmin: boolean;
+  blockedUserCount: number;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
+
   logout: () => void;
 
   rerollUsername: () => void;
@@ -266,21 +268,34 @@ function randomFrom<T>(items: readonly T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+const guestAvatarEmojis = ["🌙", "✨", "☁️", "🫧", "🪩", "🌿"] as const;
+const vibeLabels = ["night owl", "deep talker", "soft listener", "curious mind"] as const;
+
 function generateUsername() {
   return `${randomFrom(usernamePrefixes)}${randomFrom(usernameSuffixes)}`;
 }
 
-function createDefaultProfile(userId?: string): PresenceProfile {
+function createDefaultProfile(userId?: string, profileMode: PresenceProfile["profileMode"] = "guest"): PresenceProfile {
+  const createdAt = new Date().toISOString();
   return {
     id: userId ?? createId(),
     username: generateUsername(),
+    profileMode,
+    bio: null,
+    avatarEmoji: randomFrom(guestAvatarEmojis),
+    avatarUrl: null,
     ageRange: "25-34",
     gender: "prefer-not",
     preference: "anyone",
     language: "both",
     interests: ["music", "deep talks", "travel"],
+    vibeLabel: randomFrom(vibeLabels),
+    conversationsCompleted: 0,
+    streakDays: 0,
+    lastCompletedAt: null,
     role: "member",
-    createdAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: createdAt,
   };
 }
 
@@ -459,10 +474,34 @@ function readStoredGuestProfile() {
   }
 
   try {
-    return JSON.parse(raw) as PresenceProfile;
+    const parsed = JSON.parse(raw) as Partial<PresenceProfile>;
+    const fallback = createDefaultProfile(parsed.id ?? undefined);
+    return {
+      ...fallback,
+      ...parsed,
+      profileMode: parsed.profileMode ?? fallback.profileMode,
+      bio: parsed.bio ?? fallback.bio,
+      avatarEmoji: parsed.avatarEmoji ?? fallback.avatarEmoji,
+      avatarUrl: parsed.avatarUrl ?? fallback.avatarUrl,
+      interests: parsed.interests ?? fallback.interests,
+      vibeLabel: parsed.vibeLabel ?? fallback.vibeLabel,
+      conversationsCompleted: parsed.conversationsCompleted ?? fallback.conversationsCompleted,
+      streakDays: parsed.streakDays ?? fallback.streakDays,
+      lastCompletedAt: parsed.lastCompletedAt ?? fallback.lastCompletedAt,
+      updatedAt: parsed.updatedAt ?? fallback.updatedAt,
+    } satisfies PresenceProfile;
   } catch {
     return null;
   }
+}
+
+function promoteGuestProfile(profile: PresenceProfile, userId: string): PresenceProfile {
+  return {
+    ...profile,
+    id: userId,
+    profileMode: "registered",
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function writeStoredGuestProfile(profile: PresenceProfile | null) {
@@ -760,14 +799,41 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const copy = useMemo(() => getCopy(language), [language]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!userId) {
       setBlockedUserIds([]);
       setBlockedUsersLoaded(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
-    setBlockedUserIds(readStoredBlockedUsers(userId));
-    setBlockedUsersLoaded(true);
+    const hydrateBlockedUsers = async () => {
+      try {
+        const blockedIds = await loadBlockedUserIds(userId);
+        if (cancelled) {
+          return;
+        }
+
+        setBlockedUserIds(blockedIds);
+        setBlockedUsersLoaded(true);
+        writeStoredBlockedUsers(userId, blockedIds);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setBlockedUserIds(readStoredBlockedUsers(userId));
+        setBlockedUsersLoaded(true);
+      }
+    };
+
+    void hydrateBlockedUsers();
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   const stopVoiceChat = useCallback(() => {
@@ -1057,7 +1123,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: { id: string } | null) => {
+    const initializeSession = async (sessionUser: { id: string; is_anonymous?: boolean } | null) => {
+      const isAnonymousSession = Boolean(sessionUser?.is_anonymous);
+
       setInitializing(true);
       setAppReady(false);
       setAuthLoaded(false);
@@ -1065,23 +1133,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setSessionReady(false);
 
       setAuthenticated(Boolean(sessionUser));
+      setGuestMode(isAnonymousSession);
       setUserId(sessionUser?.id ?? null);
-
-      if (sessionUser) {
-        if (!guestMode) {
-          writeStoredGuestSession(false);
-          writeStoredGuestProfile(null);
-        }
-      }
 
       if (!sessionUser) {
         hydratedSessionUserIdRef.current = null;
         stopQueueSubscriptions();
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
-        if (!guestMode) {
-          setGuestMode(false);
-        }
+        setGuestMode(false);
         setProfile(null);
         setRoom(null);
         setQueue(createInitialQueue(null));
@@ -1104,7 +1164,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id);
+          await hydrateAuthenticatedUser(sessionUser.id, isAnonymousSession);
         }
       } catch {
         hydratedSessionUserIdRef.current = null;
@@ -1113,6 +1173,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
         setAuthenticated(false);
+        setGuestMode(false);
         setUserId(null);
         setProfile(null);
         setRoom(null);
@@ -1402,15 +1463,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string) {
+  async function hydrateAuthenticatedUser(currentUserId: string, isAnonymousSession: boolean) {
     const loadedProfile = await loadProfile(currentUserId);
-    const profileToUse = loadedProfile ?? createDefaultProfile(currentUserId);
+    const storedGuestProfile = readStoredGuestProfile();
+    const profileToUse =
+      loadedProfile ??
+      (storedGuestProfile
+        ? isAnonymousSession
+          ? {
+              ...storedGuestProfile,
+              id: currentUserId,
+              profileMode: "guest",
+            }
+          : promoteGuestProfile(storedGuestProfile, currentUserId)
+        : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered"));
 
-    const effectiveProfile = loadedProfile ?? profileToUse;
-    setIsAdmin(effectiveProfile.role === "admin");
+    setIsAdmin(profileToUse.role === "admin");
 
     if (loadedProfile) {
-
       setProfile(loadedProfile);
       setQueue((current) => ({
         ...current,
@@ -1419,12 +1489,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           language: loadedProfile.language,
         },
       }));
+
+      if (!isAnonymousSession) {
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
+      }
     } else {
       setProfile(profileToUse);
       await syncProfile(profileToUse);
+
+      if (!isAnonymousSession) {
+        writeStoredGuestSession(false);
+        writeStoredGuestProfile(null);
+      }
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+
     if (activeRoom) {
       const pendingMatch = readStoredMatchTransition();
       if (pendingMatch && pendingMatch.roomId === activeRoom.id) {
@@ -2084,8 +2165,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const rerollUsername = useCallback(() => {
     setProfile((current) => {
       const nextProfile = {
-        ...(current ?? createDefaultProfile(userId ?? undefined)),
+        ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered")),
         username: generateUsername(),
+        updatedAt: new Date().toISOString(),
       };
       void syncProfile(nextProfile);
       return nextProfile;
@@ -2093,14 +2175,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate(20);
     }
-  }, [hapticsEnabled, userId]);
+  }, [guestMode, hapticsEnabled, userId]);
 
   const updateProfile = useCallback(
     (updates: Partial<PresenceProfile>) => {
       setProfile((current) => {
         const nextProfile = {
-          ...(current ?? createDefaultProfile(userId ?? undefined)),
+          ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered")),
           ...updates,
+          updatedAt: new Date().toISOString(),
         };
         void syncProfile(nextProfile);
         return nextProfile;
@@ -2116,7 +2199,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
       toast(copy.misc.profileSaved);
     },
-    [copy.misc.profileSaved, userId],
+    [copy.misc.profileSaved, guestMode, userId],
   );
 
   const setQueueFilters = useCallback((filters: Partial<QueueFilters>) => {
@@ -2138,7 +2221,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       profile ??
       (userId
         ? {
-            ...(createDefaultProfile(userId)),
+            ...(createDefaultProfile(userId, guestMode ? "guest" : "registered")),
           }
         : null);
 
@@ -2766,7 +2849,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       adminMetrics,
       userId,
       isAdmin,
+      blockedUserCount: blockedUserIds.length,
       login,
+
       logout,
       rerollUsername,
       updateProfile,
@@ -2799,7 +2884,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       appReady,
       authenticated,
       blockCurrentPartner,
+      blockedUserIds.length,
       cancelQueue,
+
       copy,
       hapticsEnabled,
       initializing,
