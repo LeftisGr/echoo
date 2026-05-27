@@ -773,23 +773,8 @@ const SessionPage = () => {
     return <Navigate to={`/session/${room.id}`} replace />;
   }
 
-  if (!profile) {
-    return (
-      <PageShell className="flex items-center">
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow="Echoo"
-            title={copy.misc.loadingProfile}
-            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
-            status={copy.misc.restoring}
-            tone="amber"
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
   const isActive = room.status === "active";
+
   const isEnded = room.status === "ended";
   const secondsRemaining =
     phase === "TEXT_PHASE"
@@ -1023,6 +1008,22 @@ const SessionPage = () => {
       </span>
     );
   };
+
+  if (!profile) {
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.misc.loadingProfile}
+            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
+            status={copy.misc.restoring}
+            tone="amber"
+          />
+        </div>
+      </PageShell>
+    );
+  }
 
   if (isEnded) {
 
