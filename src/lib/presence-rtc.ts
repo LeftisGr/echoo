@@ -83,19 +83,7 @@ function streamSnapshot(stream: MediaStream) {
 
 function createPeerConnection() {
   return new RTCPeerConnection({
-    iceServers: [
-      { urls: ["stun:stun.l.google.com:19302"] },
-      {
-        urls: [
-          "turn:free.expressturn.com:3478?transport=udp",
-          "turn:free.expressturn.com:3478?transport=tcp",
-          "turn:free.expressturn.com:80?transport=tcp",
-          "turn:free.expressturn.com:443?transport=tcp",
-        ],
-        username: "000000002084988233",
-        credential: "gFz9pW2Gt/fv1CrSY33N9/aLkPg=",
-      },
-    ],
+    iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
 
     iceCandidatePoolSize: 0,
   });
@@ -184,8 +172,8 @@ export async function createPeerToPeerVoiceSession({
 }): Promise<VoiceSessionController> {
 
   const sessionId = crypto.randomUUID();
-  const sessionStartedAt = Date.now();
   const remoteUserId = currentUserId === userA ? userB : userA;
+
   const isInitiator = currentUserId < remoteUserId;
   const canContinue = () => (isCurrentSession ? isCurrentSession() : true);
 
@@ -1061,13 +1049,8 @@ export async function createPeerToPeerVoiceSession({
     }
 
     const connectionId = signal.signal_payload.connectionId;
-    const connectionAge = Date.parse(signal.created_at);
-    if (Number.isFinite(connectionAge) && connectionAge + 1000 < sessionStartedAt) {
-      rtcLog("stale offer ignored", { roomId, sessionId, connectionId, createdAt: signal.created_at });
-      return;
-    }
-
     if (
+
       currentConnectionId &&
       currentConnectionId !== connectionId &&
       activePeer &&
@@ -1241,19 +1224,8 @@ export async function createPeerToPeerVoiceSession({
       return;
     }
 
-    const signalAge = Date.parse(signal.created_at);
-    if (Number.isFinite(signalAge) && signalAge + 1000 < sessionStartedAt) {
-      rtcLog("stale signal ignored", {
-        roomId,
-        sessionId,
-        signalId: signal.id,
-        type: signal.signal_type,
-        createdAt: signal.created_at,
-      });
-      return;
-    }
-
     rtcLog("signal received", {
+
       roomId,
       sessionId,
       signalId: signal.id,
@@ -1282,7 +1254,6 @@ export async function createPeerToPeerVoiceSession({
       .select("id, room_id, sender_id, target_id, signal_type, signal_payload, created_at")
       .eq("room_id", roomId)
       .eq("target_id", currentUserId)
-      .gte("created_at", new Date(sessionStartedAt - 1000).toISOString())
       .order("created_at", { ascending: true })
       .limit(100);
 
