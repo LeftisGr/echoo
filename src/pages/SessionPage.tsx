@@ -25,6 +25,7 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
+import { SessionTypingIndicator } from "@/components/session/session-typing-indicator";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import {
@@ -760,6 +761,7 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
+  const sessionComplete = sessionProgression.elapsedSeconds >= SESSION_TOTAL_PROGRESS_SECONDS;
 
   const voiceStatusDotClass =
     voiceState === "connected"
@@ -1149,7 +1151,8 @@ const SessionPage = () => {
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
                 language={language}
-                sessionComplete={sessionProgression.elapsedSeconds >= SESSION_TOTAL_PROGRESS_SECONDS}
+                sessionComplete={sessionComplete}
+
               />
 
             </div>
@@ -1342,7 +1345,14 @@ const SessionPage = () => {
 
             })}
 
+            {typingIndicator && (
+              <div className="mt-2 flex justify-start px-1">
+                <SessionTypingIndicator />
+              </div>
+            )}
+
             <div ref={chatEndRef} />
+
           </div>
         </main>
 
@@ -1755,17 +1765,6 @@ const SessionPage = () => {
 
                   </div>
 
-                  {typingIndicator && (
-                    <div className="mt-1 inline-flex min-h-[2.75rem] items-center gap-3 rounded-full border border-violet-300/15 bg-violet-500/10 px-4 py-2 text-sm text-violet-50/90 shadow-[0_8px_20px_rgba(109,40,217,0.12)] transition-all duration-200 animate-[echo-message-in_180ms_ease-out]">
-                      <span className="whitespace-nowrap font-medium tracking-wide">{language === "en" ? "Someone is typing..." : "Κάποιος γράφει..."}</span>
-                      <span className="flex items-center gap-1.5" aria-hidden="true">
-                        <span className="h-2 w-2 rounded-full bg-violet-100/90 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.18s]" />
-                        <span className="h-2 w-2 rounded-full bg-violet-100/90 animate-[echo-typing-dots_1s_ease-in-out_infinite] [animation-delay:-0.08s]" />
-                        <span className="h-2 w-2 rounded-full bg-violet-100/90 animate-[echo-typing-dots_1s_ease-in-out_infinite]" />
-                      </span>
-                    </div>
-                  )}
-
                 </div>
               </form>
 
@@ -1813,79 +1812,65 @@ const SessionPage = () => {
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className="border-rose-400/20 bg-[#11192b] text-white sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-left text-white">
-              {language === "en" ? "Report room" : "Αναφορά room"}
-
-            </DialogTitle>
-            <DialogDescription className="text-left text-white/60">
+            <DialogTitle>{language === "en" ? "Report room" : "Αναφορά room"}</DialogTitle>
+            <DialogDescription className="text-white/55">
               {language === "en"
-                ? "Choose the reason that fits best. Your report helps us keep Echoo calm and safe."
-                : "Επίλεξε τον λόγο που ταιριάζει καλύτερα. Η αναφορά μάς βοηθά να κρατάμε το Echoo ήρεμο και ασφαλές."}
+                ? "Help us keep Echoo safe and respectful."
+                : "Βοήθησέ μας να κρατήσουμε το Echoo ασφαλές και με σεβασμό."}
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-3 pt-1">
-            <div className="grid gap-2 sm:grid-cols-3">
-              {reportReasonOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant="outline"
-                  className={cn(
-                    "h-auto rounded-2xl border-white/10 px-3 py-3 text-left text-xs leading-5 text-white/75 hover:bg-white/10 hover:text-white",
-                    reportReason === option.value && "border-rose-300/30 bg-rose-500/15 text-rose-50",
-                  )}
-                  onClick={() => setReportReason(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/75">
+                {language === "en" ? "Reason" : "Λόγος"}
+              </label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {reportReasonOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setReportReason(option.value)}
+                    className={cn(
+                      "rounded-[18px] border px-3 py-3 text-left text-sm transition-colors",
+                      reportReason === option.value
+                        ? "border-rose-400/30 bg-rose-500/15 text-white"
+                        : "border-white/10 bg-white/5 text-white/65 hover:bg-white/8 hover:text-white",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <Textarea
-              value={reportDetails}
-              onChange={(event) => setReportDetails(event.target.value)}
-              placeholder={language === "en" ? "Add a short note (optional)" : "Πρόσθεσε μια σύντομη σημείωση (προαιρετικό)"}
-              className="min-h-28 rounded-3xl border-white/10 bg-white/5 text-white placeholder:text-white/35"
-              maxLength={240}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/75">
+                {language === "en" ? "Details" : "Λεπτομέρειες"}
+              </label>
+              <Textarea
+                value={reportDetails}
+                onChange={(event) => setReportDetails(event.target.value)}
+                placeholder={language === "en" ? "Tell us what happened" : "Πες μας τι συνέβη"}
+                className="min-h-28 rounded-[20px] border-white/10 bg-white/5 text-white placeholder:text-white/35"
+              />
+            </div>
           </div>
-
-          <DialogFooter className="mt-2 flex-col gap-3 sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={() => setReportDialogOpen(false)}
-            >
+          <DialogFooter>
+            <Button variant="outline" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={() => setReportDialogOpen(false)}>
               {language === "en" ? "Cancel" : "Ακύρωση"}
             </Button>
             <Button
-              type="button"
-              className="h-12 rounded-full bg-rose-500 text-white hover:bg-rose-400"
-              onClick={() => {
-                void submitRoomReport();
-              }}
+              className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
               disabled={reportSubmitting}
+              onClick={submitRoomReport}
             >
-              {reportSubmitting ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-3 w-3 animate-pulse rounded-full bg-white/80" />
-                  {language === "en" ? "Sending..." : "Αποστολή..."}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <Flag className="h-4 w-4" />
-                  {language === "en" ? "Send report" : "Αποστολή αναφοράς"}
-                </span>
-              )}
+              {reportSubmitting ? (language === "en" ? "Sending..." : "Αποστολή...") : language === "en" ? "Send report" : "Αποστολή αναφοράς"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
+    );
 
-    </div>
-  );
-};
+  }
 
 export default SessionPage;

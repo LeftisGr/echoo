@@ -2,6 +2,7 @@ import { Progress } from "@/components/ui/progress";
 import type { AppLanguage } from "@/lib/presence-types";
 import type { SessionPhase } from "@/lib/session-progression";
 import { SessionPhaseBadge } from "@/components/session/session-phase-badge";
+import { SessionFreeConversationState } from "@/components/session/session-free-conversation-state";
 import { cn } from "@/lib/utils";
 
 export function SessionProgressHeader({
@@ -23,8 +24,8 @@ export function SessionProgressHeader({
     <div className="space-y-3 text-center">
       <SessionPhaseBadge phase={phase} language={language} />
       {sessionComplete ? (
-        <div className="mx-auto inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium tracking-[0.12em] text-white/75 shadow-sm">
-          {language === "en" ? "Enjoy" : "Απόλαυσε το"}
+        <div className="animate-[echo-message-in_260ms_ease-out]">
+          <SessionFreeConversationState language={language} />
         </div>
       ) : (
         <div className={cn("text-3xl font-semibold tracking-tight transition-all duration-300 sm:text-4xl", toneClassName)}>{timerLabel}</div>
