@@ -10,7 +10,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
-import { upperWithoutAccents } from "@/lib/utils";
+import { cn, upperWithoutAccents } from "@/lib/utils";
 
 const loadingWindowSeconds = 20;
 const searchingWindowSeconds = 20;
@@ -113,6 +113,7 @@ const QueuePage = () => {
 ;
 
   const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
+  const queueUrgent = secondsLeft <= 10;
 
   if (!appReady) {
     return (
@@ -228,13 +229,14 @@ const QueuePage = () => {
               <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
               <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Status" : "Κατάσταση"}</p>
-              <p className="mt-2 text-sm font-medium text-violet-100">
+            <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-white/5") }>
+              <p className={cn("text-xs uppercase tracking-[0.24em]", queueUrgent ? "text-rose-100/70" : "text-white/40")}>{language === "en" ? "Status" : "Κατάσταση"}</p>
+              <p className={cn("mt-2 text-sm font-medium", queueUrgent ? "text-rose-100" : "text-violet-100")}>
                 {phase === "loading" ? copy.queue.loading : phase === "searching" ? copy.queue.searching : copy.queue.matchFound}
               </p>
-              <p className="mt-1 text-sm text-white/50">{secondsLeft}s</p>
+              <p className={cn("mt-1 text-sm", queueUrgent ? "text-rose-50/80" : "text-white/50")}>{secondsLeft}s</p>
             </div>
+
           </div>
 
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
@@ -263,8 +265,12 @@ const QueuePage = () => {
             )}
 
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-violet-400 transition-[width] duration-700 ease-out" style={{ width: `${progress}%` }} />
+              <div
+                className={cn("h-full rounded-full transition-[width,background-color] duration-700 ease-out", queueUrgent ? "bg-rose-400" : "bg-violet-400")}
+                style={{ width: `${progress}%` }}
+              />
             </div>
+
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">

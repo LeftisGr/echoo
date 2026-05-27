@@ -153,7 +153,7 @@ export const copy = {
       ctaBody: "Open Echoo, create your anonymous profile, and step into a live room in seconds.",
 
       stickyMenu: "Menu",
-      stickySession: "Open a room",
+      stickySession: "Join anonymously",
 
       sections: {
         howItWorks: "How Echoo Works",
@@ -467,7 +467,7 @@ export const copy = {
       ctaBody: "Άνοιξε το Echoo, δημιούργησε το ανώνυμο προφίλ σου και μπες σε live room σε δευτερόλεπτα.",
 
       stickyMenu: "Μενού",
-      stickySession: "Ανοιξε ενα room",
+      stickySession: "Συνδέσου ανώνυμα",
 
       sections: {
         howItWorks: "Πώς λειτουργεί το Echoo",

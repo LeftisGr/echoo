@@ -124,6 +124,7 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
 
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
@@ -150,6 +151,7 @@ const SessionPage = () => {
   const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
   const lastProgressionPhaseRef = useRef<string | null>(null);
   const progressionMomentTimeoutRef = useRef<number | null>(null);
+  const reactionOptions = ["❤️", "✨", "🙂", "🫶"];
 
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
@@ -235,8 +237,12 @@ const SessionPage = () => {
     isNearBottomRef.current = true;
   }, [room?.id, routeRoomId]);
 
+  useEffect(() => {
+    setMessageReactions({});
+  }, [room?.id]);
 
   useEffect(() => {
+
     if (!room?.messages.length) {
       previousLastMessageIdRef.current = null;
       setRecentMessageId(null);
@@ -797,24 +803,33 @@ const SessionPage = () => {
             ? "bg-slate-500 shadow-[0_0_0_4px_rgba(100,116,139,0.16)]"
             : "bg-white/20";
 
-  const timerUrgent = secondsRemaining <= 60;
+  const timerUrgent = secondsRemaining <= 10;
 
   const timerToneClass =
-
     phase === "TEXT_PHASE"
-      ? "text-white"
+      ? timerUrgent
+        ? "text-rose-200"
+        : "text-white"
       : phase === "AUDIO_PHASE"
-        ? "text-emerald-100"
+        ? timerUrgent
+          ? "text-rose-200"
+          : "text-emerald-100"
         : timerUrgent
-          ? "text-amber-100"
+          ? "text-rose-100"
           : "text-amber-50";
 
   const composerShellClass =
     phase === "TEXT_PHASE"
-      ? "border-white/10 bg-[#10182b]/92"
+      ? timerUrgent
+        ? "border-rose-400/18 bg-[#28161a]/92"
+        : "border-white/10 bg-[#10182b]/92"
       : phase === "AUDIO_PHASE"
-        ? "border-emerald-300/12 bg-[#101f1a]/92"
-        : "border-violet-300/18 bg-[#151826]/92";
+        ? timerUrgent
+          ? "border-rose-400/18 bg-[#28161a]/92"
+          : "border-emerald-300/12 bg-[#101f1a]/92"
+        : timerUrgent
+          ? "border-rose-400/18 bg-[#28161a]/92"
+          : "border-violet-300/18 bg-[#151826]/92";
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
@@ -981,33 +996,9 @@ const SessionPage = () => {
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={cn("h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-300", voiceStatusDotClass)}
-                    aria-label={language === "en" ? "Audio status" : "Κατάσταση ήχου"}
-                    title={
-                      voiceState === "connected"
-                        ? language === "en"
-                          ? "Live"
-                          : "Live"
-                        : voiceState === "connecting" || voiceState === "requesting-microphone"
-                          ? language === "en"
-                            ? "Connecting"
-                            : "Συνδέεται"
-                          : voiceState === "reconnecting"
-                            ? language === "en"
-                              ? "Reconnecting"
-                              : "Επανασύνδεση"
-                            : voiceState === "failed" || voiceState === "error"
-                              ? language === "en"
-                                ? "Connection issue"
-                                : "Πρόβλημα σύνδεσης"
-                              : language === "en"
-                                ? "Idle"
-                                : "Ανενεργό"
-                    }
-                  />
                   <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
                 </div>
+
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
@@ -1044,18 +1035,6 @@ const SessionPage = () => {
                     }}
                   >
                     {language === "en" ? "Turn audio on" : "Άνοιξε τον ήχο"}
-                  </Button>
-                )}
-                {(voiceState === "idle" || voiceState === "failed" || voiceState === "error") && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-7 rounded-full border-violet-300/20 bg-violet-300/10 px-2.5 text-[11px] text-violet-50 hover:bg-violet-300/15 hover:text-white"
-                    onClick={async () => {
-                      await startVoiceChat();
-                    }}
-                  >
-                    {language === "en" ? "Try voice again" : "Δοκίμασε ξανά τη φωνή"}
                   </Button>
                 )}
               </div>
@@ -1210,10 +1189,43 @@ const SessionPage = () => {
                         <span>{timestamp}</span>
                       </div>
                       <SessionMediaMessage message={message} isSelf={isSelf} />
+                      <div className={cn("mt-2 flex flex-wrap gap-1.5", isSelf ? "justify-end" : "justify-start")}>
+                        {reactionOptions.map((emoji) => {
+                          const activeReaction = messageReactions[message.id] === emoji;
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              aria-label={`React with ${emoji}`}
+                              title={emoji}
+                              onClick={() => {
+                                setMessageReactions((current) => ({
+                                  ...current,
+                                  [message.id]: current[message.id] === emoji ? "" : emoji,
+                                }));
+                              }}
+                              className={cn(
+                                "flex h-7 w-7 items-center justify-center rounded-full border text-[12px] transition-all duration-150 active:scale-95",
+                                activeReaction
+                                  ? "border-violet-300/25 bg-violet-400/15 text-white"
+                                  : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white",
+                              )}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                        {messageReactions[message.id] && (
+                          <span className="ml-1 inline-flex h-7 items-center rounded-full border border-white/10 bg-white/5 px-2 text-[12px] text-white/70">
+                            {messageReactions[message.id]}
+                          </span>
+                        )}
+                      </div>
 
                     </div>
                   </div>
                 );
+
               }
 
               return (
@@ -1233,6 +1245,38 @@ const SessionPage = () => {
                       )}
                     >
                       {message.content}
+                    </div>
+                    <div className={cn("mt-2 flex flex-wrap gap-1.5", isSelf ? "justify-end" : "justify-start")}>
+                      {reactionOptions.map((emoji) => {
+                        const activeReaction = messageReactions[message.id] === emoji;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            aria-label={`React with ${emoji}`}
+                            title={emoji}
+                            onClick={() => {
+                              setMessageReactions((current) => ({
+                                ...current,
+                                [message.id]: current[message.id] === emoji ? "" : emoji,
+                              }));
+                            }}
+                            className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-full border text-[12px] transition-all duration-150 active:scale-95",
+                              activeReaction
+                                ? "border-violet-300/25 bg-violet-400/15 text-white"
+                                : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white",
+                            )}
+                          >
+                            {emoji}
+                          </button>
+                        );
+                      })}
+                      {messageReactions[message.id] && (
+                        <span className="ml-1 inline-flex h-7 items-center rounded-full border border-white/10 bg-white/5 px-2 text-[12px] text-white/70">
+                          {messageReactions[message.id]}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1614,6 +1658,36 @@ const SessionPage = () => {
                     >
 
                       <Mic className={cn("h-5 w-5 transition-transform duration-150", voiceDiagnostics?.transmitting && "scale-110 animate-pulse")} />
+                      {phase !== "TEXT_PHASE" && (
+                        <span
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full transition-colors duration-300",
+                            voiceStatusDotClass,
+                          )}
+                          aria-label={language === "en" ? "Audio status" : "Κατάσταση ήχου"}
+                          title={
+                            voiceState === "connected"
+                              ? language === "en"
+                                ? "Live"
+                                : "Live"
+                              : voiceState === "connecting" || voiceState === "requesting-microphone"
+                                ? language === "en"
+                                  ? "Connecting"
+                                  : "Συνδέεται"
+                                : voiceState === "reconnecting"
+                                  ? language === "en"
+                                    ? "Reconnecting"
+                                    : "Επανασύνδεση"
+                                  : voiceState === "failed" || voiceState === "error"
+                                    ? language === "en"
+                                      ? "Connection issue"
+                                      : "Πρόβλημα σύνδεσης"
+                                    : language === "en"
+                                      ? "Idle"
+                                      : "Ανενεργό"
+                          }
+                        />
+                      )}
                       <span className="text-sm font-semibold tracking-wide sm:text-base">
                         {voiceDiagnostics?.transmitting ? copy.session.pttActive : copy.session.pttIdle}
                       </span>

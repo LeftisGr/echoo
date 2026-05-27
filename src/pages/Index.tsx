@@ -69,9 +69,15 @@ const Index = () => {
     },
   ];
 
+  const ctas = {
+    hero: language === "en" ? "Open a room" : "Άνοιξε ένα room",
+    final: language === "en" ? "Step in quietly" : "Μπες ήσυχα",
+  };
+
   const voiceCards = [
     {
       title: language === "en" ? "Voice moments" : "Voice moments",
+
       body:
         language === "en"
           ? "Hold to talk when the conversation has earned a little more presence."
@@ -104,9 +110,10 @@ const Index = () => {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link to="/auth">
               <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
-                {copy.landing.heroPrimary}
+                {ctas.hero}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+
             </Link>
             <a href="#how-echoo-works">
               <Button
@@ -290,8 +297,9 @@ const Index = () => {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link to="/auth">
               <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
-                {copy.nav.startNow}
+                {ctas.final}
               </Button>
+
             </Link>
             <Link to="/dashboard">
               <Button
