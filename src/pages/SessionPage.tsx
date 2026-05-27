@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { ArrowRight, Check, Flag, Home, ImagePlus, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
 
@@ -125,6 +125,7 @@ const SessionPage = () => {
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
+  const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
@@ -151,7 +152,9 @@ const SessionPage = () => {
   const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
   const lastProgressionPhaseRef = useRef<string | null>(null);
   const progressionMomentTimeoutRef = useRef<number | null>(null);
-  const reactionOptions = ["❤️", "✨", "🙂", "🫶"];
+  const reactionHoldTimeoutRef = useRef<number | null>(null);
+  const reactionHoldMessageIdRef = useRef<string | null>(null);
+  const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
@@ -229,6 +232,12 @@ const SessionPage = () => {
       setMediaCaption("");
       setMediaError(null);
       setMediaBusy(false);
+      setActiveReactionMessageId(null);
+      if (reactionHoldTimeoutRef.current !== null) {
+        window.clearTimeout(reactionHoldTimeoutRef.current);
+        reactionHoldTimeoutRef.current = null;
+      }
+      reactionHoldMessageIdRef.current = null;
       mediaCooldownRef.current = 0;
       mediaSendCountRef.current = 0;
     }
@@ -890,6 +899,131 @@ const SessionPage = () => {
     queueTypingStop();
   };
 
+  const closeReactionPicker = useCallback(() => {
+    setActiveReactionMessageId(null);
+    if (reactionHoldTimeoutRef.current !== null) {
+      window.clearTimeout(reactionHoldTimeoutRef.current);
+      reactionHoldTimeoutRef.current = null;
+    }
+    reactionHoldMessageIdRef.current = null;
+  }, []);
+
+  const handleReactionPressStart = useCallback(
+    (messageId: string, isSelf: boolean) => {
+      if (isSelf) {
+        return;
+      }
+
+      if (reactionHoldTimeoutRef.current !== null) {
+        window.clearTimeout(reactionHoldTimeoutRef.current);
+      }
+
+      reactionHoldMessageIdRef.current = messageId;
+      reactionHoldTimeoutRef.current = window.setTimeout(() => {
+        setActiveReactionMessageId(messageId);
+      }, 1000);
+    },
+    [],
+  );
+
+  const handleReactionPressEnd = useCallback(
+    (messageId: string) => {
+      if (reactionHoldTimeoutRef.current !== null) {
+        window.clearTimeout(reactionHoldTimeoutRef.current);
+        reactionHoldTimeoutRef.current = null;
+      }
+
+      if (reactionHoldMessageIdRef.current === messageId && activeReactionMessageId !== messageId) {
+        reactionHoldMessageIdRef.current = null;
+      }
+    },
+    [activeReactionMessageId],
+  );
+
+  const handleChatPointerDownCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+
+      if (!activeReactionMessageId) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        closeReactionPicker();
+        return;
+      }
+
+      if (target.closest(`[data-reaction-message="${activeReactionMessageId}"]`) || target.closest(`[data-reaction-picker="${activeReactionMessageId}"]`)) {
+        return;
+      }
+
+      closeReactionPicker();
+    },
+    [activeReactionMessageId, closeReactionPicker],
+  );
+
+  const handleReactionSelect = useCallback(
+    (messageId: string, emoji: string) => {
+      setMessageReactions((current) => ({
+        ...current,
+        [messageId]: current[messageId] === emoji ? "" : emoji,
+      }));
+      closeReactionPicker();
+    },
+    [closeReactionPicker],
+  );
+
+  const renderReactionPicker = (messageId: string, isSelf: boolean) => (
+    <div
+      data-reaction-picker={messageId}
+      className={cn(
+        "absolute top-full z-20 mt-2 flex items-center gap-1 rounded-full border border-white/10 bg-[#10182b] px-2 py-2 shadow-[0_18px_35px_rgba(0,0,0,0.35)] backdrop-blur-xl",
+        isSelf ? "right-0" : "left-0",
+      )}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {reactionOptions.map((emoji) => {
+        const activeReaction = messageReactions[messageId] === emoji;
+        return (
+          <button
+            key={emoji}
+            type="button"
+            aria-label={`React with ${emoji}`}
+            title={emoji}
+            onClick={() => handleReactionSelect(messageId, emoji)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full border text-sm transition-all duration-150 active:scale-95",
+              activeReaction
+                ? "border-violet-300/25 bg-violet-400/15 text-white"
+                : "border-white/10 bg-white/5 text-white/65 hover:border-white/20 hover:bg-white/10 hover:text-white",
+            )}
+          >
+            {emoji}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderReactionBadge = (messageId: string, isSelf: boolean) => {
+    const reaction = messageReactions[messageId];
+    if (!reaction) {
+      return null;
+    }
+
+    return (
+      <span
+        className={cn(
+          "absolute -bottom-2 inline-flex h-7 items-center rounded-full border border-white/10 bg-[#0f1729] px-2 text-sm shadow-sm",
+          isSelf ? "right-2" : "left-2",
+        )}
+      >
+        {reaction}
+      </span>
+    );
+  };
+
   if (isEnded) {
 
     return (
@@ -999,7 +1133,7 @@ const SessionPage = () => {
                   <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col items-start gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1022,6 +1156,7 @@ const SessionPage = () => {
                     {language === "en" ? "Block" : "Μπλοκ"}
                   </Button>
                 </div>
+
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
@@ -1048,6 +1183,7 @@ const SessionPage = () => {
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
                 language={language}
+                sessionComplete={sessionProgression.elapsedSeconds >= SESSION_TOTAL_PROGRESS_SECONDS}
               />
 
             </div>
@@ -1132,9 +1268,11 @@ const SessionPage = () => {
         <main
           ref={chatScrollRef}
           onScroll={handleChatScroll}
+          onPointerDownCapture={handleChatPointerDownCapture}
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4 [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable] sm:px-6"
 
         >
+
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-10 sm:pb-12">
             {visibleMessages.length === 0 && (
               <div className="py-4 sm:py-8">
@@ -1180,8 +1318,16 @@ const SessionPage = () => {
 
               if (message.type === "media") {
                 return (
-                  <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
-                    <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
+                  <div key={message.id} className={cn("relative flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
+                    <div
+                      data-reaction-message={message.id}
+                      className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}
+                      onPointerDown={() => handleReactionPressStart(message.id, isSelf)}
+                      onPointerUp={() => handleReactionPressEnd(message.id)}
+                      onPointerCancel={() => handleReactionPressEnd(message.id)}
+                      onPointerLeave={() => handleReactionPressEnd(message.id)}
+                      onContextMenu={(event) => event.preventDefault()}
+                    >
                       <div className="flex items-center gap-2 px-1 text-xs text-white/35">
                         <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
 
@@ -1189,48 +1335,24 @@ const SessionPage = () => {
                         <span>{timestamp}</span>
                       </div>
                       <SessionMediaMessage message={message} isSelf={isSelf} />
-                      <div className={cn("mt-2 flex flex-wrap gap-1.5", isSelf ? "justify-end" : "justify-start")}>
-                        {reactionOptions.map((emoji) => {
-                          const activeReaction = messageReactions[message.id] === emoji;
-                          return (
-                            <button
-                              key={emoji}
-                              type="button"
-                              aria-label={`React with ${emoji}`}
-                              title={emoji}
-                              onClick={() => {
-                                setMessageReactions((current) => ({
-                                  ...current,
-                                  [message.id]: current[message.id] === emoji ? "" : emoji,
-                                }));
-                              }}
-                              className={cn(
-                                "flex h-7 w-7 items-center justify-center rounded-full border text-[12px] transition-all duration-150 active:scale-95",
-                                activeReaction
-                                  ? "border-violet-300/25 bg-violet-400/15 text-white"
-                                  : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white",
-                              )}
-                            >
-                              {emoji}
-                            </button>
-                          );
-                        })}
-                        {messageReactions[message.id] && (
-                          <span className="ml-1 inline-flex h-7 items-center rounded-full border border-white/10 bg-white/5 px-2 text-[12px] text-white/70">
-                            {messageReactions[message.id]}
-                          </span>
-                        )}
-                      </div>
-
+                      {renderReactionBadge(message.id, isSelf)}
+                      {activeReactionMessageId === message.id && renderReactionPicker(message.id, isSelf)}
                     </div>
                   </div>
                 );
-
               }
 
               return (
-                <div key={message.id} className={cn("flex min-w-0", isSelf ? "justify-end" : "justify-start") }>
-                  <div className={cn("min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}>
+                <div key={message.id} className={cn("relative flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
+                  <div
+                    data-reaction-message={message.id}
+                    className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}
+                    onPointerDown={() => handleReactionPressStart(message.id, isSelf)}
+                    onPointerUp={() => handleReactionPressEnd(message.id)}
+                    onPointerCancel={() => handleReactionPressEnd(message.id)}
+                    onPointerLeave={() => handleReactionPressEnd(message.id)}
+                    onContextMenu={(event) => event.preventDefault()}
+                  >
                     <div className="flex items-center gap-2 px-1 text-xs text-white/35">
                       <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
 
@@ -1246,38 +1368,8 @@ const SessionPage = () => {
                     >
                       {message.content}
                     </div>
-                    <div className={cn("mt-2 flex flex-wrap gap-1.5", isSelf ? "justify-end" : "justify-start")}>
-                      {reactionOptions.map((emoji) => {
-                        const activeReaction = messageReactions[message.id] === emoji;
-                        return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            aria-label={`React with ${emoji}`}
-                            title={emoji}
-                            onClick={() => {
-                              setMessageReactions((current) => ({
-                                ...current,
-                                [message.id]: current[message.id] === emoji ? "" : emoji,
-                              }));
-                            }}
-                            className={cn(
-                              "flex h-7 w-7 items-center justify-center rounded-full border text-[12px] transition-all duration-150 active:scale-95",
-                              activeReaction
-                                ? "border-violet-300/25 bg-violet-400/15 text-white"
-                                : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white",
-                            )}
-                          >
-                            {emoji}
-                          </button>
-                        );
-                      })}
-                      {messageReactions[message.id] && (
-                        <span className="ml-1 inline-flex h-7 items-center rounded-full border border-white/10 bg-white/5 px-2 text-[12px] text-white/70">
-                          {messageReactions[message.id]}
-                        </span>
-                      )}
-                    </div>
+                    {renderReactionBadge(message.id, isSelf)}
+                    {activeReactionMessageId === message.id && renderReactionPicker(message.id, isSelf)}
                   </div>
                 </div>
               );

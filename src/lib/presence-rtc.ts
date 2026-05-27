@@ -83,7 +83,14 @@ function streamSnapshot(stream: MediaStream) {
 
 function createPeerConnection() {
   return new RTCPeerConnection({
-    iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+    iceServers: [
+      { urls: ["stun:stun.l.google.com:19302"] },
+      {
+        urls: ["turn:free.expressturn.com:3478?transport=udp", "turn:free.expressturn.com:3478?transport=tcp"],
+        username: "000000002084988233",
+        credential: "gFz9pW2Gt/fv1CrSY33N9/aLkPg=",
+      },
+    ],
     iceCandidatePoolSize: 0,
   });
 }
