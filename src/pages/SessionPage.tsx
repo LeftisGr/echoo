@@ -42,6 +42,7 @@ import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-ga
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn } from "@/lib/utils";
+import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
 
 import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -158,6 +159,31 @@ const SessionPage = () => {
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
   const featureGates = useFeatureGates(room?.startedAt, room?.status);
+
+  const logMediaFailure = useCallback(
+    (reason: string, message: string) => {
+      const currentUserId = profile?.id ?? null;
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUserId,
+        roomId: room?.id ?? null,
+        properties: {
+          phase,
+          reason,
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUserId,
+        roomId: room?.id ?? null,
+        severity: "warn",
+        errorMessage: message,
+        properties: {
+          phase,
+          reason,
+        },
+      });
+    },
+    [phase, profile?.id, room?.id],
+  );
 
   useEffect(() => {
     if (progressionMomentTimeoutRef.current !== null) {
@@ -482,43 +508,58 @@ const SessionPage = () => {
     }
 
     if (!file.type) {
-      setMediaError(language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.");
+      const message = language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.";
+      setMediaError(message);
+      logMediaFailure("unsupported-type", message);
       return;
     }
 
     if (!file.type.startsWith("image/") && !isSupportedAudioType(file.type) && !file.type.startsWith("video/")) {
-      setMediaError(language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.");
+      const message = language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.";
+      setMediaError(message);
+      logMediaFailure("unsupported-type", message);
       return;
     }
 
     if (file.type.startsWith("image/") && !canShareImages) {
-      setMediaError(language === "en" ? "Photo sharing is not available yet." : "Η αποστολή φωτογραφιών δεν είναι ακόμα διαθέσιμη.");
+      const message = language === "en" ? "Photo sharing is not available yet." : "Η αποστολή φωτογραφιών δεν είναι ακόμα διαθέσιμη.";
+      setMediaError(message);
+      logMediaFailure("feature-locked", message);
       return;
     }
 
     if (isSupportedAudioType(file.type) && !canShareAudio) {
-      setMediaError(language === "en" ? "Audio sharing is not available yet." : "Η αποστολή ήχου δεν είναι ακόμα διαθέσιμη.");
+      const message = language === "en" ? "Audio sharing is not available yet." : "Η αποστολή ήχου δεν είναι ακόμα διαθέσιμη.";
+      setMediaError(message);
+      logMediaFailure("feature-locked", message);
       return;
     }
 
     if (file.type.startsWith("video/") && !canShareMedia) {
-      setMediaError(language === "en" ? "Video sharing is not available yet." : "Η αποστολή βίντεο δεν είναι ακόμα διαθέσιμη.");
+      const message = language === "en" ? "Video sharing is not available yet." : "Η αποστολή βίντεο δεν είναι ακόμα διαθέσιμη.";
+      setMediaError(message);
+      logMediaFailure("feature-locked", message);
       return;
     }
 
     if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
-
-      setMediaError(language === "en" ? "Image is too large." : "Η εικόνα είναι πολύ μεγάλη.");
+      const message = language === "en" ? "Image is too large." : "Η εικόνα είναι πολύ μεγάλη.";
+      setMediaError(message);
+      logMediaFailure("too-large", message);
       return;
     }
 
     if (file.type.startsWith("audio/") && file.size > 12 * 1024 * 1024) {
-      setMediaError(language === "en" ? "Audio is too large." : "Το ηχητικό είναι πολύ μεγάλο.");
+      const message = language === "en" ? "Audio is too large." : "Το ηχητικό είναι πολύ μεγάλο.";
+      setMediaError(message);
+      logMediaFailure("too-large", message);
       return;
     }
 
     if (file.type.startsWith("video/") && file.size > MAX_VIDEO_SIZE_BYTES) {
-      setMediaError(language === "en" ? "Video is too large." : "Το βίντεο είναι πολύ μεγάλο.");
+      const message = language === "en" ? "Video is too large." : "Το βίντεο είναι πολύ μεγάλο.";
+      setMediaError(message);
+      logMediaFailure("too-large", message);
       return;
     }
 
@@ -526,7 +567,9 @@ const SessionPage = () => {
       const prepared = await prepareMediaUpload(file);
 
       if (prepared.kind === "video" && (prepared.durationSeconds ?? 0) > MAX_VIDEO_DURATION_SECONDS) {
-        setMediaError(language === "en" ? "Video is longer than the allowed limit." : "Το βίντεο ξεπερνά το επιτρεπτό όριο.");
+        const message = language === "en" ? "Video is longer than the allowed limit." : "Το βίντεο ξεπερνά το επιτρεπτό όριο.";
+        setMediaError(message);
+        logMediaFailure("too-long", message);
         return;
       }
 
@@ -549,7 +592,9 @@ const SessionPage = () => {
       });
       setAttachmentMenuOpen(false);
     } catch (mediaError) {
-      setMediaError(mediaError instanceof Error ? mediaError.message : language === "en" ? "Could not read the file." : "Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
+      const message = mediaError instanceof Error ? mediaError.message : language === "en" ? "Could not read the file." : "Δεν ήταν δυνατή η ανάγνωση του αρχείου.";
+      setMediaError(message);
+      logMediaFailure("read-error", message);
     }
   }
 
@@ -562,13 +607,16 @@ const SessionPage = () => {
 
     const now = Date.now();
     if (mediaCooldownRef.current && now - mediaCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
-      setMediaError(language === "en" ? "Please wait a moment before sending another media item." : "Περίμενε λίγο πριν στείλεις άλλο media.");
+      const message = language === "en" ? "Please wait a moment before sending another media item." : "Περίμενε λίγο πριν στείλεις άλλο media.";
+      setMediaError(message);
+      logMediaFailure("cooldown", message);
       return;
     }
 
     if (mediaSendCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
-      setMediaError(language === "en" ? "Media sharing limit reached for this room." : "Έφτασες το όριο media για αυτό το room.");
-
+      const message = language === "en" ? "Media sharing limit reached for this room." : "Έφτασες το όριο media για αυτό το room.";
+      setMediaError(message);
+      logMediaFailure("limit-reached", message);
       return;
     }
 

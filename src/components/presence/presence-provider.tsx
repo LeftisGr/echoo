@@ -42,6 +42,7 @@ import { createPeerToPeerVoiceSession, type VoiceSessionController, type VoiceTr
 import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
+import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import {
@@ -778,6 +779,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const voiceSessionTokenRef = useRef<string | null>(null);
   const voiceStartInFlightRef = useRef(false);
   const voiceReconnectAttemptedRoomIdRef = useRef<string | null>(null);
+  const loggedRoomCreatedIdsRef = useRef<Set<string>>(new Set());
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const queueTimersRef = useRef<number[]>([]);
@@ -1021,8 +1023,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (room.status === "active") {
+      void logErrorEvent("unexpected_room_closure", {
+        userId,
+        roomId: room.id,
+        severity: "warn",
+        errorMessage: "Room ended unexpectedly.",
+        properties: { voiceEnabled: room.voiceEnabled, rtcState: room.rtcState ?? "idle" },
+      });
+    }
+
     stopVoiceChat();
-  }, [room?.endedAt, stopVoiceChat]);
+  }, [room?.endedAt, room?.id, room?.status, room?.voiceEnabled, room?.rtcState, stopVoiceChat, userId]);
 
   useEffect(() => {
     syncTypingIndicatorFromRoom();
@@ -1297,8 +1309,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     channel.subscribe((status: string) => {
       if (status !== "SUBSCRIBED") {
+        void logAnalyticsEvent("reconnect_failed", {
+          userId,
+          properties: { channel: "presence", status },
+        });
+        void logErrorEvent("websocket_disconnect", {
+          userId,
+          severity: "warn",
+          errorMessage: `Presence channel status: ${status}`,
+          properties: { channel: "presence", status },
+        });
         return;
       }
+
+      void logAnalyticsEvent("reconnect_success", {
+        userId,
+        properties: { channel: "presence" },
+      });
 
       void channel.track(
         createPresenceEntry(
@@ -1652,7 +1679,26 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         const relaxed = queue.joinedAt ? Date.now() - new Date(queue.joinedAt).getTime() >= 12000 : false;
         void attemptRealtimeMatch(currentUserId, relaxed);
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          void logAnalyticsEvent("reconnect_success", {
+            userId: currentUserId,
+            properties: { channel: "queue" },
+          });
+          return;
+        }
+
+        void logAnalyticsEvent("reconnect_failed", {
+          userId: currentUserId,
+          properties: { channel: "queue", status },
+        });
+        void logErrorEvent("websocket_disconnect", {
+          userId: currentUserId,
+          severity: "warn",
+          errorMessage: `Queue channel status: ${status}`,
+          properties: { channel: "queue", status },
+        });
+      });
 
     queueChannelRef.current = channel;
   }
@@ -1997,7 +2043,29 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           };
         });
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          void logAnalyticsEvent("reconnect_success", {
+            userId: currentUserId,
+            roomId,
+            properties: { channel: "room" },
+          });
+          return;
+        }
+
+        void logAnalyticsEvent("reconnect_failed", {
+          userId: currentUserId,
+          roomId,
+          properties: { channel: "room", status },
+        });
+        void logErrorEvent("websocket_disconnect", {
+          userId: currentUserId,
+          roomId,
+          severity: "warn",
+          errorMessage: `Room channel status: ${status}`,
+          properties: { channel: "room", status },
+        });
+      });
 
     roomChannelRef.current = channel;
   }
@@ -2029,6 +2097,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       typingUserId: roomBase.typingUserId ?? null,
       typingUpdatedAt: roomBase.typingUpdatedAt ?? null,
     };
+
+    if (!loggedRoomCreatedIdsRef.current.has(roomSession.id)) {
+      loggedRoomCreatedIdsRef.current.add(roomSession.id);
+      void logAnalyticsEvent("room_created", {
+        userId: currentUserId,
+        roomId: roomSession.id,
+        properties: {
+          active: roomSession.status === "active",
+        },
+      });
+    }
 
     setRoom(roomSession);
     await hydrateRoomPartner(roomSession, currentUserId);
@@ -2404,9 +2483,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     void persistRoom(nextRoom);
+    void logAnalyticsEvent("voice_unlocked", {
+      userId,
+      roomId: nextRoom.id,
+      properties: {
+        startedAt: nextRoom.startedAt,
+      },
+    });
     toast.success(copy.session.voiceUnlocked);
     playSoundFeedback("unlock", matchSoundEnabled);
-  }, [copy.session.voiceUnlocked, matchSoundEnabled]);
+  }, [copy.session.voiceUnlocked, matchSoundEnabled, userId]);
   const sendMessage = useCallback(
     async (content: string) => {
       if (!room || !profile || !content.trim()) {
@@ -2481,6 +2567,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         feature: mediaGate.key,
         status: mediaGate.status,
       });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "blocked",
+        },
+      });
+      void logErrorEvent("permission_denied", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "Media sharing is not available yet.",
+        properties: {
+          kind: preview.kind,
+          reason: "blocked",
+        },
+      });
       throw new Error("Media sharing is not available yet.");
     }
 
@@ -2503,6 +2607,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         userId: currentUser,
         reason: "validation",
       });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "validation",
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "Unsupported media file.",
+        properties: {
+          kind: preview.kind,
+          reason: "validation",
+        },
+      });
       throw new Error("Unsupported media file.");
     }
 
@@ -2514,6 +2636,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         userId: currentUser,
         reason: "in-flight",
       });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "in-flight",
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "A media upload is already in progress.",
+        properties: {
+          kind: preview.kind,
+          reason: "in-flight",
+        },
+      });
       throw new Error("A media upload is already in progress.");
     }
 
@@ -2523,6 +2663,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         userId: currentUser,
         reason: "cooldown",
       });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "cooldown",
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "Please wait a moment before sending another media item.",
+        properties: {
+          kind: preview.kind,
+          reason: "cooldown",
+        },
+      });
       throw new Error("Please wait a moment before sending another media item.");
     }
 
@@ -2531,6 +2689,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         roomId: currentRoom.id,
         userId: currentUser,
         reason: "limit-reached",
+      });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "limit-reached",
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "Media sharing limit reached for this session.",
+        properties: {
+          kind: preview.kind,
+          reason: "limit-reached",
+        },
       });
       throw new Error("Media sharing limit reached for this session.");
     }
@@ -2545,6 +2721,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         userId: currentUser,
         reason: "rate-limited",
       });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          reason: "rate-limited",
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "warn",
+        errorMessage: "Please wait a moment before sending another media item.",
+        properties: {
+          kind: preview.kind,
+          reason: "rate-limited",
+        },
+      });
       throw new Error("Please wait a moment before sending another media item.");
     }
 
@@ -2556,6 +2750,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       fileType: file.type,
       fileSize: file.size,
       kind: preview.kind,
+    });
+    void logAnalyticsEvent("upload_started", {
+      userId: currentUser,
+      roomId: currentRoom.id,
+      properties: {
+        kind: preview.kind,
+        size: file.size,
+      },
     });
 
     mediaUploadInFlightRef.current = true;
@@ -2625,6 +2827,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         messageId: mediaMessage.id,
         kind: preview.kind,
       });
+      void logAnalyticsEvent("upload_success", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          size: file.size,
+        },
+      });
       playSoundFeedback("content-reveal", matchSoundEnabled);
 
     } catch (error) {
@@ -2632,6 +2842,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         roomId: currentRoom.id,
         userId: currentUser,
         error: error instanceof Error ? error.message : String(error),
+      });
+      void logAnalyticsEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        properties: {
+          kind: preview.kind,
+          size: file.size,
+        },
+      });
+      void logErrorEvent("upload_failed", {
+        userId: currentUser,
+        roomId: currentRoom.id,
+        severity: "error",
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        properties: {
+          kind: preview.kind,
+          size: file.size,
+        },
       });
       throw error;
     } finally {
@@ -2708,16 +2937,45 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
             if (nextState === "connected") {
               toast.success(copy.session.connected);
+              void logAnalyticsEvent("reconnect_success", {
+                userId,
+                roomId: room.id,
+                properties: { channel: "rtc" },
+              });
               if (hapticsEnabled) {
                 vibrate([40, 30, 60]);
               }
             }
 
             if (nextState === "failed") {
+              void logAnalyticsEvent("reconnect_failed", {
+                userId,
+                roomId: room.id,
+                properties: { channel: "rtc", state: nextState },
+              });
+              void logErrorEvent("rtc_failure", {
+                userId,
+                roomId: room.id,
+                severity: "warn",
+                errorMessage: language === "en" ? "Voice connection failed." : "Η σύνδεση φωνής απέτυχε.",
+                properties: { state: nextState, channel: "rtc" },
+              });
               toast.error(language === "en" ? "Voice connection failed." : "Η σύνδεση φωνής απέτυχε.");
             }
 
             if (nextState === "error") {
+              void logAnalyticsEvent("reconnect_failed", {
+                userId,
+                roomId: room.id,
+                properties: { channel: "rtc", state: nextState },
+              });
+              void logErrorEvent("rtc_failure", {
+                userId,
+                roomId: room.id,
+                severity: "error",
+                errorMessage: language === "en" ? "Voice playback or microphone setup failed." : "Η ρύθμιση φωνής ή αναπαραγωγής απέτυχε.",
+                properties: { state: nextState, channel: "rtc" },
+              });
               toast.error(language === "en" ? "Voice playback or microphone setup failed." : "Η ρύθμιση φωνής ή αναπαραγωγής απέτυχε.");
             }
           },
@@ -2768,6 +3026,25 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
               : language === "en"
                 ? "Voice could not start."
                 : "Η φωνή δεν μπόρεσε να ξεκινήσει.";
+        if (error instanceof DOMException && error.name === "NotAllowedError") {
+          void logErrorEvent("permission_denied", {
+            userId,
+            roomId: room.id,
+            severity: "warn",
+            error,
+            errorMessage,
+            properties: { feature: "microphone" },
+          });
+        } else {
+          void logErrorEvent("rtc_failure", {
+            userId,
+            roomId: room.id,
+            severity: "error",
+            error,
+            errorMessage,
+            properties: { feature: "voice" },
+          });
+        }
         toast.error(errorMessage);
       } finally {
         if (voiceSessionTokenRef.current === sessionToken) {

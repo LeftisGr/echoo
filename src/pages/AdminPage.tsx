@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Flag, Gauge, Home, MessagesSquare, RefreshCcw, Shield, UserMinus, UserPlus, Users } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Clock3,
+  Flag,
+  Gauge,
+  Home,
+  MessagesSquare,
+  RefreshCcw,
+  Shield,
+  UserMinus,
+  UserPlus,
+  Users,
+  WifiOff,
+} from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { Link, Navigate } from "react-router-dom";
 
@@ -11,6 +25,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { adminChartData } from "@/lib/presence-content";
+import { cleanupOperationalLogs } from "@/lib/operational-logs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -20,7 +35,7 @@ const chartConfig = {
   signups: { label: "Signups", color: "#60a5fa" },
 };
 
-type ReportRow = {
+interface ReportRow {
   id: string;
   room_id: string;
   reporter_id: string;
@@ -31,28 +46,114 @@ type ReportRow = {
   moderation_action: string | null;
   moderation_reason: string | null;
   created_at: string;
-};
+}
+
+interface ErrorLogRow {
+  id: string;
+  event_type: string;
+  severity: string;
+  error_message: string;
+  error_code: string | null;
+  room_id: string | null;
+  anonymized_user_id: string | null;
+  created_at: string;
+  properties: Record<string, unknown>;
+}
+
+interface AnalyticsEventRow {
+  id: string;
+  event_type: string;
+  room_id: string | null;
+  anonymized_user_id: string;
+  properties: Record<string, unknown>;
+  created_at: string;
+}
+
+interface ModerationLogRow {
+  id: string;
+  admin_id: string | null;
+  target_user: string | null;
+  action: string;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+interface ActiveRoomRow {
+  id: string;
+  user_a: string;
+  user_b: string;
+  started_at: string;
+  voice_enabled: boolean;
+  rtc_state: string | null;
+  voice_unlocked_at: string | null;
+}
 
 type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
+
+const cleanupStorageKey = "echoo-admin-log-cleanup";
 
 const AdminPage = () => {
   const { authenticated, adminMetrics, isAdmin, profile, copy, language } = usePresence();
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
-  const [loadingReports, setLoadingReports] = useState(true);
+  const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
+  const [recentModeration, setRecentModeration] = useState<ModerationLogRow[]>([]);
+  const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
+  const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
 
-  const loadReports = useCallback(async () => {
-    setLoadingReports(true);
+  const loadAdminData = useCallback(async () => {
+    setLoadingData(true);
     try {
-      const { data } = await supabase
-        .from("reports")
-        .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      setRecentReports((data ?? []) as ReportRow[]);
+      const [reportsResult, errorsResult, moderationResult, roomsResult, analyticsResult] = await Promise.all([
+        supabase
+          .from("reports")
+          .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("error_logs")
+          .select("id, event_type, severity, error_message, error_code, room_id, anonymized_user_id, created_at, properties")
+          .gte("created_at", sevenDaysAgo)
+          .order("created_at", { ascending: false })
+          .limit(8),
+        supabase
+          .from("moderation_logs")
+          .select("id, admin_id, target_user, action, reason, metadata, created_at")
+          .order("created_at", { ascending: false })
+          .limit(8),
+        supabase
+          .from("rooms")
+          .select("id, user_a, user_b, started_at, voice_enabled, rtc_state, voice_unlocked_at")
+          .is("ended_at", null)
+          .order("started_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("analytics_events")
+          .select("id, event_type, room_id, anonymized_user_id, properties, created_at")
+          .gte("created_at", twentyFourHoursAgo)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+      if (reportsResult.error) throw reportsResult.error;
+      if (errorsResult.error) throw errorsResult.error;
+      if (moderationResult.error) throw moderationResult.error;
+      if (roomsResult.error) throw roomsResult.error;
+      if (analyticsResult.error) throw analyticsResult.error;
+
+      setRecentReports((reportsResult.data ?? []) as ReportRow[]);
+      setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
+      setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
+      setActiveRooms((roomsResult.data ?? []) as ActiveRoomRow[]);
+      setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
     } finally {
-      setLoadingReports(false);
+      setLoadingData(false);
     }
   }, []);
 
@@ -60,41 +161,69 @@ const AdminPage = () => {
     setRecentReports((current) => current.map((report) => (report.id === reportId ? { ...report, ...next } : report)));
   }, []);
 
-  const moderateReport = useCallback(async (report: ReportRow, action: ModerationAction) => {
-    setActiveAction(report.id + action);
-    try {
-      const { data, error } = await supabase.rpc("moderate_report_action", {
-        p_report_id: report.id,
-        p_action: action,
-        p_reason: report.reason,
-        p_duration_days: action === "suspend_user" ? 7 : action === "temporary_ban" ? 30 : null,
-      });
+  const moderateReport = useCallback(
+    async (report: ReportRow, action: ModerationAction) => {
+      setActiveAction(report.id + action);
+      try {
+        const { data, error } = await supabase.rpc("moderate_report_action", {
+          p_report_id: report.id,
+          p_action: action,
+          p_reason: report.reason,
+          p_duration_days: action === "suspend_user" ? 7 : action === "temporary_ban" ? 30 : null,
+        });
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+
+        const result = Array.isArray(data) ? data[0] : data;
+        const nextStatus = result?.status ?? (action === "dismiss_report" ? "dismissed" : "reviewed");
+        applyActionLocally(report.id, {
+          status: nextStatus,
+          reviewed_at: new Date().toISOString(),
+          moderation_action: action,
+          moderation_reason: report.reason,
+        });
+        toast.success(language === "en" ? "Moderation updated." : "Η moderation ενημερώθηκε.");
+        void loadAdminData();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : language === "en" ? "Moderation action failed." : "Η ενέργεια moderation απέτυχε.");
+      } finally {
+        setActiveAction(null);
       }
+    },
+    [applyActionLocally, language, loadAdminData],
+  );
 
-      const result = Array.isArray(data) ? data[0] : data;
-      const nextStatus = result?.status ?? (action === "dismiss_report" ? "dismissed" : "reviewed");
-      applyActionLocally(report.id, {
-        status: nextStatus,
-        reviewed_at: new Date().toISOString(),
-        moderation_action: action,
-        moderation_reason: report.reason,
-      });
-      toast.success(language === "en" ? "Moderation updated." : "Η moderation ενημερώθηκε.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : language === "en" ? "Moderation action failed." : "Η ενέργεια moderation απέτυχε.");
-    } finally {
-      setActiveAction(null);
+  const runCleanup = useCallback(async () => {
+    try {
+      const result = await cleanupOperationalLogs();
+      setCleanupStatus(result);
+      toast.success(language === "en" ? "Operational logs cleaned up." : "Τα operational logs καθαρίστηκαν.");
+    } catch {
+      toast.error(language === "en" ? "Cleanup failed." : "Ο καθαρισμός απέτυχε.");
     }
-  }, [applyActionLocally, language]);
+  }, [language]);
 
   useEffect(() => {
     if (isAdmin) {
-      void loadReports();
+      void loadAdminData();
     }
-  }, [isAdmin, loadReports]);
+  }, [isAdmin, loadAdminData]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (window.localStorage.getItem(cleanupStorageKey) === todayKey) {
+      return;
+    }
+
+    window.localStorage.setItem(cleanupStorageKey, todayKey);
+    void runCleanup();
+  }, [isAdmin, runCleanup]);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -113,16 +242,26 @@ const AdminPage = () => {
           />
         </div>
       </PageShell>
-
     );
   }
+
+  const analyticsByType = analyticsEvents.reduce<Record<string, number>>((acc, event) => {
+    acc[event.event_type] = (acc[event.event_type] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const failedUploadsCount = analyticsByType.upload_failed ?? 0;
+  const reconnectSuccessCount = analyticsByType.reconnect_success ?? 0;
+  const reconnectFailureCount = analyticsByType.reconnect_failed ?? 0;
+  const reconnectFailureRate = reconnectSuccessCount + reconnectFailureCount > 0 ? Math.round((reconnectFailureCount / (reconnectSuccessCount + reconnectFailureCount)) * 100) : 0;
+  const moderationActivityCount = recentModeration.length;
+  const activeRoomRows = activeRooms;
 
   return (
     <PageShell className="space-y-6">
       <Surface className="space-y-4 p-6 sm:p-8">
         <SectionTitle
           eyebrow={language === "en" ? "Private dashboard" : "Ιδιωτικό dashboard"}
-
           title="Echoo admin"
           body={
             language === "en"
@@ -149,7 +288,7 @@ const AdminPage = () => {
               type="button"
               variant="outline"
               className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={() => void loadReports()}
+              onClick={() => void loadAdminData()}
             >
               <RefreshCcw className="mr-2 h-4 w-4" />
               {language === "en" ? "Refresh" : "Ανανέωση"}
@@ -175,6 +314,30 @@ const AdminPage = () => {
             <MetricCard icon={UserPlus} label={language === "en" ? "Daily signups" : "Ημερήσιες εγγραφές"} value={adminMetrics.dailySignups.toString()} />
           </div>
 
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Surface className="p-5">
+              <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Failed uploads" : "Αποτυχημένα uploads"}</p>
+              <p className="mt-3 text-3xl font-semibold text-white">{failedUploadsCount}</p>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                {language === "en" ? "Uploads that did not complete in the last 24 hours." : "Uploads που δεν ολοκληρώθηκαν τις τελευταίες 24 ώρες."}
+              </p>
+            </Surface>
+            <Surface className="p-5">
+              <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Reconnect failure rate" : "Ποσοστό αποτυχημένων reconnect"}</p>
+              <p className="mt-3 text-3xl font-semibold text-white">{reconnectFailureRate}%</p>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                {language === "en" ? "Based on reconnect success and failure events from the last 24 hours." : "Βασισμένο σε reconnect success/failure events των τελευταίων 24 ωρών."}
+              </p>
+            </Surface>
+            <Surface className="p-5">
+              <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Moderation activity" : "Δραστηριότητα moderation"}</p>
+              <p className="mt-3 text-3xl font-semibold text-white">{moderationActivityCount}</p>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                {language === "en" ? "Recent moderation actions recorded in the audit log." : "Πρόσφατες ενέργειες moderation στο audit log."}
+              </p>
+            </Surface>
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <Surface className="p-5">
               <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">
@@ -192,9 +355,7 @@ const AdminPage = () => {
             </Surface>
 
             <Surface className="p-5">
-              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">
-                {language === "en" ? "Signups" : "Εγγραφές"}
-              </p>
+              <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Signups" : "Εγγραφές"}</p>
               <ChartContainer config={chartConfig} className="h-[280px] w-full">
                 <BarChart data={adminChartData}>
                   <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
@@ -206,35 +367,91 @@ const AdminPage = () => {
             </Surface>
           </div>
 
-          <Surface className="space-y-5 p-5">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">{language === "en" ? "Average session duration" : "Μέση διάρκεια session"}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.averageSessionDuration} min</p>
+          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <Surface className="space-y-5 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent errors" : "Πρόσφατα errors"}</p>
+                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "The latest operational failures recorded by the app." : "Τα τελευταία operational failures της εφαρμογής."}</p>
+                </div>
+                <Badge className="rounded-full border border-rose-300/15 bg-rose-500/10 px-3 py-1 text-rose-50 hover:bg-rose-500/10">
+                  <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                  {recentErrors.length}
+                </Badge>
               </div>
-              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">{language === "en" ? "Average wait time" : "Μέσος χρόνος αναμονής"}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{adminMetrics.avgWaitTimeSeconds}s</p>
-              </div>
-              <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <p className="text-sm text-white/45">{language === "en" ? "Safety status" : "Κατάσταση ασφάλειας"}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{language === "en" ? "Stable" : "Σταθερή"}</p>
-              </div>
-            </div>
 
-            <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="space-y-3">
+                {loadingData ? (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading error logs..." : "Διαβάζουμε τα error logs..."}</div>
+                ) : recentErrors.length ? (
+                  recentErrors.map((errorRow) => (
+                    <div key={errorRow.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
+                        <span>{errorRow.event_type}</span>
+                        <span>{new Date(errorRow.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-white">{errorRow.error_message}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.severity}</span>
+                        {errorRow.error_code && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.error_code}</span>}
+                        {errorRow.room_id && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">room {errorRow.room_id.slice(0, 8)}</span>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No recent errors." : "Δεν υπάρχουν πρόσφατα errors."}</div>
+                )}
+              </div>
+            </Surface>
+
+            <Surface className="space-y-5 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent moderation activity" : "Πρόσφατη moderation δραστηριότητα"}</p>
+                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "A compact audit trail of the latest moderation actions." : "Ένα compact audit trail των τελευταίων ενεργειών moderation."}</p>
+                </div>
+                <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50 hover:bg-violet-500/10">
+                  <Shield className="mr-1 h-3.5 w-3.5" />
+                  {recentModeration.length}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
+                {loadingData ? (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading moderation logs..." : "Διαβάζουμε τα moderation logs..."}</div>
+                ) : recentModeration.length ? (
+                  recentModeration.map((item) => (
+                    <div key={item.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
+                        <span>{item.action}</span>
+                        <span>{new Date(item.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-2 text-sm text-white/75">{item.reason ?? (language === "en" ? "No reason provided." : "Δεν δόθηκε λόγος.")}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
+                        {item.target_user && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">target {item.target_user.slice(0, 8)}</span>}
+                        {item.admin_id && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">admin {item.admin_id.slice(0, 8)}</span>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No moderation activity yet." : "Δεν υπάρχει ακόμη moderation δραστηριότητα."}</div>
+                )}
+              </div>
+            </Surface>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
+            <Surface className="space-y-5 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent reports" : "Πρόσφατες αναφορές"}</p>
-                  <p className="mt-1 text-sm text-white/55">
-                    {language === "en" ? "The latest moderation signals from live rooms." : "Τα πιο πρόσφατα σήματα moderation από live rooms."}
-                  </p>
+                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "The latest moderation signals from live rooms." : "Τα πιο πρόσφατα σήματα moderation από live rooms."}</p>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                  onClick={() => void loadReports()}
+                  onClick={() => void loadAdminData()}
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   {language === "en" ? "Reload" : "Επαναφόρτωση"}
@@ -242,7 +459,7 @@ const AdminPage = () => {
               </div>
 
               <div className="mt-4 space-y-3">
-                {loadingReports ? (
+                {loadingData ? (
                   <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/55">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-violet-200/80" />
@@ -255,7 +472,6 @@ const AdminPage = () => {
                     </div>
                   </div>
                 ) : recentReports.length ? (
-
                   recentReports.map((report) => {
                     const statusTone =
                       report.status === "dismissed"
@@ -269,77 +485,35 @@ const AdminPage = () => {
                       <div key={report.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/45">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span>
-                              {language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}
-                            </span>
+                            <span>{language === "en" ? "Room" : "Room"} {report.room_id.slice(0, 8)}</span>
                             <span>•</span>
                             <span>{new Date(report.created_at).toLocaleString()}</span>
                           </div>
-                          <Badge className={`rounded-full border px-3 py-1 text-[10px] font-medium ${statusTone}`}>
-                            {report.status}
-                          </Badge>
+                          <Badge className={`rounded-full border px-3 py-1 text-[10px] font-medium ${statusTone}`}>{report.status}</Badge>
                         </div>
                         <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                            {language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                            {language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}
-                          </span>
-                          {report.moderation_action && (
-                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
-                              {language === "en" ? "Action" : "Ενέργεια"} {report.moderation_action}
-                            </span>
-                          )}
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}</span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}</span>
+                          {report.moderation_action && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Action" : "Ενέργεια"} {report.moderation_action}</span>}
                         </div>
 
                         <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white"
-                            disabled={isActionBusy}
-                            onClick={() => void moderateReport(report, "mark_reviewed")}
-                          >
+                          <Button type="button" variant="outline" className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white" disabled={isActionBusy} onClick={() => void moderateReport(report, "mark_reviewed")}>
                             <Shield className="mr-2 h-4 w-4" />
                             {language === "en" ? "Reviewed" : "Ελεγμένο"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                            disabled={isActionBusy}
-                            onClick={() => void moderateReport(report, "dismiss_report")}
-                          >
+                          <Button type="button" variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" disabled={isActionBusy} onClick={() => void moderateReport(report, "dismiss_report")}>
                             {language === "en" ? "Dismiss" : "Απόρριψη"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 rounded-full border-sky-300/15 bg-sky-500/10 text-sky-50 hover:bg-sky-500/15 hover:text-white"
-                            disabled={isActionBusy}
-                            onClick={() => void moderateReport(report, "suspend_user")}
-                          >
+                          <Button type="button" variant="outline" className="h-10 rounded-full border-sky-300/15 bg-sky-500/10 text-sky-50 hover:bg-sky-500/15 hover:text-white" disabled={isActionBusy} onClick={() => void moderateReport(report, "suspend_user")}>
                             <UserMinus className="mr-2 h-4 w-4" />
                             {language === "en" ? "Suspend 7d" : "Αναστολή 7η"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 rounded-full border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15 hover:text-white"
-                            disabled={isActionBusy}
-                            onClick={() => void moderateReport(report, "temporary_ban")}
-                          >
+                          <Button type="button" variant="outline" className="h-10 rounded-full border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15 hover:text-white" disabled={isActionBusy} onClick={() => void moderateReport(report, "temporary_ban")}>
                             {language === "en" ? "Temp ban 30d" : "Προσωρινό ban 30η"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white"
-                            disabled={isActionBusy}
-                            onClick={() => void moderateReport(report, "permanent_ban")}
-                          >
+                          <Button type="button" variant="outline" className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white" disabled={isActionBusy} onClick={() => void moderateReport(report, "permanent_ban")}>
                             {language === "en" ? "Permanent ban" : "Μόνιμο ban"}
                           </Button>
                         </div>
@@ -347,25 +521,81 @@ const AdminPage = () => {
                     );
                   })
                 ) : (
-
-                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
-                    {language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}
-                  </div>
-
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}</div>
                 )}
               </div>
+            </Surface>
+
+            <Surface className="space-y-5 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Active rooms" : "Ενεργά rooms"}</p>
+                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "Rooms that are currently live and visible to admins." : "Rooms που είναι τώρα live και ορατά στους admins."}</p>
+                </div>
+                <Badge className="rounded-full border border-cyan-300/15 bg-cyan-500/10 px-3 py-1 text-cyan-50 hover:bg-cyan-500/10">
+                  <Clock3 className="mr-1 h-3.5 w-3.5" />
+                  {activeRoomRows.length}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
+                {loadingData ? (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading active rooms..." : "Διαβάζουμε τα ενεργά rooms..."}</div>
+                ) : activeRoomRows.length ? (
+                  activeRoomRows.map((room) => (
+                    <div key={room.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
+                        <span>room {room.id.slice(0, 8)}</span>
+                        <span>{new Date(room.started_at).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-2 text-sm text-white/75">
+                        {room.user_a.slice(0, 8)} · {room.user_b.slice(0, 8)}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{room.rtc_state ?? "idle"}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{room.voice_enabled ? (language === "en" ? "voice on" : "φωνή on") : (language === "en" ? "voice off" : "φωνή off")}</span>
+                        {room.voice_unlocked_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice unlocked" : "φωνή ξεκλείδωσε"}</span>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No active rooms right now." : "Δεν υπάρχουν ενεργά rooms αυτή τη στιγμή."}</div>
+                )}
+              </div>
+            </Surface>
+          </div>
+
+          <Surface className="space-y-4 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Retention & cleanup" : "Διατήρηση & cleanup"}</p>
+                <p className="mt-1 text-sm text-white/55">
+                  {language === "en"
+                    ? "Analytics: 30 days. Errors: 90 days. Moderation logs: 180 days."
+                    : "Analytics: 30 ημέρες. Errors: 90 ημέρες. Moderation logs: 180 ημέρες."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                onClick={() => void runCleanup()}
+              >
+                <WifiOff className="mr-2 h-4 w-4" />
+                {language === "en" ? "Run cleanup now" : "Εκτέλεση cleanup τώρα"}
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4 text-sm text-white/65">{language === "en" ? "No message contents are stored in analytics or error logs." : "Δεν αποθηκεύονται message contents σε analytics ή error logs."}</div>
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4 text-sm text-white/65">{language === "en" ? "Audio files are never logged, only upload status." : "Τα audio files δεν καταγράφονται, μόνο η κατάσταση upload."}</div>
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4 text-sm text-white/65">{language === "en" ? `Cleanup result: ${cleanupStatus ? `${cleanupStatus.analyticsDeleted}/${cleanupStatus.errorsDeleted}/${cleanupStatus.moderationDeleted}` : "not run yet"}` : `Αποτέλεσμα cleanup: ${cleanupStatus ? `${cleanupStatus.analyticsDeleted}/${cleanupStatus.errorsDeleted}/${cleanupStatus.moderationDeleted}` : "δεν έχει τρέξει ακόμη"}`}</div>
             </div>
           </Surface>
         </>
       ) : (
         <Surface className="space-y-3 p-6 text-white/75">
-          <p className="text-sm uppercase tracking-[0.22em] text-white/40">
-            {language === "en" ? "Access restricted" : "Περιορισμένη πρόσβαση"}
-          </p>
-          <h2 className="text-2xl font-semibold text-white">
-            {language === "en" ? "You do not have admin access yet." : "Δεν έχεις ακόμη πρόσβαση διαχείρισης."}
-
-          </h2>
+          <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Access restricted" : "Περιορισμένη πρόσβαση"}</p>
+          <h2 className="text-2xl font-semibold text-white">{language === "en" ? "You do not have admin access yet." : "Δεν έχεις ακόμη πρόσβαση διαχείρισης."}</h2>
           <p className="text-sm leading-7 text-white/60">
             {language === "en"
               ? "Update the role column in public.profiles to admin for this account, then refresh the app."

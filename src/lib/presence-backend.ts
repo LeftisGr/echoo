@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { EPHEMERAL_CONTENT_TTL_SECONDS } from "@/lib/ephemeral-content";
+import { logAnalyticsEvent } from "@/lib/operational-logs";
 import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 import type {
   AccountRestriction,
@@ -425,6 +426,14 @@ export async function joinQueue(userId: string, filters: QueueFilters) {
     throw error;
   }
 
+  void logAnalyticsEvent("user_joined_queue", {
+    userId,
+    properties: {
+      preference: filters.preference,
+      language: filters.language,
+    },
+  });
+
   return { ok: true, userId, filters };
 }
 
@@ -615,6 +624,21 @@ export async function createRoomRecord(userA: string, userB: string) {
   }
 
   const room = data as LiveRoomRow;
+  void logAnalyticsEvent("room_created", {
+    userId: userA,
+    roomId: room.id,
+    properties: {
+      participantCount: 2,
+    },
+  });
+  void logAnalyticsEvent("room_created", {
+    userId: userB,
+    roomId: room.id,
+    properties: {
+      participantCount: 2,
+    },
+  });
+
   return {
     id: room.id,
     userA: room.user_a,
@@ -895,6 +919,14 @@ export async function persistReport(roomId: string, reporterId: string, reported
     throw error;
   }
 
+  void logAnalyticsEvent("report_submitted", {
+    userId: reporterId,
+    roomId,
+    properties: {
+      reasonCategory: reason.split(":")[0]?.trim() || reason,
+    },
+  });
+
   return { ok: true, roomId, reporterId, reportedUser, reason };
 }
 
@@ -912,6 +944,14 @@ export async function persistBlock(roomId: string, blockerId: string, blockedUse
     throw error;
   }
 
+  void logAnalyticsEvent("user_blocked", {
+    userId: blockerId,
+    roomId,
+    properties: {
+      context: "room",
+    },
+  });
+
   return { ok: true, roomId, blockerId, blockedUserId };
 }
 
@@ -921,10 +961,11 @@ export async function endRoom(room: RoomSession) {
     return createOfflineResult({ ok: true, room });
   }
 
+  const endedAt = room.endedAt ?? new Date().toISOString();
   const { error } = await supabase
     .from("rooms")
     .update({
-      ended_at: room.endedAt ?? new Date().toISOString(),
+      ended_at: endedAt,
       voice_enabled: room.voiceEnabled,
       rtc_state: "idle",
       rtc_connection_id: null,
@@ -935,6 +976,23 @@ export async function endRoom(room: RoomSession) {
   if (error) {
     throw error;
   }
+
+  void logAnalyticsEvent("room_ended", {
+    userId: room.userA,
+    roomId: room.id,
+    properties: {
+      endedAt,
+      voiceEnabled: room.voiceEnabled,
+    },
+  });
+  void logAnalyticsEvent("room_ended", {
+    userId: room.userB,
+    roomId: room.id,
+    properties: {
+      endedAt,
+      voiceEnabled: room.voiceEnabled,
+    },
+  });
 
   return { ok: true, room };
 }
