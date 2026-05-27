@@ -43,6 +43,7 @@ import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
+import { supporterStorageKey } from "@/lib/support";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import {
@@ -137,6 +138,8 @@ interface PresenceContextValue {
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
   matchSoundEnabled: boolean;
+  supporter: boolean;
+  setSupporter: (enabled: boolean) => void;
 
   initializing: boolean;
   authLoaded: boolean;
@@ -193,6 +196,7 @@ const guestSessionStorageKey = "presence-mvp-guest-session";
 const blockedUsersStorageKey = "presence-mvp-blocked-users";
 const routeStorageKey = "presence-mvp-route";
 const matchTransitionStorageKey = "presence-mvp-match-transition";
+
 
 function readStoredBlockedUsers(userId: string | null) {
   if (typeof window === "undefined" || !userId) {
@@ -544,6 +548,27 @@ function writeStoredGuestSession(isGuest: boolean) {
   window.localStorage.setItem(guestSessionStorageKey, "true");
 }
 
+function readStoredSupporter() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(supporterStorageKey) === "true";
+}
+
+function writeStoredSupporter(supporter: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!supporter) {
+    window.localStorage.removeItem(supporterStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(supporterStorageKey, "true");
+}
+
 function readStoredRoute() {
 
   if (typeof window === "undefined") {
@@ -751,6 +776,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
   const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
+  const [supporter, setSupporterState] = useState(readStoredSupporter());
   const [initializing, setInitializing] = useState(true);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [roomLoaded, setRoomLoaded] = useState(false);
@@ -2295,6 +2321,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const rerollUsername = useCallback(() => {}, []);
 
+  const setSupporter = useCallback((enabled: boolean) => {
+    setSupporterState(enabled);
+    writeStoredSupporter(enabled);
+  }, []);
+
   const updateProfile = useCallback(
     (updates: Partial<PresenceProfile>) => {
       const safeUpdates = { ...updates };
@@ -3193,6 +3224,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       reconnectEnabled,
       matchSoundEnabled,
+      supporter,
+      setSupporter,
       initializing,
       authLoaded,
       roomLoaded,
@@ -3271,6 +3304,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setHapticsEnabled,
       setReconnectEnabled,
       setMatchSoundEnabledState,
+      setSupporter,
+      supporter,
       startNewSessionFromEndedRoom,
       startQueue,
       startVoiceChat,

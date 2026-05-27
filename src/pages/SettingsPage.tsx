@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
+import { SupportEchooCard } from "@/components/support-echoo-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
@@ -20,8 +21,10 @@ const SettingsPage = () => {
     hapticsEnabled,
     reconnectEnabled,
     matchSoundEnabled,
+    supporter,
     setHapticsEnabled,
     setReconnectEnabled,
+
     setMatchSoundEnabled,
     logout,
   } = usePresence();
@@ -61,6 +64,11 @@ const SettingsPage = () => {
             <div className="mt-4 inline-flex items-center rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-medium text-violet-50">
               {language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο"}
             </div>
+            {supporter && (
+              <div className="mt-3 inline-flex items-center rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-50">
+                {language === "en" ? "Early supporter" : "Early supporter"}
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
@@ -108,7 +116,10 @@ const SettingsPage = () => {
         </div>
       </div>
 
+      <SupportEchooCard />
+
       <Surface className="space-y-4 p-5 sm:p-6">
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Link to="/dashboard">
             <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">{copy.nav.dashboard}</Button>

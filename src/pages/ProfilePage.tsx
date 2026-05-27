@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { SupportEchooCard } from "@/components/support-echoo-card";
 import { usePresence } from "@/components/presence/presence-provider";
+
 import { interestTags } from "@/lib/presence-content";
 import { supabase } from "@/integrations/supabase/client";
 import type { PresenceProfile } from "@/lib/presence-types";
@@ -51,6 +53,7 @@ const ProfilePage = () => {
     updateProfile,
     login,
     blockedUserCount,
+    supporter,
   } = usePresence();
 
   const [draftUsername, setDraftUsername] = useState("");
@@ -174,11 +177,16 @@ const ProfilePage = () => {
             <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-100 hover:bg-violet-500/10">
               {profile.vibeLabel}
             </Badge>
+            {supporter && (
+              <Badge className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-50 hover:bg-amber-400/10">
+                {language === "en" ? "Early supporter" : "Early supporter"}
+              </Badge>
+            )}
           </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <Surface className="space-y-5 border-white/10 bg-[#0d1424]/80 p-5">
+          <Surface className={cn("space-y-5 bg-[#0d1424]/80 p-5", supporter ? "border-amber-300/15" : "border-white/10")}>
             <div className="flex items-center gap-4">
               <div className="relative">
                 <Avatar className="h-20 w-20 border border-white/10 bg-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
@@ -447,7 +455,10 @@ const ProfilePage = () => {
         </div>
       </Surface>
 
+      <SupportEchooCard />
+
       <Surface className="space-y-4 p-5 sm:p-6">
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-white/55">{language === "en" ? "Next step" : "Επόμενο βήμα"}</p>

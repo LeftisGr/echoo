@@ -43,6 +43,7 @@ import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn } from "@/lib/utils";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
+import { buyMeACoffeeUrl, supportPromptCooldownMs, supportPromptStorageKey } from "@/lib/support";
 
 import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -83,6 +84,7 @@ const SessionPage = () => {
     copy,
     language,
     matchSoundEnabled,
+    supporter,
     online,
     unlockVoice,
     sendMessage,
@@ -126,6 +128,7 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
+  const [supportPromptVisible, setSupportPromptVisible] = useState(false);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
@@ -760,6 +763,7 @@ const SessionPage = () => {
     stopTyping("unmount");
   }, [clearPushToTalkReleaseTimeout, releasePushToTalk, stopTyping]);
 
+
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
     const loadingTitle = queue.active
       ? language === "en"
@@ -808,12 +812,45 @@ const SessionPage = () => {
   const isActive = room.status === "active";
 
   const isEnded = room.status === "ended";
+
+  useEffect(() => {
+    if (!isEnded || supporter || !room) {
+      setSupportPromptVisible(false);
+      return;
+    }
+
+    const meaningfulMessages = room.messages.filter((message) => message.type !== "system").length;
+    const meaningfulSession = meaningfulMessages >= 5 || sessionProgression.elapsedSeconds >= 300;
+
+    if (!meaningfulSession) {
+      setSupportPromptVisible(false);
+      return;
+    }
+
+    const lastShownRaw = window.localStorage.getItem(supportPromptStorageKey);
+    const lastShownAt = lastShownRaw ? Number(lastShownRaw) : 0;
+
+    if (lastShownAt && Date.now() - lastShownAt < supportPromptCooldownMs) {
+      setSupportPromptVisible(false);
+      return;
+    }
+
+    if (Math.random() > 0.28) {
+      setSupportPromptVisible(false);
+      return;
+    }
+
+    window.localStorage.setItem(supportPromptStorageKey, String(Date.now()));
+    setSupportPromptVisible(true);
+  }, [isEnded, room, sessionProgression.elapsedSeconds, supporter]);
+
   const secondsRemaining =
     phase === "TEXT_PHASE"
       ? sessionProgression.secondsUntilVoiceUnlock
       : phase === "AUDIO_PHASE"
         ? sessionProgression.secondsUntilMediaUnlock
         : 0;
+
   const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
@@ -1144,6 +1181,27 @@ const SessionPage = () => {
                     </Button>
                   </div>
                 </div>
+
+                {supportPromptVisible && (
+                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 sm:p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">Support Echoo</p>
+                    <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-lg">
+                      {language === "en" ? "Thanks for spending time in Echoo tonight ☕" : "Ευχαριστούμε που πέρασες χρόνο στο Echoo απόψε ☕"}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-white/65">
+                      {language === "en"
+                        ? "Echoo is free and built with care. If you want to help keep the rooms alive, you can support the project."
+                        : "Το Echoo είναι δωρεάν και φτιαγμένο με φροντίδα. Αν θέλεις να βοηθήσεις να παραμένουν τα rooms ζωντανά, μπορείς να στηρίξεις το project."}
+                    </p>
+                    <div className="mt-4">
+                      <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
+                        <a href={buyMeACoffeeUrl} target="_blank" rel="noreferrer noopener">
+                          {language === "en" ? "Buy me a coffee" : "Buy me a coffee"}
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1202,17 +1260,15 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2 justify-self-center text-center">
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 shadow-sm">
-                <SessionProgressHeader
-                  phase={phase}
-                  timerLabel={timerLabel}
-                  timerProgress={timerProgress}
-                  toneClassName={timerToneClass}
-                  language={language}
-                  sessionComplete={sessionComplete}
-                />
-              </div>
+            <div className="flex flex-col items-center justify-self-center text-center">
+              <SessionProgressHeader
+                phase={phase}
+                timerLabel={timerLabel}
+                timerProgress={timerProgress}
+                toneClassName={timerToneClass}
+                language={language}
+                sessionComplete={sessionComplete}
+              />
             </div>
 
             <div className="flex justify-end justify-self-end pl-2">
