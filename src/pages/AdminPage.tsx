@@ -303,7 +303,7 @@ const AdminPage = () => {
                             onClick={() => void moderateReport(report, "mark_reviewed")}
                           >
                             <Shield className="mr-2 h-4 w-4" />
-                            {language === "en" ? "Mark reviewed" : "Σημείωση ως ελεγμένο"}
+                            {language === "en" ? "Reviewed" : "Ελεγμένο"}
                           </Button>
                           <Button
                             type="button"
@@ -322,7 +322,7 @@ const AdminPage = () => {
                             onClick={() => void moderateReport(report, "suspend_user")}
                           >
                             <UserMinus className="mr-2 h-4 w-4" />
-                            {language === "en" ? "Suspend" : "Αναστολή"}
+                            {language === "en" ? "Suspend 7d" : "Αναστολή 7η"}
                           </Button>
                           <Button
                             type="button"
@@ -331,7 +331,7 @@ const AdminPage = () => {
                             disabled={isActionBusy}
                             onClick={() => void moderateReport(report, "temporary_ban")}
                           >
-                            {language === "en" ? "Temp ban" : "Προσωρινό ban"}
+                            {language === "en" ? "Temp ban 30d" : "Προσωρινό ban 30η"}
                           </Button>
                           <Button
                             type="button"

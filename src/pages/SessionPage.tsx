@@ -558,6 +558,8 @@ const SessionPage = () => {
       return;
     }
 
+    stopTyping("media-send");
+
     const now = Date.now();
     if (mediaCooldownRef.current && now - mediaCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
       setMediaError(language === "en" ? "Please wait a moment before sending another media item." : "Περίμενε λίγο πριν στείλεις άλλο media.");
@@ -1277,22 +1279,28 @@ const SessionPage = () => {
               const arrivedHot = message.id === recentMessageId;
 
               if (isSystem) {
-                const isPositiveSystemMessage = /connection opened|stay curious|voice is now open|room opens|unlocked/i.test(message.content);
-                return (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                      isPositiveSystemMessage
-                        ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50"
-                        : "border-white/8 bg-white/5 text-white/45",
-                      arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
-                    )}
-
-                  >
-                    {message.content}
-                  </div>
-                );
+                const normalizedSystemMessage = message.content.toLowerCase().replace(/[.·…]+/g, " ");
+                const isPositiveSystemMessage =
+                  normalizedSystemMessage.includes("connection opened") ||
+                  normalizedSystemMessage.includes("stay curious") ||
+                  normalizedSystemMessage.includes("voice is now open") ||
+                  normalizedSystemMessage.includes("room opens") ||
+                  normalizedSystemMessage.includes("unlocked");
+                  return (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                        isPositiveSystemMessage
+                          ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50"
+                          : "border-white/8 bg-white/5 text-white/45",
+                        arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
+                      )}
+  
+                    >
+                      {message.content}
+                    </div>
+                  );
               }
 
               if (message.type === "media") {

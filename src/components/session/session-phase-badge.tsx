@@ -14,7 +14,7 @@ export function SessionPhaseBadge({ phase, language }: { phase: SessionPhase; la
   const label = getSessionPhaseCopy(phase, language).badgeLabel;
 
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-[0.14em] transition-all duration-300 animate-[echo-message-in_220ms_ease-out]", styles)}>
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-[0.12em] transition-all duration-300 animate-[echo-message-in_220ms_ease-out]", styles)}>
       {label}
     </span>
   );

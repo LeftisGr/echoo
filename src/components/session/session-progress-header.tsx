@@ -21,16 +21,16 @@ export function SessionProgressHeader({
   sessionComplete: boolean;
 }) {
   return (
-    <div className="space-y-3 text-center">
+    <div className="space-y-2.5 text-center">
       <SessionPhaseBadge phase={phase} language={language} />
       {sessionComplete ? (
         <div className="animate-[echo-message-in_260ms_ease-out]">
           <SessionFreeConversationState language={language} />
         </div>
       ) : (
-        <div className={cn("text-3xl font-semibold tracking-tight transition-all duration-300 sm:text-4xl", toneClassName)}>{timerLabel}</div>
+        <div className={cn("text-2xl font-semibold tracking-tight transition-all duration-300 sm:text-[2rem]", toneClassName)}>{timerLabel}</div>
       )}
-      {!sessionComplete && <Progress value={timerProgress} className="h-1.5 rounded-full bg-white/10" />}
+      {!sessionComplete && <Progress value={timerProgress} className="h-1 rounded-full bg-white/10" />}
     </div>
   );
 }

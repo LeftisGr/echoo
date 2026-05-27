@@ -925,11 +925,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const updatedAt = currentRoom.typingUpdatedAt ?? new Date().toISOString();
+    if (Date.now() - new Date(updatedAt).getTime() > 2000) {
+      clearTypingIndicator("room-sync-stale");
+      return;
+    }
+
     setTypingIndicator({
       roomId: currentRoom.id,
       senderId: currentRoom.typingUserId,
       displayName: currentRoom.partner?.username ?? "Someone",
-      updatedAt: currentRoom.typingUpdatedAt ?? new Date().toISOString(),
+      updatedAt,
     });
   }, [clearTypingIndicator, userId]);
 
@@ -1523,7 +1529,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered"));
 
     setIsAdmin(profileToUse.role === "admin");
-    setAccountRestriction(await loadModerationState(currentUserId).catch(() => ({ status: "ok", reason: null, expiresAt: null })));
+    setAccountRestriction(await loadModerationState(currentUserId).catch(() => ({ status: "ok" as const, reason: null, expiresAt: null })));
 
     if (loadedProfile) {
 
@@ -2444,9 +2450,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : current,
       );
       await persistMessage(userMessage);
+      if (typingIsActiveRef.current) {
+        void sendTypingState(false, createdAt);
+      }
       return true;
     },
-    [language, profile, room],
+    [language, profile, room, sendTypingState],
   );
 
   const sendMediaMessage = useCallback(async ({ file, caption, preview }: { file: File; caption: string; preview: MediaPreviewData }) => {
@@ -2792,6 +2801,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const leaveRoom = useCallback(
     (reason?: string) => {
       stopVoiceChat();
+      clearTypingIndicator("room-leave");
+      if (typingIsActiveRef.current) {
+        void sendTypingState(false, new Date().toISOString());
+      }
       if (!room) {
         return;
       }
@@ -2817,7 +2830,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       writeStoredRoomState(profile?.id ?? null, nextRoom);
       writeStoredMatchTransition(null);
     },
-    [profile, room, stopVoiceChat],
+    [clearTypingIndicator, profile, room, sendTypingState, stopVoiceChat],
   );
 
   const rateRoom = useCallback(
@@ -2841,8 +2854,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       const partnerId = room.userA === userId ? room.userB : room.userA;
-      setReportsCount((current) => current + 1);
       await persistReport(room.id, userId, partnerId, reason);
+      setReportsCount((current) => current + 1);
       toast.success(copy.misc.reported);
       leaveRoom(language === "en" ? "Conversation ended after a report." : "Η συνομιλία ολοκληρώθηκε μετά από αναφορά.");
     },
