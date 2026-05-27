@@ -21,13 +21,11 @@ import {
   leaveQueue,
   loadActiveRoomForUser,
   loadBlockedUserIds,
-  loadModerationState,
   loadProfile,
   loadRoomById,
   loadRoomMessages,
   matchQueueUser,
   persistBlock,
-
   persistMessage,
   persistRating,
   persistReport,
@@ -59,7 +57,6 @@ import {
 } from "@/lib/session-media";
 
 import type {
-  AccountModerationState,
   AdminMetrics,
   AppLanguage,
   AuthMethod,
@@ -146,7 +143,6 @@ interface PresenceContextValue {
   userId: string | null;
   isAdmin: boolean;
   blockedUserCount: number;
-  accountModeration: AccountModerationState | null;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
 
@@ -722,7 +718,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [blockedUsersLoaded, setBlockedUsersLoaded] = useState(false);
-  const [accountModeration, setAccountModeration] = useState<AccountModerationState | null>(null);
 
   const [queue, setQueue] = useState<QueueState>(storedQueue);
 
@@ -740,7 +735,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const [typingIndicator, setTypingIndicator] = useState<TypingIndicatorState | null>(null);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
-  const lastOnlineStateRef = useRef(typeof navigator === "undefined" ? true : navigator.onLine);
 
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
@@ -1012,31 +1006,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [room?.id, room?.status, room?.typingUpdatedAt, room?.typingUserId, syncTypingIndicatorFromRoom]);
 
   useEffect(() => {
-    if (!typingIndicator) {
-      return;
-    }
-
-    const updatedAt = Date.parse(typingIndicator.updatedAt);
-    const remaining = Number.isFinite(updatedAt) ? Math.max(2000 - (Date.now() - updatedAt), 0) : 2000;
-    const timeout = window.setTimeout(() => {
-      clearTypingIndicator("failsafe");
-      setRoom((current) => {
-        if (!current || current.typingUserId !== typingIndicator.senderId) {
-          return current;
-        }
-
-        return {
-          ...current,
-          typingUserId: null,
-          typingUpdatedAt: null,
-        };
-      });
-    }, remaining);
-
-    return () => window.clearTimeout(timeout);
-  }, [clearTypingIndicator, typingIndicator]);
-
-  useEffect(() => {
     if (voiceState === "failed" || voiceState === "error") {
       clearTypingIndicator("voice-failed");
     }
@@ -1047,34 +1016,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       clearTypingIndicator("offline");
     }
   }, [clearTypingIndicator, online]);
-
-  useEffect(() => {
-    if (lastOnlineStateRef.current !== online) {
-      clearTypingIndicator(online ? "reconnect" : "disconnect");
-      setRoom((current) =>
-        current
-          ? {
-              ...current,
-              typingUserId: null,
-              typingUpdatedAt: null,
-            }
-          : current,
-      );
-      lastOnlineStateRef.current = online;
-    }
-  }, [clearTypingIndicator, online]);
-
-  useEffect(() => {
-    if (accountModeration?.isBanned && room?.status === "active") {
-
-      leaveRoom(language === "en" ? "This account has been banned." : "Αυτός ο λογαριασμός έχει banned.");
-      return;
-    }
-
-    if (accountModeration?.isSuspended && queue.active) {
-      void cancelQueue();
-    }
-  }, [accountModeration?.isBanned, accountModeration?.isSuspended, cancelQueue, language, leaveRoom, queue.active, room?.status]);
 
   useEffect(() => {
     setIsAdmin(profile?.role === "admin");
@@ -1208,9 +1149,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setVoiceState("idle");
         setVoiceDiagnostics(null);
         setIsAdmin(false);
-        setAccountModeration(null);
         writeStoredGuestSession(false);
-
         writeStoredGuestProfile(null);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
@@ -1243,9 +1182,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setVoiceState("idle");
         setVoiceDiagnostics(null);
         setIsAdmin(false);
-        setAccountModeration(null);
         writeStoredRoomState(null, null);
-
         writeStoredMatchTransition(null);
       } finally {
         setAuthLoaded(true);
@@ -1565,12 +1502,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredGuestSession(false);
         writeStoredGuestProfile(null);
       }
-    }
-
-    try {
-      setAccountModeration(await loadModerationState(currentUserId));
-    } catch {
-      setAccountModeration(null);
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
@@ -2218,9 +2149,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setVoiceState("idle");
     setVoiceDiagnostics(null);
     setIsAdmin(false);
-    setAccountModeration(null);
     setGuestMode(false);
-
     writeStoredGuestSession(false);
     writeStoredGuestProfile(null);
 
@@ -2288,21 +2217,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (accountModeration?.isBanned) {
-      toast.error(language === "en" ? "This account is banned." : "Αυτός ο λογαριασμός είναι banned.");
-      return;
-    }
-
-    if (accountModeration?.isSuspended) {
-      const until = accountModeration.suspendedUntil ? new Date(accountModeration.suspendedUntil).toLocaleString() : null;
-      toast.error(
-        language === "en"
-          ? `This account is suspended${until ? ` until ${until}` : ""}.`
-          : `Αυτός ο λογαριασμός είναι σε αναστολή${until ? ` έως ${until}` : ""}.`,
-      );
-      return;
-    }
-
     const activeProfile =
       profile ??
       (userId
@@ -2324,7 +2238,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       preference: activeProfile.preference,
       language: activeProfile.language,
     });
-
     if (!safety.allowed) {
       toast.error(language === "en" ? "Please wait a moment before starting another room." : "Περίμενε λίγο πριν ξεκινήσεις άλλο room.");
       return;
@@ -2366,7 +2279,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     if (hapticsEnabled) {
       vibrate([40, 20, 40]);
     }
-  }, [accountModeration, authenticated, hapticsEnabled, language, profile, userId]);
+  }, [authenticated, hapticsEnabled, language, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
@@ -2937,7 +2850,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId,
       isAdmin,
       blockedUserCount: blockedUserIds.length,
-      accountModeration,
       login,
 
       logout,
@@ -2974,10 +2886,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       blockCurrentPartner,
       blockedUserIds.length,
       cancelQueue,
-      accountModeration,
 
       copy,
-
       hapticsEnabled,
       initializing,
       isAdmin,
