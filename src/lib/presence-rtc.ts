@@ -154,6 +154,7 @@ export async function createPeerToPeerVoiceSession({
   userA,
   userB,
   connectionId: initialConnectionId,
+  roomRtcUpdatedAt,
   onStateChange,
   onPlaybackFailure,
   isCurrentSession,
@@ -165,6 +166,7 @@ export async function createPeerToPeerVoiceSession({
   userA: string;
   userB: string;
   connectionId?: string | null;
+  roomRtcUpdatedAt?: string | null;
   onStateChange?: (state: VoiceSessionState) => void;
   onPlaybackFailure?: () => void;
   onDiagnosticsChange?: (diagnostics: VoiceTransmissionDiagnostics) => void;
@@ -176,6 +178,7 @@ export async function createPeerToPeerVoiceSession({
 
   const isInitiator = currentUserId < remoteUserId;
   const canContinue = () => (isCurrentSession ? isCurrentSession() : true);
+  const roomRtcUpdatedAtMs = roomRtcUpdatedAt ? Date.parse(roomRtcUpdatedAt) : null;
 
   rtcLog("session created", {
     roomId,
@@ -1049,8 +1052,13 @@ export async function createPeerToPeerVoiceSession({
     }
 
     const connectionId = signal.signal_payload.connectionId;
-    if (
+    const incomingOfferAtMs = Date.parse(signal.created_at);
+    const canReplaceActivePeer =
+      roomRtcUpdatedAtMs !== null &&
+      Number.isFinite(incomingOfferAtMs) &&
+      incomingOfferAtMs > roomRtcUpdatedAtMs;
 
+    if (
       currentConnectionId &&
       currentConnectionId !== connectionId &&
       activePeer &&
@@ -1058,14 +1066,28 @@ export async function createPeerToPeerVoiceSession({
       activePeer.connectionState !== "disconnected" &&
       activePeer.connectionState !== "closed"
     ) {
-      rtcLog("outdated offer ignored", {
+      if (!canReplaceActivePeer) {
+        rtcLog("outdated offer ignored", {
+          roomId,
+          sessionId,
+          currentConnectionId,
+          incomingConnectionId: connectionId,
+          createdAt: signal.created_at,
+          roomRtcUpdatedAt,
+        });
+        return;
+      }
+
+      rtcLog("newer offer received, restarting peer", {
         roomId,
         sessionId,
         currentConnectionId,
         incomingConnectionId: connectionId,
         createdAt: signal.created_at,
+        roomRtcUpdatedAt,
       });
-      return;
+      cleanupPeer();
+      resetRemoteStream();
     }
 
     if (currentConnectionId === connectionId && remoteDescriptionReady) {

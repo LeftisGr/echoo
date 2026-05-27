@@ -2629,7 +2629,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           userA: room.userA,
           userB: room.userB,
           connectionId: room.rtcConnectionId ?? null,
+          roomRtcUpdatedAt: room.rtcUpdatedAt ?? null,
           isCurrentSession: () => voiceSessionTokenRef.current === sessionToken,
+
           onStateChange: (nextState) => {
             if (voiceSessionTokenRef.current !== sessionToken) {
               return;
