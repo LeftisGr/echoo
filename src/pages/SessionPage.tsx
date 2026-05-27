@@ -1128,38 +1128,29 @@ const SessionPage = () => {
           <div className="relative flex items-start gap-3 sm:items-center">
             <div className="min-w-0 flex-1 pr-2 text-left">
               <p className="text-[10px] uppercase tracking-[0.34em] text-white/35">Echoo</p>
-              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
-                </div>
-
-                <div className="flex flex-col items-start gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-6 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
-                    aria-label={language === "en" ? "Open report window" : "Άνοιγμα παραθύρου αναφοράς"}
-                    onClick={() => setReportDialogOpen(true)}
-                  >
-                    <Flag className="mr-1 h-3 w-3" />
-                    {language === "en" ? "Report" : "Αναφορά"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-6 shrink-0 whitespace-nowrap rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
-                    onClick={() => {
-                      void blockCurrentPartner();
-                    }}
-                  >
-                    <PhoneOff className="mr-1 h-3 w-3" />
-                    {language === "en" ? "Block" : "Μπλοκ"}
-                  </Button>
-                </div>
-
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] leading-none text-white/40">
+              <div className="mt-1 flex min-w-0 flex-col items-start gap-2">
+                <h1 className="truncate text-sm font-medium text-white/70 sm:text-base">{roomDisplayName}</h1>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 shrink-0 whitespace-nowrap rounded-full border-white/10 bg-white/5 px-2 text-[10px] font-medium text-white/55 hover:bg-white/10 hover:text-white"
+                  aria-label={language === "en" ? "Open report window" : "Άνοιγμα παραθύρου αναφοράς"}
+                  onClick={() => setReportDialogOpen(true)}
+                >
+                  <Flag className="mr-1 h-3 w-3" />
+                  {language === "en" ? "Report" : "Αναφορά"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 shrink-0 whitespace-nowrap rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
+                  onClick={() => {
+                    void blockCurrentPartner();
+                  }}
+                >
+                  <PhoneOff className="mr-1 h-3 w-3" />
+                  {language === "en" ? "Block" : "Μπλοκ"}
+                </Button>
                 {voicePlaybackBlocked && (
                   <Button
                     type="button"

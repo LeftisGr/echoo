@@ -872,7 +872,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (Date.now() - signalTimestamp > 6000) {
+      if (Date.now() - signalTimestamp > 10000) {
         if (typingIndicatorStateRef.current?.senderId === signalSenderId) {
           clearTypingIndicator("stale");
         }
@@ -899,7 +899,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       typingIndicatorTimeoutRef.current = window.setTimeout(() => {
         clearTypingIndicator("timeout");
-      }, 1800);
+      }, 3200);
+
     },
     [clearTypingIndicator, userId],
   );
@@ -1446,6 +1447,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             ...current,
             endedAt: latestRoom.endedAt,
             voiceEnabled: latestRoom.voiceEnabled,
+            rtcState: latestRoom.rtcState ?? current.rtcState,
+            rtcConnectionId: latestRoom.rtcConnectionId ?? current.rtcConnectionId,
+            rtcUpdatedAt: latestRoom.rtcUpdatedAt ?? current.rtcUpdatedAt,
+            voiceUnlockedAt: latestRoom.voiceUnlockedAt ?? current.voiceUnlockedAt,
+            typingUserId: latestRoom.typingUserId ?? current.typingUserId,
+            typingUpdatedAt: latestRoom.typingUpdatedAt ?? current.typingUpdatedAt,
             status: latestRoom.endedAt ? "ended" : "active",
           };
         });
@@ -2712,7 +2719,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const shouldReconnect = room.rtcState === "connected" || room.rtcState === "connecting" || room.rtcState === "reconnecting";
+    const shouldReconnect =
+      room.voiceUnlockedAt || room.rtcState === "connected" || room.rtcState === "connecting" || room.rtcState === "reconnecting";
     if (!shouldReconnect || voiceReconnectAttemptedRoomIdRef.current === room.id) {
       return;
     }
