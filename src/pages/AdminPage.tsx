@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   Activity,
   AlertTriangle,
@@ -27,6 +28,7 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { adminChartData } from "@/lib/presence-content";
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const chartConfig = {
@@ -79,7 +81,18 @@ interface ModerationLogRow {
   created_at: string;
 }
 
+interface UserRestrictionRow {
+  id: string;
+  user_id: string;
+  reason: string;
+  permanent?: boolean;
+  expires_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 interface ActiveRoomRow {
+
   id: string;
   user_a: string;
   user_b: string;
@@ -98,24 +111,30 @@ const AdminPage = () => {
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
   const [recentModeration, setRecentModeration] = useState<ModerationLogRow[]>([]);
+  const [recentSuspensions, setRecentSuspensions] = useState<UserRestrictionRow[]>([]);
+  const [recentBans, setRecentBans] = useState<UserRestrictionRow[]>([]);
   const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
 
-  const loadAdminData = useCallback(async () => {
-    setLoadingData(true);
+  const loadAdminData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoadingData(true);
+    }
     try {
+
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      const [reportsResult, errorsResult, moderationResult, roomsResult, analyticsResult] = await Promise.all([
+      const [reportsResult, errorsResult, moderationResult, roomsResult, analyticsResult, suspensionsResult, bansResult] = await Promise.all([
         supabase
           .from("reports")
           .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
+          .gte("created_at", sevenDaysAgo)
           .order("created_at", { ascending: false })
-          .limit(5),
+          .limit(250),
         supabase
           .from("error_logs")
           .select("id, event_type, severity, error_message, error_code, room_id, anonymized_user_id, created_at, properties")
@@ -139,6 +158,16 @@ const AdminPage = () => {
           .gte("created_at", twentyFourHoursAgo)
           .order("created_at", { ascending: false })
           .limit(100),
+        supabase
+          .from("user_suspensions")
+          .select("id, user_id, reason, expires_at, created_by, created_at")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("user_bans")
+          .select("id, user_id, reason, permanent, expires_at, created_by, created_at")
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
 
       if (reportsResult.error) throw reportsResult.error;
@@ -146,14 +175,20 @@ const AdminPage = () => {
       if (moderationResult.error) throw moderationResult.error;
       if (roomsResult.error) throw roomsResult.error;
       if (analyticsResult.error) throw analyticsResult.error;
+      if (suspensionsResult.error) throw suspensionsResult.error;
+      if (bansResult.error) throw bansResult.error;
 
       setRecentReports((reportsResult.data ?? []) as ReportRow[]);
       setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
       setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
       setActiveRooms((roomsResult.data ?? []) as ActiveRoomRow[]);
       setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
+      setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
+      setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
     } finally {
-      setLoadingData(false);
+      if (!silent) {
+        setLoadingData(false);
+      }
     }
   }, []);
 
@@ -165,7 +200,7 @@ const AdminPage = () => {
     async (report: ReportRow, action: ModerationAction) => {
       setActiveAction(report.id + action);
       try {
-        const { data, error } = await supabase.rpc("moderate_report_action", {
+        const { data, error } = await supabase.rpc("admin_moderate_report", {
           p_report_id: report.id,
           p_action: action,
           p_reason: report.reason,
@@ -205,11 +240,46 @@ const AdminPage = () => {
     }
   }, [language]);
 
+  const adminRefreshTimeoutRef = useRef<number | null>(null);
+
+  const scheduleAdminRefresh = useCallback(() => {
+    if (adminRefreshTimeoutRef.current !== null) {
+      window.clearTimeout(adminRefreshTimeoutRef.current);
+    }
+
+    adminRefreshTimeoutRef.current = window.setTimeout(() => {
+      void loadAdminData(true);
+    }, 400);
+  }, [loadAdminData]);
+
   useEffect(() => {
     if (isAdmin) {
       void loadAdminData();
     }
   }, [isAdmin, loadAdminData]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`admin-dashboard-${profile?.id ?? "anon"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reports" }, scheduleAdminRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "moderation_logs" }, scheduleAdminRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_suspensions" }, scheduleAdminRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_bans" }, scheduleAdminRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, scheduleAdminRefresh)
+      .subscribe();
+
+    return () => {
+      if (adminRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(adminRefreshTimeoutRef.current);
+        adminRefreshTimeoutRef.current = null;
+      }
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, profile?.id, scheduleAdminRefresh]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -250,6 +320,21 @@ const AdminPage = () => {
     return acc;
   }, {});
 
+  const reportCountsByUser = useMemo(() => {
+    return recentReports.reduce<Record<string, number>>((acc, report) => {
+      acc[report.reported_user] = (acc[report.reported_user] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [recentReports]);
+
+  const topReportedUsers = useMemo(() => {
+    return Object.entries(reportCountsByUser)
+      .map(([userId, count]) => ({ userId, count }))
+      .sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
+      .slice(0, 5);
+  }, [reportCountsByUser]);
+
+  const usersAtThreshold = topReportedUsers.filter((item) => item.count >= 5).length;
   const failedUploadsCount = analyticsByType.upload_failed ?? 0;
   const reconnectSuccessCount = analyticsByType.reconnect_success ?? 0;
   const reconnectFailureCount = analyticsByType.reconnect_failed ?? 0;
@@ -407,8 +492,8 @@ const AdminPage = () => {
             <Surface className="space-y-5 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent moderation activity" : "Πρόσφατη moderation δραστηριότητα"}</p>
-                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "A compact audit trail of the latest moderation actions." : "Ένα compact audit trail των τελευταίων ενεργειών moderation."}</p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Moderation overview" : "Επισκόπηση moderation"}</p>
+                  <p className="mt-1 text-sm text-white/55">{language === "en" ? "Report counters, thresholds, and recent action history." : "Μετρητές αναφορών, thresholds και πρόσφατο history ενεργειών."}</p>
                 </div>
                 <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50 hover:bg-violet-500/10">
                   <Shield className="mr-1 h-3.5 w-3.5" />
@@ -416,7 +501,85 @@ const AdminPage = () => {
                 </Badge>
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Threshold" : "Όριο"}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">5</p>
+                  <p className="mt-1 text-sm text-white/60">{language === "en" ? "reports in 7 days" : "αναφορές σε 7 ημέρες"}</p>
+                </div>
+                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "At threshold" : "Στο όριο"}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{usersAtThreshold}</p>
+                  <p className="mt-1 text-sm text-white/60">{language === "en" ? "users currently at or above 5 reports" : "χρήστες με 5+ αναφορές"}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-white">{language === "en" ? "Top reported users" : "Χρήστες με τις περισσότερες αναφορές"}</p>
+                  <Badge className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] text-white/65 hover:bg-black/20">
+                    {language === "en" ? "7-day window" : "παράθυρο 7 ημερών"}
+                  </Badge>
+                </div>
+                {loadingData ? (
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-full animate-pulse rounded-full bg-white/8" />
+                    <div className="h-3.5 w-5/6 animate-pulse rounded-full bg-white/8" />
+                    <div className="h-3.5 w-2/3 animate-pulse rounded-full bg-white/8" />
+                  </div>
+                ) : topReportedUsers.length ? (
+                  topReportedUsers.map((entry) => (
+                    <div key={entry.userId} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/10 bg-black/20 px-3 py-2 text-sm">
+                      <span className="truncate text-white/75">{entry.userId.slice(0, 8)}</span>
+                      <Badge className={cn("rounded-full border px-2.5 py-1 text-[10px] font-medium", entry.count >= 5 ? "border-rose-300/15 bg-rose-500/10 text-rose-50" : "border-white/10 bg-white/5 text-white/65")}>{entry.count}</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[16px] border border-white/10 bg-black/20 p-3 text-sm text-white/55">{language === "en" ? "No reported users in this window." : "Δεν υπάρχουν αναφερόμενοι χρήστες σε αυτό το παράθυρο."}</div>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p className="text-sm font-medium text-white">{language === "en" ? "Threshold behavior" : "Συμπεριφορά thresholds"}</p>
+                <div className="space-y-2 text-sm leading-6 text-white/60">
+                  <p>{language === "en" ? "• 5 reports → 7 day suspension" : "• 5 αναφορές → 7ήμερη αναστολή"}</p>
+                  <p>{language === "en" ? "• Repeated abuse escalates to temporary or permanent bans" : "• Η επαναλαμβανόμενη κατάχρηση κλιμακώνεται σε προσωρινά ή μόνιμα bans"}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-3 rounded-[20px] border border-sky-300/15 bg-sky-500/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{language === "en" ? "Recent suspensions" : "Πρόσφατες αναστολές"}</p>
+                    <Badge className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] text-white/65 hover:bg-black/20">{recentSuspensions.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {recentSuspensions.length ? recentSuspensions.slice(0, 3).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/10 bg-black/20 px-3 py-2 text-sm">
+                        <span className="truncate text-white/75">{item.user_id.slice(0, 8)}</span>
+                        <span className="text-xs text-white/55">{item.expires_at ? new Date(item.expires_at).toLocaleDateString() : "—"}</span>
+                      </div>
+                    )) : <div className="rounded-[16px] border border-white/10 bg-black/20 p-3 text-sm text-white/55">{language === "en" ? "No active suspensions." : "Δεν υπάρχουν ενεργές αναστολές."}</div>}
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-[20px] border border-rose-300/15 bg-rose-500/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{language === "en" ? "Recent bans" : "Πρόσφατα bans"}</p>
+                    <Badge className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] text-white/65 hover:bg-black/20">{recentBans.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {recentBans.length ? recentBans.slice(0, 3).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/10 bg-black/20 px-3 py-2 text-sm">
+                        <span className="truncate text-white/75">{item.user_id.slice(0, 8)}</span>
+                        <span className="text-xs text-white/55">{item.permanent ? (language === "en" ? "permanent" : "μόνιμο") : item.expires_at ? new Date(item.expires_at).toLocaleDateString() : "—"}</span>
+                      </div>
+                    )) : <div className="rounded-[16px] border border-white/10 bg-black/20 p-3 text-sm text-white/55">{language === "en" ? "No recent bans." : "Δεν υπάρχουν πρόσφατα bans."}</div>}
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-3">
+
                 {loadingData ? (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading moderation logs..." : "Διαβάζουμε τα moderation logs..."}</div>
                 ) : recentModeration.length ? (
@@ -494,7 +657,7 @@ const AdminPage = () => {
                         <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
                           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}</span>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)}</span>
+                          <span className={cn("rounded-full border px-3 py-1", (reportCountsByUser[report.reported_user] ?? 0) >= 5 ? "border-rose-300/15 bg-rose-500/10 text-rose-50" : "border-white/10 bg-black/20")}>{language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)} · {reportCountsByUser[report.reported_user] ?? 0}</span>
                           {report.moderation_action && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Action" : "Ενέργεια"} {report.moderation_action}</span>}
                         </div>
 
