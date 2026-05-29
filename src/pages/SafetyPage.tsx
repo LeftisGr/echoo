@@ -1,4 +1,4 @@
-import { Ban, ShieldAlert, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
+import { Ban, MapPin, ShieldAlert, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
 
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -16,9 +16,11 @@ const SafetyPage = () => {
           sections: [
             { title: "Blocking", body: "Blocking stops future rematching between two people. It is immediate and private." },
             { title: "Reporting", body: "Reports go to moderation. Repeated abuse can lead to review, suspension, or bans." },
+            { title: "Nearby / Away", body: "Nearby / Away only uses a coarse location signal so people understand whether they are roughly close or farther apart. No exact location is exposed to other users." },
             { title: "Temporary rooms", body: "Rooms end automatically, and content is built to fade with them." },
             { title: "Emotional safety", body: "If a conversation feels heavy, strange, or manipulative, leaving is always allowed." },
           ],
+
         }
       : {
           title: "Ασφάλεια & Απόρρητο",
@@ -33,7 +35,7 @@ const SafetyPage = () => {
           ],
         };
 
-  const cards = [ShieldCheck, ShieldAlert, TimerReset, Ban] as const;
+  const cards = [ShieldCheck, ShieldAlert, MapPin, TimerReset, Ban] as const;
 
   return (
     <PageShell className="space-y-6">

@@ -14,8 +14,11 @@ const FAQPage = () => {
           ["Why does Echoo ask for support?", "Optional support helps maintain servers, audio infrastructure, moderation tools, and future improvements."],
           ["Will Echoo become paid?", "The core Echoo experience is intended to remain accessible to everyone."],
           ["Is Echoo anonymous?", "Yes. Echoo is built so you can meet without giving away your real identity."],
+          ["What does Nearby / Away mean?", "It is a simple distance cue for a room. Nearby means you and the other person are roughly close; Away means you are farther apart."],
+          ["Why does Echoo ask for location access?", "Only to calculate Nearby / Away inside a room. Echoo uses a coarse, approximate location so the app can stay private while still giving that small signal."],
           ["Can people see my email?", "No. Your email is used for sign-in and account recovery, not for other users."],
           ["Why does voice unlock later?", "Because slower pacing feels calmer and gives the conversation room to become natural."],
+
           ["Are messages stored?", "Most room content is temporary. Some safety records may stay longer to protect people."],
           ["What happens when a room ends?", "The room closes automatically and the conversation stops being active."],
         ]

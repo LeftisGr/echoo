@@ -1,4 +1,4 @@
-import { Bell, Mail, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
+import { Bell, Mail, MapPin, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
 
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -30,10 +30,16 @@ const PrivacyPage = () => {
                 "Messages, voice moments, and uploaded media are temporary by design. Rooms end automatically, shared content expires, and media is removed after it has served its purpose.",
             },
             {
+              title: "Nearby / Away",
+              body:
+                "When a room uses location access, Echoo only reads a coarse approximate position so it can show whether the other person is Nearby or Away. We do not show exact addresses or live location pins to other users.",
+            },
+            {
               title: "Moderation and safety",
               body:
                 "Reports, blocks, suspensions, and bans are stored so we can protect people and stop repeat abuse. We may keep a small moderation trail for review, abuse prevention, and platform safety.",
             },
+
             {
               title: "Analytics and local storage",
               body:
@@ -87,7 +93,7 @@ const PrivacyPage = () => {
           contact: "Για privacy requests, στείλε email στο privacy@echoo.app.",
         };
 
-  const icons = [Sparkles, ShieldCheck, TimerReset, Bell, Mail, ShieldCheck] as const;
+  const icons = [Sparkles, ShieldCheck, TimerReset, MapPin, Bell, Mail, ShieldCheck] as const;
 
   return (
     <PageShell className="space-y-6">

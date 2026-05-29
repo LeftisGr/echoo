@@ -47,8 +47,8 @@ import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
 import {
   deleteRoomPresenceSignal,
   getApproxDistance,
-  getPresenceHelperCopy,
   getPresenceLabel,
+
   loadRoomPresenceSignals,
   roundPresenceCoordinate,
   upsertRoomPresenceSignal,
@@ -990,7 +990,6 @@ const SessionPage = () => {
           : "border-violet-300/18 bg-[#151826]/92";
 
   const presenceLabel = presenceDistanceKm !== null ? getPresenceLabel(presenceDistanceKm, language) : null;
-  const presenceHelper = presenceDistanceKm !== null ? getPresenceHelperCopy(presenceDistanceKm, language) : null;
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
@@ -1361,54 +1360,51 @@ const SessionPage = () => {
             </div>
 
             <div className="flex justify-end justify-self-end pl-2">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-xs text-rose-100 hover:bg-rose-500/20 hover:text-white"
-                  >
-                    {copy.session.leave}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{language === "en" ? "Leave this room?" : "Να φυγεις απο αυτο το room;"}</AlertDialogTitle>
-                    <AlertDialogDescription className="text-white/55">
-                      {language === "en"
-                        ? "The connection will end for both people."
-                        : "Η σύνδεση θα τερματιστεί και για τους δύο ανθρώπους."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                      {language === "en" ? "Cancel" : "Ακύρωση"}
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
-                      onClick={() => leaveRoom(copy.session.partnerDisconnected)}
+              <div className="flex flex-col items-end gap-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-xs text-rose-100 hover:bg-rose-500/20 hover:text-white"
                     >
-                      {language === "en" ? "Leave room" : "Εξοδος"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      {copy.session.leave}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{language === "en" ? "Leave this room?" : "Να φυγεις απο αυτο το room;"}</AlertDialogTitle>
+                      <AlertDialogDescription className="text-white/55">
+                        {language === "en"
+                          ? "The connection will end for both people."
+                          : "Η σύνδεση θα τερματιστεί και για τους δύο ανθρώπους."}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                        {language === "en" ? "Cancel" : "Ακύρωση"}
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                        onClick={() => leaveRoom(copy.session.partnerDisconnected)}
+                      >
+                        {language === "en" ? "Leave room" : "Εξοδος"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
 
-              {presenceLabel && presenceHelper && (
-                <div className="mt-2 ml-auto flex w-fit max-w-[8.5rem] items-start gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[9rem]">
-                  <span
-                    className={cn(
-                      "mt-0.5 h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
-                      presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
-                    )}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.26em] text-white/55">
-                      <span>{presenceLabel}</span>
-                    </div>
-                    <p className="mt-0.5 text-[10px] leading-4 text-white/45">{presenceHelper}</p>
+                {presenceLabel && (
+                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm">
+                    <span
+                      className={cn(
+                        "h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
+                        presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
+                      )}
+                    />
+                    <span className="text-[10px] font-medium uppercase tracking-[0.26em] text-white/55">{presenceLabel}</span>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
             </div>
           </div>
