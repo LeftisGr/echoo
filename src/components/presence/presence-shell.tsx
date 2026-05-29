@@ -9,7 +9,7 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 function MenuSheet() {
-  const { copy } = usePresence();
+  const { copy, isAdmin } = usePresence();
 
   const links = [
     { to: "/", label: copy.nav.home, icon: Sparkles },
@@ -57,12 +57,15 @@ function MenuSheet() {
               {label}
             </Link>
           ))}
-          <Link
-            to="/admin/presence"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
-          >
-            {copy.nav.admin}
-          </Link>
+          {isAdmin && (
+            <Link
+              to="/admin/presence"
+              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
+            >
+              {copy.nav.admin}
+            </Link>
+          )}
+
         </div>
       </SheetContent>
     </Sheet>
