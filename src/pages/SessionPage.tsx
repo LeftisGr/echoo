@@ -44,7 +44,6 @@ import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn } from "@/lib/utils";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
-import { buyMeACoffeeUrl } from "@/lib/support";
 import {
   deleteRoomPresenceSignal,
   getApproxDistance,
@@ -938,8 +937,6 @@ const SessionPage = () => {
 
   const isEnded = room.status === "ended";
 
-  const shouldShowSupportPrompt = isEnded && !supporter && sessionProgression.elapsedSeconds >= 600;
-
   const secondsRemaining =
 
     phase === "TEXT_PHASE"
@@ -1294,27 +1291,6 @@ const SessionPage = () => {
                   </div>
                 </div>
 
-                {shouldShowSupportPrompt && (
-                  <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 sm:p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">Support Echoo</p>
-                    <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-lg">
-                      {language === "en" ? "Echoo is free, but we still need to eat :P" : "Το Echoo είναι δωρεάν, αλλά πρέπει κι εμείς να φάμε :P"}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-white/65">
-                      {language === "en"
-                        ? "If Echoo helped tonight, a coffee keeps it alive and calm for the next room."
-                        : "Αν το Echoo βοήθησε απόψε, ένας καφές το κρατά ζωντανό και ήρεμο για το επόμενο room."}
-                    </p>
-                    <div className="mt-4">
-                      <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
-                        <a href={buyMeACoffeeUrl} target="_blank" rel="noreferrer noopener">
-                          {language === "en" ? "Buy me a coffee" : "Buy me a coffee"}
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
               </div>
 
             </div>
@@ -1418,22 +1394,24 @@ const SessionPage = () => {
               </AlertDialog>
 
               {presenceLabel && presenceHelper && (
-                <div className="mt-3 max-w-[10.5rem] rounded-[20px] border border-white/10 bg-white/[0.05] px-3 py-2 text-left shadow-[0_12px_30px_rgba(10,14,25,0.22),0_0_22px_rgba(139,92,246,0.08)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[12rem]">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
-                        presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
-                      )}
-                    />
-
-                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">{language === "en" ? "Presence" : "Παρουσία"}</span>
-
+                <div className="mt-2 inline-flex max-w-[11rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[12rem]">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
+                      presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
+                    )}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.26em] text-white/45">
+                      <span>{presenceLabel}</span>
+                      <span className="text-white/20">•</span>
+                      <span>{language === "en" ? "Presence" : "Παρουσία"}</span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-4 text-white/45">{presenceHelper}</p>
                   </div>
-                  <p className="mt-1 text-sm font-medium tracking-tight text-white/90">{presenceLabel}</p>
-                  <p className="mt-1 text-[11px] leading-4 text-white/45">{presenceHelper}</p>
                 </div>
               )}
+
             </div>
           </div>
         </header>

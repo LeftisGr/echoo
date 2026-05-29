@@ -1,6 +1,7 @@
 import { MessageSquareText, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
 
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const AboutPage = () => {
@@ -40,7 +41,9 @@ const AboutPage = () => {
       <Surface className="space-y-5 p-6 sm:p-8">
         <SectionTitle title={copy.title} body={copy.body} />
         <p className="max-w-3xl text-sm leading-7 text-white/65">{copy.intro}</p>
+        <SupportCard language={language} className="mt-2" />
         <div className="grid gap-4 md:grid-cols-2">
+
           {copy.sections.map((item, index) => {
             const Icon = icons[index] ?? ShieldCheck;
             return (

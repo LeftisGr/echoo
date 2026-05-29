@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
-import { SupportEchooCard } from "@/components/support-echoo-card";
+import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { interestTags } from "@/lib/presence-content";
@@ -345,7 +345,7 @@ const ProfilePage = () => {
         </div>
       </Surface>
 
-      <SupportEchooCard language={language} supporter={supporter} onToggleSupporter={() => {}} />
+      <SupportCard language={language} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
 

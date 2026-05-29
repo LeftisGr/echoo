@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
-import { SupportEchooCard } from "@/components/support-echoo-card";
+import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
@@ -116,7 +116,7 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      <SupportEchooCard language={language} supporter={supporter} />
+      <SupportCard language={language} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
 
