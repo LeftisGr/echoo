@@ -309,6 +309,17 @@ function createDefaultProfile(userId?: string, profileMode: PresenceProfile["pro
   };
 }
 
+function ensureProfileAvatar(profile: PresenceProfile): PresenceProfile {
+  if (profile.avatarEmoji) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    avatarEmoji: randomFrom(guestAvatarEmojis),
+  };
+}
+
 function createInitialQueue(profile: PresenceProfile | null): QueueState {
   return {
     active: false,
@@ -1580,28 +1591,32 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             }
           : promoteGuestProfile(storedGuestProfile, currentUserId)
         : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered"));
+    const profileWithAvatar = ensureProfileAvatar(profileToUse);
 
-    setIsAdmin(profileToUse.role === "admin");
+    setIsAdmin(profileWithAvatar.role === "admin");
     setAccountRestriction(await loadModerationState(currentUserId).catch(() => ({ status: "ok" as const, reason: null, expiresAt: null })));
 
     if (loadedProfile) {
-
-      setProfile(loadedProfile);
+      setProfile(profileWithAvatar);
       setQueue((current) => ({
         ...current,
         filters: {
-          preference: loadedProfile.preference,
-          language: loadedProfile.language,
+          preference: profileWithAvatar.preference,
+          language: profileWithAvatar.language,
         },
       }));
+
+      if (profileWithAvatar.avatarEmoji !== loadedProfile.avatarEmoji) {
+        await syncProfile(profileWithAvatar);
+      }
 
       if (!isAnonymousSession) {
         writeStoredGuestSession(false);
         writeStoredGuestProfile(null);
       }
     } else {
-      setProfile(profileToUse);
-      await syncProfile(profileToUse);
+      setProfile(profileWithAvatar);
+      await syncProfile(profileWithAvatar);
 
       if (!isAnonymousSession) {
         writeStoredGuestSession(false);
@@ -1660,10 +1675,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   async function hydrateRoomPartner(nextRoom: RoomSession, currentUserId: string) {
     const messages = await loadRoomMessages(nextRoom.id);
+    const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
+    const loadedPartner = partnerId ? await loadProfile(partnerId) : null;
+    const partnerProfile = loadedPartner ? ensureProfileAvatar(loadedPartner) : null;
 
     setRoom({
       ...nextRoom,
-      partner: null,
+      partner: partnerProfile
+        ? {
+            id: partnerProfile.id,
+            username: partnerProfile.username,
+            avatarEmoji: partnerProfile.avatarEmoji,
+            avatarUrl: partnerProfile.avatarUrl,
+            ageRange: partnerProfile.ageRange,
+            gender: partnerProfile.gender,
+            language: partnerProfile.language,
+            interests: partnerProfile.interests,
+          }
+        : null,
       messages: messages.length
         ? messages
         : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],

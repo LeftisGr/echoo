@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -43,7 +44,7 @@ import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import { cn } from "@/lib/utils";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
-import { buyMeACoffeeUrl, supportPromptCooldownMs, supportPromptStorageKey } from "@/lib/support";
+import { buyMeACoffeeUrl } from "@/lib/support";
 
 import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -64,6 +65,10 @@ function formatBytes(bytes: number) {
   }
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getAvatarGlyph(profile?: { avatarEmoji?: string | null; username?: string } | null) {
+  return profile?.avatarEmoji ?? profile?.username?.slice(0, 1).toUpperCase() ?? "E";
 }
 
 const SessionPage = () => {
@@ -128,8 +133,8 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
-  const [supportPromptVisible, setSupportPromptVisible] = useState(false);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
+
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
   const pttPointerIdRef = useRef<number | null>(null);
@@ -813,38 +818,10 @@ const SessionPage = () => {
 
   const isEnded = room.status === "ended";
 
-  useEffect(() => {
-    if (!isEnded || supporter || !room) {
-      setSupportPromptVisible(false);
-      return;
-    }
-
-    const meaningfulMessages = room.messages.filter((message) => message.type !== "system").length;
-    const meaningfulSession = meaningfulMessages >= 5 || sessionProgression.elapsedSeconds >= 300;
-
-    if (!meaningfulSession) {
-      setSupportPromptVisible(false);
-      return;
-    }
-
-    const lastShownRaw = window.localStorage.getItem(supportPromptStorageKey);
-    const lastShownAt = lastShownRaw ? Number(lastShownRaw) : 0;
-
-    if (lastShownAt && Date.now() - lastShownAt < supportPromptCooldownMs) {
-      setSupportPromptVisible(false);
-      return;
-    }
-
-    if (Math.random() > 0.28) {
-      setSupportPromptVisible(false);
-      return;
-    }
-
-    window.localStorage.setItem(supportPromptStorageKey, String(Date.now()));
-    setSupportPromptVisible(true);
-  }, [isEnded, room, sessionProgression.elapsedSeconds, supporter]);
+  const shouldShowSupportPrompt = isEnded && !supporter && sessionProgression.elapsedSeconds >= 600;
 
   const secondsRemaining =
+
     phase === "TEXT_PHASE"
       ? sessionProgression.secondsUntilVoiceUnlock
       : phase === "AUDIO_PHASE"
@@ -1078,7 +1055,19 @@ const SessionPage = () => {
     );
   };
 
+  const renderMessageMeta = (isSelf: boolean, avatarProfile: { avatarEmoji: string | null; username: string } | null, timestamp: string) => (
+    <div className={cn("flex items-center gap-2 px-1 text-xs text-white/35", isSelf ? "justify-end" : "justify-start")}>
+      <Avatar className="h-6 w-6 border border-white/10 bg-white/5 shadow-sm">
+        <AvatarFallback className="bg-violet-500/15 text-[10px] font-semibold text-violet-50">{getAvatarGlyph(avatarProfile)}</AvatarFallback>
+      </Avatar>
+      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
+      <span>•</span>
+      <span>{timestamp}</span>
+    </div>
+  );
+
   if (!profile) {
+
     return (
       <PageShell className="flex items-center">
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
@@ -1182,16 +1171,16 @@ const SessionPage = () => {
                   </div>
                 </div>
 
-                {supportPromptVisible && (
+                {shouldShowSupportPrompt && (
                   <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 sm:p-5">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">Support Echoo</p>
                     <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-lg">
-                      {language === "en" ? "Thanks for spending time in Echoo tonight ☕" : "Ευχαριστούμε που πέρασες χρόνο στο Echoo απόψε ☕"}
+                      {language === "en" ? "Echoo is free, but we still need to eat :P" : "Το Echoo είναι δωρεάν, αλλά πρέπει κι εμείς να φάμε :P"}
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-white/65">
                       {language === "en"
-                        ? "Echoo is free and built with care. If you want to help keep the rooms alive, you can support the project."
-                        : "Το Echoo είναι δωρεάν και φτιαγμένο με φροντίδα. Αν θέλεις να βοηθήσεις να παραμένουν τα rooms ζωντανά, μπορείς να στηρίξεις το project."}
+                        ? "If Echoo helped tonight, a coffee keeps it alive and calm for the next room."
+                        : "Αν το Echoo βοήθησε απόψε, ένας καφές το κρατά ζωντανό και ήρεμο για το επόμενο room."}
                     </p>
                     <div className="mt-4">
                       <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
@@ -1202,6 +1191,7 @@ const SessionPage = () => {
                     </div>
                   </div>
                 )}
+
               </div>
 
             </div>
@@ -1417,12 +1407,8 @@ const SessionPage = () => {
                       onPointerLeave={() => handleReactionPressEnd(message.id)}
                       onContextMenu={(event) => event.preventDefault()}
                     >
-                      <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                        <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
+                      {renderMessageMeta(isSelf, isSelf ? profile : room.partner, timestamp)}
 
-                        <span>•</span>
-                        <span>{timestamp}</span>
-                      </div>
                       <SessionMediaMessage message={message} isSelf={isSelf} />
                       {renderReactionBadge(message.id, isSelf)}
                       {activeReactionMessageId === message.id && renderReactionPicker(message.id, isSelf)}
@@ -1442,12 +1428,8 @@ const SessionPage = () => {
                     onPointerLeave={() => handleReactionPressEnd(message.id)}
                     onContextMenu={(event) => event.preventDefault()}
                   >
-                    <div className="flex items-center gap-2 px-1 text-xs text-white/35">
-                      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
+                    {renderMessageMeta(isSelf, isSelf ? profile : room.partner, timestamp)}
 
-                      <span>•</span>
-                      <span>{timestamp}</span>
-                    </div>
                     <div
                       className={cn(
                         "min-w-0 rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm transition-all duration-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",

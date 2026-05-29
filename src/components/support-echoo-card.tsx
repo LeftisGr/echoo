@@ -22,13 +22,14 @@ export function SupportEchooCard({
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">Support Echoo</p>
           <h3 className="text-lg font-semibold tracking-tight text-white sm:text-xl">
-            {language === "en" ? "Echoo is free and built with care." : "Το Echoo είναι δωρεάν και φτιαγμένο με φροντίδα."}
+            {language === "en" ? "Echoo is free, but we still need to eat :P" : "Το Echoo είναι δωρεάν, αλλά πρέπει κι εμείς να φάμε :P"}
           </h3>
           <p className="max-w-2xl text-sm leading-6 text-white/65">
             {language === "en"
-              ? "If you want to help keep the rooms alive, you can support the project."
-              : "Αν θέλεις να βοηθήσεις να παραμένουν τα rooms ζωντανά, μπορείς να στηρίξεις το project."}
+              ? "If Echoo helped, a coffee keeps it running for the next calm conversation."
+              : "Αν το Echoo βοήθησε, ένας καφές το κρατά σε λειτουργία για την επόμενη ήρεμη κουβέντα."}
           </p>
+
         </div>
 
         {supporter && (

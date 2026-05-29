@@ -59,6 +59,8 @@ export interface QueueFilters {
 export interface PartnerProfile {
   id: string;
   username: string;
+  avatarEmoji: string | null;
+  avatarUrl: string | null;
   ageRange: AgeRange;
   gender: GenderOption;
   language: LanguagePreference;
