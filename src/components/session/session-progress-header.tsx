@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import type { AppLanguage } from "@/lib/presence-types";
 import type { SessionPhase } from "@/lib/session-progression";
 import { SessionPhaseBadge } from "@/components/session/session-phase-badge";
-import { SessionFreeConversationState } from "@/components/session/session-free-conversation-state";
+import SessionFreeConversationState from "@/components/session/session-free-conversation-state";
 import { cn } from "@/lib/utils";
 
 export function SessionProgressHeader({

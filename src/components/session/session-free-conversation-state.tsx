@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { AppLanguage } from "@/lib/presence-types";
 
-export function SessionFreeConversationState({ language, className }: { language: AppLanguage; className?: string }) {
+export const SessionFreeConversationState = ({ language, className }: { language: AppLanguage; className?: string }) => {
   return (
     <div className={cn("relative flex flex-col items-center gap-3 py-2 text-center text-emerald-50", className)} aria-live="polite">
       <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-emerald-200/15 bg-emerald-400/10 shadow-[0_0_36px_rgba(16,185,129,0.12)]">
@@ -19,4 +19,6 @@ export function SessionFreeConversationState({ language, className }: { language
       </div>
     </div>
   );
-}
+};
+
+export default SessionFreeConversationState;
