@@ -33,11 +33,11 @@ export function SessionProgressHeader({
   const visibleTimerLabel = lastVisibleTimerLabelRef.current;
 
   return (
-    <div className="relative min-h-[6.5rem] text-center">
+    <div className="relative z-20 flex min-h-[4.75rem] items-center justify-center text-center">
       <div
         className={cn(
-          "space-y-2 transition-all duration-300 ease-out",
-          sessionComplete ? "pointer-events-none absolute inset-0 translate-y-1 opacity-0" : "opacity-100",
+          "absolute inset-0 space-y-2 transition-all duration-300 ease-out",
+          sessionComplete ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100",
         )}
       >
         <SessionPhaseBadge phase={phase} language={language} />
@@ -47,13 +47,12 @@ export function SessionProgressHeader({
 
       <div
         className={cn(
-          "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out",
+          "relative z-20 transition-all duration-300 ease-out",
           sessionComplete ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         )}
       >
-        <SessionFreeConversationState className="w-full" />
+        <SessionFreeConversationState />
       </div>
-
     </div>
   );
 }

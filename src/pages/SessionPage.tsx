@@ -1483,20 +1483,26 @@ const SessionPage = () => {
               const arrivedHot = message.id === recentMessageId;
 
               if (isSystem) {
-                const normalizedSystemMessage = message.content.toLowerCase().replace(/[.·…]+/g, " ");
+                const normalizedSystemMessage = message.content
+                  .normalize("NFD")
+                  .toLowerCase()
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .replace(/[.·…]+/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim();
                 const isPositiveSystemMessage =
                   normalizedSystemMessage.includes("connection opened") ||
-                  normalizedSystemMessage.includes("η σύνδεση άνοιξε") ||
+                  normalizedSystemMessage.includes("η συνδεση ανοιξε") ||
                   normalizedSystemMessage.includes("connection unlocked") ||
                   normalizedSystemMessage.includes("stay curious") ||
-                  normalizedSystemMessage.includes("μείνε περίεργος") ||
+                  normalizedSystemMessage.includes("μεινε περιεργος") ||
                   normalizedSystemMessage.includes("voice is now open") ||
-                  normalizedSystemMessage.includes("η φωνή είναι τώρα ανοιχτή") ||
+                  normalizedSystemMessage.includes("η φωνη ειναι τωρα ανοιχτη") ||
                   normalizedSystemMessage.includes("media sharing is now open") ||
                   normalizedSystemMessage.includes("temporary media sharing is now open") ||
-                  normalizedSystemMessage.includes("η προσωρινή κοινή χρήση media είναι τώρα ανοιχτή") ||
+                  normalizedSystemMessage.includes("η προσωρινη κοινη χρηση media ειναι τωρα ανοιχτη") ||
                   normalizedSystemMessage.includes("room opens") ||
-                  normalizedSystemMessage.includes("room ανοίγει") ||
+                  normalizedSystemMessage.includes("room ανοιγει") ||
                   normalizedSystemMessage.includes("unlocked") ||
                   normalizedSystemMessage.includes("ανοιχτ");
 
