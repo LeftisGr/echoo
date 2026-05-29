@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageShell, SectionTitle, StickyBottomBar, Surface } from "@/components/presence/presence-shell";
+import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const Index = () => {
@@ -344,8 +344,6 @@ const Index = () => {
           ? "Anonymous rooms. Slower interaction. Temporary moments."
           : "Ανώνυμα rooms. Πιο αργή αλληλεπίδραση. Προσωρινές στιγμές."}
       </footer>
-
-      <StickyBottomBar />
     </PageShell>
   );
 };

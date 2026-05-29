@@ -174,8 +174,12 @@ const SessionPage = () => {
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
+  const pttLatchTimeoutRef = useRef<number | null>(null);
+  const pttLatchedRef = useRef(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [pttLatched, setPttLatched] = useState(false);
 
   const mediaCooldownRef = useRef(0);
   const mediaSendCountRef = useRef(0);
@@ -523,6 +527,14 @@ const SessionPage = () => {
     canUseVoice &&
     voiceState === "connected";
 
+  const pttButtonLabel = pttLatched
+    ? language === "en"
+      ? "Mic on"
+      : "Μικρόφωνο ανοιχτό"
+    : voiceDiagnostics?.transmitting
+      ? copy.session.pttActive
+      : copy.session.pttIdle;
+
   const clearTypingTimers = useCallback(() => {
     if (typingStopTimeoutRef.current !== null) {
       window.clearTimeout(typingStopTimeoutRef.current);
@@ -756,45 +768,95 @@ const SessionPage = () => {
     }
   }, []);
 
+  const clearPushToTalkLatchTimeout = useCallback(() => {
+    if (pttLatchTimeoutRef.current !== null) {
+      window.clearTimeout(pttLatchTimeoutRef.current);
+      pttLatchTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetPushToTalkLatch = useCallback(() => {
+    clearPushToTalkLatchTimeout();
+    pttLatchedRef.current = false;
+    setPttLatched(false);
+  }, [clearPushToTalkLatchTimeout]);
+
   const releasePushToTalk = useCallback(
-    (pointerId?: number) => {
+    (pointerId?: number, force = false) => {
       if (pointerId !== undefined && pttPointerIdRef.current !== pointerId) {
         return;
       }
 
-      if (!isPressingRef.current) {
+      if (!isPressingRef.current && !force) {
         return;
       }
 
       clearPushToTalkReleaseTimeout();
       isPressingRef.current = false;
       pttPointerIdRef.current = null;
+
+      if (force) {
+        resetPushToTalkLatch();
+        setVoiceTransmissionEnabled(false);
+        return;
+      }
+
+      if (pttLatchedRef.current) {
+        return;
+      }
+
       setVoiceTransmissionEnabled(false);
       playSoundFeedback("ptt-release", matchSoundEnabled);
     },
-    [clearPushToTalkReleaseTimeout, matchSoundEnabled, setVoiceTransmissionEnabled],
+    [clearPushToTalkReleaseTimeout, matchSoundEnabled, resetPushToTalkLatch, setVoiceTransmissionEnabled],
   );
 
   const handlePushToTalkPress = useCallback(
     (pointerId: number) => {
+      if (pttLatchedRef.current) {
+        releasePushToTalk(undefined, true);
+        playSoundFeedback("ptt-release", matchSoundEnabled);
+        return;
+      }
+
       if (!voiceReady || voiceState !== "connected" || isPressingRef.current) {
         return;
       }
 
       clearPushToTalkReleaseTimeout();
+      clearPushToTalkLatchTimeout();
       isPressingRef.current = true;
       pttPointerIdRef.current = pointerId;
       setVoiceTransmissionEnabled(true);
       playSoundFeedback("ptt-press", matchSoundEnabled);
+
+      pttLatchTimeoutRef.current = window.setTimeout(() => {
+        if (pttPointerIdRef.current !== pointerId || !isPressingRef.current) {
+          return;
+        }
+
+        clearPushToTalkReleaseTimeout();
+        isPressingRef.current = false;
+        pttPointerIdRef.current = null;
+        pttLatchedRef.current = true;
+        setPttLatched(true);
+      }, 3000);
     },
-    [clearPushToTalkReleaseTimeout, matchSoundEnabled, setVoiceTransmissionEnabled, voiceReady, voiceState],
+    [clearPushToTalkLatchTimeout, clearPushToTalkReleaseTimeout, matchSoundEnabled, releasePushToTalk, setVoiceTransmissionEnabled, voiceReady, voiceState],
   );
 
   useEffect(() => () => {
     clearPushToTalkReleaseTimeout();
-    releasePushToTalk();
+    clearPushToTalkLatchTimeout();
+    releasePushToTalk(undefined, true);
     stopTyping("unmount");
-  }, [clearPushToTalkReleaseTimeout, releasePushToTalk, stopTyping]);
+  }, [clearPushToTalkLatchTimeout, clearPushToTalkReleaseTimeout, releasePushToTalk, stopTyping]);
+
+  useEffect(() => {
+    if (!room || room.status !== "active") {
+      releasePushToTalk(undefined, true);
+    }
+  }, [releasePushToTalk, room?.id, room?.status]);
 
 
   if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
@@ -815,7 +877,7 @@ const SessionPage = () => {
         : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room.";
 
     return (
-      <PageShell className="flex items-center">
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow="Echoo"
@@ -1099,7 +1161,7 @@ const SessionPage = () => {
   if (!profile) {
 
     return (
-      <PageShell className="flex items-center">
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow="Echoo"
@@ -1116,7 +1178,7 @@ const SessionPage = () => {
   if (isEnded) {
 
     return (
-      <PageShell className="flex items-stretch">
+      <PageShell className="flex items-stretch" showStickyBottomBar={false}>
         <div className="flex h-full min-h-0 w-full items-start py-4 sm:items-center">
           <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30 max-h-[calc(100dvh-2rem)]">
             <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -1795,9 +1857,9 @@ const SessionPage = () => {
 
                       className={cn(
                         "group flex h-16 w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-[#10182b] px-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)] transition-all duration-200 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-[0.99]",
-                        voiceDiagnostics?.transmitting && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
+                        (voiceDiagnostics?.transmitting || pttLatched) && "border-emerald-300/30 bg-emerald-500/15 text-emerald-50 shadow-[0_0_0_1px_rgba(52,211,153,0.14),0_0_28px_rgba(52,211,153,0.18)]",
 
-                        !voiceReady && "cursor-not-allowed opacity-60",
+                        !voiceReady && !pttLatched && "cursor-not-allowed opacity-60",
                         "touch-none select-none [user-select:none] [-webkit-user-select:none] [touch-action:none]",
                       )}
                       onPointerDown={(event) => {
@@ -1863,7 +1925,7 @@ const SessionPage = () => {
                         />
                       )}
                       <span className="text-sm font-semibold tracking-wide sm:text-base">
-                        {voiceDiagnostics?.transmitting ? copy.session.pttActive : copy.session.pttIdle}
+                        {pttButtonLabel}
                       </span>
 
                     </Button>
