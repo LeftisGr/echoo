@@ -1251,9 +1251,6 @@ const SessionPage = () => {
                   <p className="text-center text-[9px] uppercase tracking-[0.28em] text-violet-100/60">
                     {language === "en" ? "Next" : "Επόμενο"}
                   </p>
-                  <div className="mt-4">
-                    <SupportCard language={language} />
-                  </div>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button
                       className="h-11 flex-1 rounded-full bg-violet-500 px-4 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
@@ -1263,7 +1260,7 @@ const SessionPage = () => {
                       }}
                     >
                       {language === "en" ? "New room" : "Νεο room"}
-  
+
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
@@ -1277,8 +1274,9 @@ const SessionPage = () => {
                       </Link>
                     </Button>
                   </div>
-  
                 </div>
+
+                <SupportCard language={language} />
 
               </div>
 
