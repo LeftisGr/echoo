@@ -116,12 +116,13 @@ const Index = () => {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link to="/auth">
-                <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+              <Button asChild className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+                <Link to="/auth">
                   {language === "en" ? "Open a room" : "Άνοιξε ένα room"}
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
+  
               <a href="#how-it-works">
                 <Button
                   variant="outline"
@@ -322,19 +323,17 @@ const Index = () => {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/auth">
-              <Button className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+            <Button asChild className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+              <Link to="/auth">
                 {language === "en" ? "Step in quietly" : "Μπες ήσυχα"}
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button
-                variant="outline"
-                className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
-              >
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white">
+              <Link to="/dashboard">
                 {language === "en" ? "Go to dashboard" : "Στον πίνακα"}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
+
           </div>
         </Surface>
       </section>

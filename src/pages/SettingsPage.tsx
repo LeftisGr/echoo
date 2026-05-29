@@ -121,13 +121,14 @@ const SettingsPage = () => {
       <Surface className="space-y-4 p-5 sm:p-6">
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Link to="/dashboard">
-            <Button className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">{copy.nav.dashboard}</Button>
-          </Link>
+          <Button asChild className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
+            <Link to="/dashboard">{copy.nav.dashboard}</Link>
+          </Button>
           <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
             {copy.settings.signOut}
           </Button>
         </div>
+
       </Surface>
     </PageShell>
   );

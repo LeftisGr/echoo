@@ -127,8 +127,9 @@ export function PageShell({
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-28 pt-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:pb-28 lg:px-8">
         <header className="mb-6 flex items-center justify-between gap-4">
+
           <Link to="/" className="shrink-0">
             <PresenceLogo />
           </Link>
@@ -188,7 +189,8 @@ export function StickyBottomBar() {
   const { copy } = usePresence();
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/90 px-4 py-3 backdrop-blur xl:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/90 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur xl:hidden">
+
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         <MenuSheet />
         <Link to="/auth" className="flex-1">
