@@ -1486,13 +1486,19 @@ const SessionPage = () => {
                 const normalizedSystemMessage = message.content.toLowerCase().replace(/[.·…]+/g, " ");
                 const isPositiveSystemMessage =
                   normalizedSystemMessage.includes("connection opened") ||
+                  normalizedSystemMessage.includes("η σύνδεση άνοιξε") ||
                   normalizedSystemMessage.includes("connection unlocked") ||
                   normalizedSystemMessage.includes("stay curious") ||
+                  normalizedSystemMessage.includes("μείνε περίεργος") ||
                   normalizedSystemMessage.includes("voice is now open") ||
+                  normalizedSystemMessage.includes("η φωνή είναι τώρα ανοιχτή") ||
                   normalizedSystemMessage.includes("media sharing is now open") ||
                   normalizedSystemMessage.includes("temporary media sharing is now open") ||
+                  normalizedSystemMessage.includes("η προσωρινή κοινή χρήση media είναι τώρα ανοιχτή") ||
                   normalizedSystemMessage.includes("room opens") ||
-                  normalizedSystemMessage.includes("unlocked");
+                  normalizedSystemMessage.includes("room ανοίγει") ||
+                  normalizedSystemMessage.includes("unlocked") ||
+                  normalizedSystemMessage.includes("ανοιχτ");
 
                   return (
                     <div

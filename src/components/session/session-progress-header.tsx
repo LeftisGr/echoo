@@ -51,8 +51,9 @@ export function SessionProgressHeader({
           sessionComplete ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         )}
       >
-        <SessionFreeConversationState language={language} className="w-full" />
+        <SessionFreeConversationState className="w-full" />
       </div>
+
     </div>
   );
 }
