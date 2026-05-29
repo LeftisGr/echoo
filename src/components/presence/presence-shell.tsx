@@ -126,7 +126,8 @@ export function PageShell({
   className?: string;
 }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
+
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:pb-28 lg:px-8">
         <header className="mb-6 flex items-center justify-between gap-4">
 

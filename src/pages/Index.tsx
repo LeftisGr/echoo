@@ -108,7 +108,8 @@ const Index = () => {
                   ? "Echoo helps people meet slowly, privately, and with less pressure."
                   : "Το Echoo βοηθά ανθρώπους να γνωριστούν αργά, ιδιωτικά και με λιγότερη πίεση."}
               </h1>
-              <p className="max-w-xl text-sm leading-7 text-white/68 sm:text-base">
+              <p className="max-w-xl text-sm leading-7 text-white/65 sm:text-base">
+
                 {language === "en"
                   ? "Start with anonymous text, let trust build naturally, and unlock voice only when the room feels ready."
                   : "Ξεκίνα με ανώνυμο text, άσε την εμπιστοσύνη να χτιστεί φυσικά και άνοιξε τη φωνή μόνο όταν το room νιώσει έτοιμο."}

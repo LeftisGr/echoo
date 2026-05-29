@@ -53,19 +53,16 @@ const DashboardPage = () => {
             status={accountRestriction.expiresAt ? new Date(accountRestriction.expiresAt).toLocaleString() : undefined}
             tone="rose"
             action={
-              <Link to="/safety">
-                <Button className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
-                  {language === "en" ? "Review safety" : "Δες την ασφάλεια"}
-                </Button>
-              </Link>
+              <Button asChild className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
+                <Link to="/safety">{language === "en" ? "Review safety" : "Δες την ασφάλεια"}</Link>
+              </Button>
             }
             secondaryAction={
-              <Link to="/">
-                <Button variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                  {copy.nav.home}
-                </Button>
-              </Link>
+              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Link to="/">{copy.nav.home}</Link>
+              </Button>
             }
+
           />
         </div>
       </PageShell>
@@ -78,12 +75,12 @@ const DashboardPage = () => {
       <Surface className="space-y-6 p-6 sm:p-8">
         <SectionTitle title={copy.dashboard.title} body={copy.dashboard.body} />
         <div className="flex flex-wrap gap-3">
-          <Link to="/">
-            <Button variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+          <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+            <Link to="/">
               <Home className="mr-2 h-4 w-4" />
               {copy.nav.home}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <Button
             variant="outline"
             className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
@@ -186,8 +183,8 @@ function QuickActionCard({
   to: string;
 }) {
   return (
-    <Link to={to}>
-      <Surface className="h-full p-5 transition hover:bg-white/[0.06]">
+    <Link to={to} className="block h-full">
+      <Surface className="h-full p-5 transition-transform duration-150 hover:-translate-y-0.5 hover:bg-white/[0.06]">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/15 text-violet-100">
           <Icon className="h-5 w-5" />
         </div>
