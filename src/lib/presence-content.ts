@@ -140,9 +140,10 @@ export const copy = {
       whatIsBody:
         "A calm, anonymous space for live conversation. No public feed. No profile browsing. No permanent history.",
       stepsTitle: "How Echoo works",
-      whyPhotosTitle: "Why there are no photos",
+      whyPhotosTitle: "Why media stays small",
       whyPhotosBody:
-        "Echoo keeps the first impression focused on tone, curiosity, and timing. That makes the conversation feel lighter and more real.",
+        "Echoo keeps the first impression focused on tone, curiosity, and timing. Small photos and mini videos make the conversation feel lighter and more real.",
+
       safetyTitle: "Privacy and safety",
       safetyBody:
         "Every room includes quick exits, block and report tools, and clear boundaries. Respect is the default.",
@@ -254,7 +255,8 @@ export const copy = {
       pttActive: "Your voice is live",
       pttRelease: "Release to settle back in",
 
-      mediaHint: "Share one photo or short clip when it feels right.",
+      mediaHint: "Share one photo or mini video when it feels right.",
+
       whisper: "The room is quiet. Say hello when you’re ready.",
     },
     safety: {
@@ -456,9 +458,10 @@ export const copy = {
       whatIsBody:
         "Ένας ήρεμος, ανώνυμος χώρος για live κουβέντες. Χωρίς δημόσιο feed. Χωρίς περιήγηση σε προφίλ. Χωρίς μόνιμο ιστορικό.",
       stepsTitle: "Πώς λειτουργεί το Echoo",
-      whyPhotosTitle: "Γιατί δεν υπάρχουν φωτογραφίες",
+      whyPhotosTitle: "Γιατί το media μένει μικρό",
       whyPhotosBody:
-        "Το Echoo κρατά την πρώτη εντύπωση στο ύφος, την περιέργεια και το timing. Έτσι η κουβέντα νιώθει πιο ελαφριά και πιο αληθινή.",
+        "Το Echoo κρατά την πρώτη εντύπωση στο ύφος, την περιέργεια και το timing. Μικρές φωτογραφίες και mini videos κάνουν την κουβέντα πιο ελαφριά και πιο αληθινή.",
+
       safetyTitle: "Απόρρητο και ασφάλεια",
       safetyBody:
         "Κάθε room περιλαμβάνει γρήγορη έξοδο, block/report και καθαρά όρια. Ο σεβασμός είναι ο κανόνας.",
@@ -570,7 +573,7 @@ export const copy = {
       pttActive: "Η φωνή σου είναι live",
       pttRelease: "Άφησε για να ξαναμπείς στην ησυχία",
 
-      mediaHint: "Μοίρασε μία φωτογραφία ή ένα σύντομο clip όταν το room το αξίζει.",
+      mediaHint: "Μοίρασε μία φωτογραφία ή ένα mini video όταν το room το αξίζει.",
 
       whisper: "Το room είναι ήσυχο. Πες ένα γεια όταν είσαι έτοιμος/η.",
     },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { ArrowRight, Check, Flag, Home, ImagePlus, Mic, Paperclip, PhoneOff, Play, ShieldAlert, Send, X } from "lucide-react";
+import { ArrowRight, Check, Flag, Home, ImagePlus, Mic, Paperclip, PhoneOff, ShieldAlert, Send, Video, X } from "lucide-react";
 
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -35,10 +35,10 @@ import {
   MAX_VIDEO_DURATION_SECONDS,
   MAX_VIDEO_SIZE_BYTES,
   MEDIA_UPLOAD_COOLDOWN_MS,
-  isSupportedAudioType,
   type MediaPreviewData,
   prepareMediaUpload,
 } from "@/lib/session-media";
+
 import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
@@ -175,7 +175,7 @@ const SessionPage = () => {
   const pttStartedAtRef = useRef<number | null>(null);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   const mediaCooldownRef = useRef(0);
   const mediaSendCountRef = useRef(0);
@@ -527,8 +527,7 @@ const SessionPage = () => {
   }, [room?.id]);
 
   const canShareImages = canUseFeature(featureGates, FeatureGateKey.ImageSending);
-  const canShareAudio = canUseFeature(featureGates, FeatureGateKey.AudioContentSending);
-  const canShareMedia = canShareImages || canShareAudio;
+  const canShareMedia = canShareImages || canUseFeature(featureGates, FeatureGateKey.AudioContentSending);
   const canUseVoice = canUseFeature(featureGates, FeatureGateKey.PttVoice);
 
   const voiceReady =
@@ -641,7 +640,7 @@ const SessionPage = () => {
       return;
     }
 
-    if (!file.type.startsWith("image/") && !isSupportedAudioType(file.type) && !file.type.startsWith("video/")) {
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       const message = language === "en" ? "Unsupported file type." : "Μη υποστηριζόμενος τύπος αρχείου.";
       setMediaError(message);
       logMediaFailure("unsupported-type", message);
@@ -650,13 +649,6 @@ const SessionPage = () => {
 
     if (file.type.startsWith("image/") && !canShareImages) {
       const message = language === "en" ? "Photo sharing is not available yet." : "Η αποστολή φωτογραφιών δεν είναι ακόμα διαθέσιμη.";
-      setMediaError(message);
-      logMediaFailure("feature-locked", message);
-      return;
-    }
-
-    if (isSupportedAudioType(file.type) && !canShareAudio) {
-      const message = language === "en" ? "Audio sharing is not available yet." : "Η αποστολή ήχου δεν είναι ακόμα διαθέσιμη.";
       setMediaError(message);
       logMediaFailure("feature-locked", message);
       return;
@@ -676,14 +668,8 @@ const SessionPage = () => {
       return;
     }
 
-    if (file.type.startsWith("audio/") && file.size > 12 * 1024 * 1024) {
-      const message = language === "en" ? "Audio is too large." : "Το ηχητικό είναι πολύ μεγάλο.";
-      setMediaError(message);
-      logMediaFailure("too-large", message);
-      return;
-    }
-
     if (file.type.startsWith("video/") && file.size > MAX_VIDEO_SIZE_BYTES) {
+
       const message = language === "en" ? "Video is too large." : "Το βίντεο είναι πολύ μεγάλο.";
       setMediaError(message);
       logMediaFailure("too-large", message);
@@ -1656,14 +1642,15 @@ const SessionPage = () => {
                               className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-sm text-white/80 transition-colors hover:bg-white/8 hover:text-white"
                               onClick={() => {
                                 setAttachmentMenuOpen(false);
-                                audioInputRef.current?.click();
+                                videoInputRef.current?.click();
                               }}
                             >
-                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500/15 text-sky-100">
-                                <Play className="h-4 w-4" />
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-100">
+                                <Video className="h-4 w-4" />
                               </span>
-                              <span>{language === "en" ? "Audio" : "Ήχος"}</span>
+                              <span>{language === "en" ? "Mini video" : "Mini video"}</span>
                             </button>
+
                           </div>
                         )}
 
@@ -1682,9 +1669,10 @@ const SessionPage = () => {
                           }}
                         />
                         <input
-                          ref={audioInputRef}
+                          ref={videoInputRef}
                           type="file"
-                          accept="audio/*"
+                          accept="video/*"
+                          capture="environment"
                           className="hidden"
                           onChange={async (event) => {
                             const file = event.target.files?.[0];
@@ -1694,6 +1682,7 @@ const SessionPage = () => {
                             }
                           }}
                         />
+
                       </div>
                     )}
 
@@ -1765,13 +1754,10 @@ const SessionPage = () => {
                         <div className="relative min-h-[96px] w-24 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:w-28">
                           {selectedMedia.kind === "image" ? (
                             <img src={selectedMedia.previewUrl} alt={selectedMedia.displayName} className="h-full w-full object-cover" />
-                          ) : selectedMedia.kind === "audio" ? (
-                            <div className="flex h-full w-full items-center justify-center bg-sky-500/10 text-sky-100">
-                              <Play className="h-6 w-6" />
-                            </div>
                           ) : (
                             <video src={selectedMedia.previewUrl} controls playsInline controlsList="nodownload noplaybackrate" className="h-full w-full object-cover" />
                           )}
+
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-2">
@@ -1781,9 +1767,8 @@ const SessionPage = () => {
                               <p className="text-xs text-white/45">
                                 {selectedMedia.kind === "image"
                                   ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.width ?? 0}×${selectedMedia.height ?? 0}`
-                                  : selectedMedia.kind === "audio"
-                                    ? `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s audio`
-                                    : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+                                  : `${formatBytes(selectedMedia.size)} · ${selectedMedia.durationSeconds ?? 0}s`}
+
                               </p>
 
                             </div>
