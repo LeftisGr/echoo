@@ -267,7 +267,7 @@ class QueryBuilder {
   private orClause: string | null = null;
   private inClause: string | null = null;
   private countExact = false;
-  private method: "select" | "insert" | "upsert" | "update" = "select";
+  private method: "select" | "insert" | "upsert" | "update" | "delete" = "select";
 
   private payload: unknown = null;
   private useMerge = false;
@@ -305,7 +305,14 @@ class QueryBuilder {
     return this;
   }
 
+  delete() {
+    this.method = "delete";
+    this.payload = null;
+    return this;
+  }
+
   eq(column: string, value: string | number | boolean | null) {
+
     this.filters.push(`${column}=eq.${encodeURIComponent(String(value))}`);
     return this;
   }
@@ -387,14 +394,23 @@ class QueryBuilder {
       url.searchParams.set("limit", String(this.limitValue));
     }
 
-    const method = this.method === "select" ? "GET" : this.method === "insert" ? "POST" : this.method === "upsert" ? "POST" : "PATCH";
+    const method =
+      this.method === "select"
+        ? "GET"
+        : this.method === "insert"
+          ? "POST"
+          : this.method === "upsert"
+            ? "POST"
+            : this.method === "delete"
+              ? "DELETE"
+              : "PATCH";
     const response = await fetch(url.toString(), {
       method,
       headers: {
         ...headers,
         ...(this.method === "upsert" ? { Prefer: `resolution=${this.useMerge ? "merge-duplicates" : "ignore-duplicates"}` } : {}),
       },
-      body: this.method === "select" ? undefined : JSON.stringify(this.payload),
+      body: this.method === "select" || this.method === "delete" ? undefined : JSON.stringify(this.payload),
     });
 
     if (!response.ok) {
