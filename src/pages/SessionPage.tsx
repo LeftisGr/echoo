@@ -27,6 +27,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
 import { SessionProgressHeader } from "@/components/session/session-progress-header";
 import { SessionTypingIndicator } from "@/components/session/session-typing-indicator";
+import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import {
@@ -1250,7 +1251,10 @@ const SessionPage = () => {
                   <p className="text-center text-[9px] uppercase tracking-[0.28em] text-violet-100/60">
                     {language === "en" ? "Next" : "Επόμενο"}
                   </p>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <div className="mt-4">
+                    <SupportCard language={language} />
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button
                       className="h-11 flex-1 rounded-full bg-violet-500 px-4 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                       onClick={async () => {
@@ -1259,7 +1263,7 @@ const SessionPage = () => {
                       }}
                     >
                       {language === "en" ? "New room" : "Νεο room"}
-
+  
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                     <Button
@@ -1273,6 +1277,7 @@ const SessionPage = () => {
                       </Link>
                     </Button>
                   </div>
+  
                 </div>
 
               </div>
