@@ -455,7 +455,7 @@ const ProfilePage = () => {
         </div>
       </Surface>
 
-      <SupportEchooCard />
+      <SupportEchooCard language={language} supporter={supporter} onToggleSupporter={() => {}} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
 

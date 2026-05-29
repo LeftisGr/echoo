@@ -57,7 +57,7 @@ const FAQPage = () => {
         </Accordion>
       </Surface>
 
-      <SupportEchooCard />
+      <SupportEchooCard language={language} supporter={false} />
     </PageShell>
   );
 };

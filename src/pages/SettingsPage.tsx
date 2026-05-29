@@ -116,7 +116,7 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      <SupportEchooCard />
+      <SupportEchooCard language={language} supporter={supporter} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
 

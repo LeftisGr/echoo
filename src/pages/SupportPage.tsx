@@ -5,13 +5,13 @@ import { SupportEchooCard } from "@/components/support-echoo-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const SupportPage = () => {
-  const { copy } = usePresence();
+  const { copy, language } = usePresence();
 
   return (
     <PageShell className="space-y-6">
       <Surface className="space-y-5 p-6 sm:p-8">
         <SectionTitle title={copy.support.title} body={copy.support.body} />
-        <SupportEchooCard />
+        <SupportEchooCard language={language} supporter={false} />
         <div className="grid gap-4 md:grid-cols-3">
           <InfoCard icon={Mail} label={copy.support.emailLabel} value={copy.contact.email} />
           <InfoCard icon={TimerReset} label={copy.support.responseLabel} value={copy.support.responseValue} />
