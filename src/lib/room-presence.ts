@@ -38,10 +38,10 @@ export function getPresenceLabel(distanceKm: number, language: AppLanguage) {
 
 export function getPresenceHelperCopy(distanceKm: number, language: AppLanguage) {
   if (distanceKm < 50) {
-    return language === "el" ? "Δύο φωνές, κοντά." : "Two voices, nearby.";
+    return language === "el" ? "Κοντά." : "Close by.";
   }
 
-  return language === "el" ? "Δύο φωνές, λίγο πιο μακριά." : "Two voices, a little farther.";
+  return language === "el" ? "Λίγο μακριά." : "Further away.";
 }
 
 interface RoomPresenceRow {

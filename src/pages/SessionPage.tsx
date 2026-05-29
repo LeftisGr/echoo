@@ -1394,18 +1394,16 @@ const SessionPage = () => {
               </AlertDialog>
 
               {presenceLabel && presenceHelper && (
-                <div className="mt-2 inline-flex max-w-[11rem] items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[12rem]">
+                <div className="mt-2 ml-auto flex w-fit max-w-[8.5rem] items-start gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[9rem]">
                   <span
                     className={cn(
-                      "h-2 w-2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
+                      "mt-0.5 h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
                       presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
                     )}
                   />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.26em] text-white/45">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.26em] text-white/55">
                       <span>{presenceLabel}</span>
-                      <span className="text-white/20">•</span>
-                      <span>{language === "en" ? "Presence" : "Παρουσία"}</span>
                     </div>
                     <p className="mt-0.5 text-[10px] leading-4 text-white/45">{presenceHelper}</p>
                   </div>
