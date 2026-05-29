@@ -101,8 +101,10 @@ export function useSessionProgression(startedAt: string | null | undefined) {
   const [now, setNow] = useState(() => Date.now());
   const lastPhaseRef = useRef<SessionPhase | null>(null);
 
+  const progression = useMemo(() => getSessionProgression(startedAt, now), [now, startedAt]);
+
   useEffect(() => {
-    if (!startedAt) {
+    if (!startedAt || progression.phase === "MEDIA_PHASE") {
       return;
     }
 
@@ -111,9 +113,7 @@ export function useSessionProgression(startedAt: string | null | undefined) {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [startedAt]);
-
-  const progression = useMemo(() => getSessionProgression(startedAt, now), [now, startedAt]);
+  }, [progression.phase, startedAt]);
 
   useEffect(() => {
     if (!startedAt) {

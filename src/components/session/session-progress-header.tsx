@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { Progress } from "@/components/ui/progress";
 import type { AppLanguage } from "@/lib/presence-types";
 import type { SessionPhase } from "@/lib/session-progression";
@@ -20,19 +22,37 @@ export function SessionProgressHeader({
   language: AppLanguage;
   sessionComplete: boolean;
 }) {
+  const lastVisibleTimerLabelRef = useRef(timerLabel);
+
+  useEffect(() => {
+    if (!sessionComplete && timerLabel !== "00:00") {
+      lastVisibleTimerLabelRef.current = timerLabel;
+    }
+  }, [sessionComplete, timerLabel]);
+
+  const visibleTimerLabel = lastVisibleTimerLabelRef.current;
+
   return (
-    <div className="space-y-2 text-center">
-      {sessionComplete ? (
-        <div className="animate-[echo-message-in_260ms_ease-out] text-sm font-medium tracking-[0.12em] text-white/80">
-          <SessionFreeConversationState language={language} />
-        </div>
-      ) : (
-        <>
-          <SessionPhaseBadge phase={phase} language={language} />
-          <div className={cn("text-2xl font-semibold tracking-tight transition-all duration-300 sm:text-[2rem]", toneClassName)}>{timerLabel}</div>
-          <Progress value={timerProgress} className="h-1 rounded-full bg-white/10" />
-        </>
-      )}
+    <div className="relative min-h-[6.5rem] text-center">
+      <div
+        className={cn(
+          "space-y-2 transition-all duration-300 ease-out",
+          sessionComplete ? "pointer-events-none absolute inset-0 translate-y-1 opacity-0" : "opacity-100",
+        )}
+      >
+        <SessionPhaseBadge phase={phase} language={language} />
+        <div className={cn("text-2xl font-semibold tracking-tight transition-all duration-300 sm:text-[2rem]", toneClassName)}>{visibleTimerLabel}</div>
+        <Progress value={timerProgress} className="h-1 rounded-full bg-white/10" />
+      </div>
+
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out",
+          sessionComplete ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+        )}
+      >
+        <SessionFreeConversationState language={language} className="w-full" />
+      </div>
     </div>
   );
 }

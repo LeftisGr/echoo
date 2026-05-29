@@ -938,7 +938,6 @@ const SessionPage = () => {
   const isEnded = room.status === "ended";
 
   const secondsRemaining =
-
     phase === "TEXT_PHASE"
       ? sessionProgression.secondsUntilVoiceUnlock
       : phase === "AUDIO_PHASE"
@@ -948,7 +947,7 @@ const SessionPage = () => {
   const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
   const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
-  const sessionComplete = sessionProgression.elapsedSeconds >= SESSION_TOTAL_PROGRESS_SECONDS;
+  const sessionComplete = phase === "MEDIA_PHASE";
 
   const voiceStatusDotClass =
     voiceState === "connected"
