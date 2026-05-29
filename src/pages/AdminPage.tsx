@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Activity,
@@ -320,19 +320,15 @@ const AdminPage = () => {
     return acc;
   }, {});
 
-  const reportCountsByUser = useMemo(() => {
-    return recentReports.reduce<Record<string, number>>((acc, report) => {
-      acc[report.reported_user] = (acc[report.reported_user] ?? 0) + 1;
-      return acc;
-    }, {});
-  }, [recentReports]);
+  const reportCountsByUser = recentReports.reduce<Record<string, number>>((acc, report) => {
+    acc[report.reported_user] = (acc[report.reported_user] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  const topReportedUsers = useMemo(() => {
-    return Object.entries(reportCountsByUser)
-      .map(([userId, count]) => ({ userId, count }))
-      .sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
-      .slice(0, 5);
-  }, [reportCountsByUser]);
+  const topReportedUsers = Object.entries(reportCountsByUser)
+    .map(([userId, count]) => ({ userId, count }))
+    .sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
+    .slice(0, 5);
 
   const usersAtThreshold = topReportedUsers.filter((item) => item.count >= 5).length;
   const failedUploadsCount = analyticsByType.upload_failed ?? 0;
