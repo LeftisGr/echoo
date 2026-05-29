@@ -75,14 +75,23 @@
     scroll-behavior: smooth;
   }
 
+  html,
+  body,
+  #root {
+    min-height: var(--app-height, 100vh);
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
-    min-height: 100vh;
+    min-height: var(--app-height, 100vh);
+    overscroll-behavior-y: none;
   }
 
   button,
   a,
   [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition:
       transform 160ms ease,
       opacity 160ms ease,
@@ -98,7 +107,7 @@
   }
 
   #root {
-    min-height: 100vh;
+    min-height: var(--app-height, 100vh);
   }
 
   ::selection {

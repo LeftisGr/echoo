@@ -1429,6 +1429,41 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [authenticated, initializing, queue.active, queue.joinedAt, room?.id, room?.status, sessionReady, userId]);
 
   useEffect(() => {
+    const handleVisibilityChange = () => {
+      const channel = presenceChannelRef.current;
+      if (!channel || !authenticated || !sessionReady || !userId || initializing) {
+        return;
+      }
+
+      if (document.visibilityState === "hidden") {
+        void channel.untrack?.();
+        return;
+      }
+
+      void channel.track(
+        createPresenceEntry(
+          userId,
+          getPresenceStatus(queueSnapshotRef.current, roomSnapshotRef.current),
+          roomSnapshotRef.current?.status === "active" ? roomSnapshotRef.current.id : null,
+          presenceTabIdRef.current,
+        ),
+      );
+    };
+
+    const handlePageShow = () => {
+      handleVisibilityChange();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [authenticated, initializing, sessionReady, userId]);
+
+  useEffect(() => {
     setAdminMetrics((current) => ({
 
       ...current,

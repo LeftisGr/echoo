@@ -39,7 +39,7 @@ function MenuSheet() {
           {copy.landing.stickyMenu}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="max-h-[100dvh] overflow-y-auto border-white/10 bg-[#0d1020] text-white overscroll-contain">
+      <SheetContent side="right" className="max-h-[var(--app-height,100vh)] overflow-y-auto border-white/10 bg-[#0d1020] text-white overscroll-contain">
         <SheetHeader>
           <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
         </SheetHeader>
@@ -131,8 +131,8 @@ export function PageShell({
   showStickyBottomBar?: boolean;
 }) {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:pb-28 lg:px-8">
+    <div className="min-h-[var(--app-height,100vh)] overflow-x-hidden bg-background text-foreground">
+      <div className="mx-auto flex min-h-[var(--app-height,100vh)] w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-6 lg:pb-28 lg:px-8">
         <header className="mb-6 flex items-center justify-between gap-4">
           <Link to="/" className="shrink-0">
             <PresenceLogo />

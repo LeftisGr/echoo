@@ -60,6 +60,36 @@ function AppRoutes() {
   const storedRoute = readStoredRoute();
 
   useEffect(() => {
+    const updateViewportVars = () => {
+      const viewport = window.visualViewport;
+      const viewportHeight = Math.round(viewport?.height ?? window.innerHeight);
+      const viewportOffsetTop = Math.round(viewport?.offsetTop ?? 0);
+      const keyboardHeight = Math.max(0, Math.round(window.innerHeight - viewportHeight - viewportOffsetTop));
+
+      document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
+      document.documentElement.style.setProperty("--viewport-offset-top", `${viewportOffsetTop}px`);
+      document.documentElement.style.setProperty("--keyboard-height", `${keyboardHeight}px`);
+    };
+
+    updateViewportVars();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", updateViewportVars);
+    viewport?.addEventListener("scroll", updateViewportVars);
+    window.addEventListener("resize", updateViewportVars);
+    window.addEventListener("orientationchange", updateViewportVars);
+    window.addEventListener("pageshow", updateViewportVars);
+
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportVars);
+      viewport?.removeEventListener("scroll", updateViewportVars);
+      window.removeEventListener("resize", updateViewportVars);
+      window.removeEventListener("orientationchange", updateViewportVars);
+      window.removeEventListener("pageshow", updateViewportVars);
+    };
+  }, []);
+
+  useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location.pathname, location.search]);
 
@@ -83,7 +113,7 @@ function AppRoutes() {
     return isStandalone ? (
       <PwaSplashScreen message={copy.misc.restoring} />
     ) : (
-      <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
+      <div className="flex h-[var(--app-height,100vh)] items-center justify-center bg-[#08101b] px-4 text-center text-white">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.35em] text-white/35">Echoo</p>
           <h1 className="text-2xl font-semibold tracking-tight text-white">{copy.misc.restoring}</h1>

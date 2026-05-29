@@ -1182,8 +1182,8 @@ const SessionPage = () => {
     return (
       <PageShell className="flex items-stretch" showStickyBottomBar={false}>
         <div className="flex h-full min-h-0 w-full items-start py-4 sm:items-center">
-          <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30 max-h-[calc(100dvh-2rem)]">
-            <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <Surface className="mx-auto w-full max-w-2xl overflow-hidden border-0 bg-[#0a0f1a] p-0 shadow-2xl shadow-black/30 max-h-[calc(var(--app-height,100vh)-2rem)]">
+            <div className="max-h-[calc(var(--app-height,100vh)-2rem)] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="border-b border-white/5 bg-[#0f1526] px-4 py-4 sm:px-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
@@ -1278,7 +1278,7 @@ const SessionPage = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#08101b] text-white">
+    <div className="h-[var(--app-height,100vh)] overflow-hidden bg-[#08101b] text-white">
       <div className="flex h-full min-h-0 flex-col">
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-4 py-3 pt-[calc(env(safe-area-inset-top,0px)+12px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6 sm:py-3">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">

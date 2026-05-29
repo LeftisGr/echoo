@@ -6,7 +6,7 @@ export function PwaSplashScreen({ message }: { message: string }) {
   const { isStandalone } = usePwaInstall();
 
   return (
-    <div className="flex h-[100dvh] items-center justify-center bg-[#08101b] px-4 text-center text-white">
+    <div className="flex h-[var(--app-height,100vh)] items-center justify-center bg-[#08101b] px-4 text-center text-white">
       <div className="max-w-sm space-y-5">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] border border-white/10 bg-[#11182b] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/20 ring-1 ring-violet-300/20">
