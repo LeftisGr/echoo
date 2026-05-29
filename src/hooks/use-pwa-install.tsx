@@ -66,7 +66,7 @@ function updateSnapshot(next: Partial<PwaStoreSnapshot>) {
 function syncSnapshotFromEnvironment() {
   const standalone = isStandaloneMode();
   snapshot = {
-    deferredPrompt: snapshot.deferredPrompt,
+    ...snapshot,
     isStandalone: standalone,
     isInstalled: standalone ? true : snapshot.isInstalled,
     isIosSafari: isIosSafariBrowser(),
@@ -102,6 +102,9 @@ function attachListeners() {
 
   const standaloneMediaQuery = window.matchMedia("(display-mode: standalone)");
 
+  syncSnapshotFromEnvironment();
+  updateStandaloneState();
+
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleAppInstalled);
   window.addEventListener("resize", updateStandaloneState);
@@ -114,15 +117,9 @@ function attachListeners() {
     standaloneMediaQuery.removeEventListener("change", updateStandaloneState);
     detachListeners = null;
   };
-
-  updateStandaloneState();
 }
 
 function getSnapshot() {
-  if (typeof window !== "undefined") {
-    syncSnapshotFromEnvironment();
-  }
-
   return snapshot;
 }
 

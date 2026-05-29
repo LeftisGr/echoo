@@ -854,7 +854,9 @@ const SessionPage = () => {
 
   useEffect(() => {
     if (!room || room.status !== "active") {
-      releasePushToTalk(undefined, true);
+      if (isPressingRef.current || pttLatchedRef.current) {
+        releasePushToTalk(undefined, true);
+      }
     }
   }, [releasePushToTalk, room?.id, room?.status]);
 
