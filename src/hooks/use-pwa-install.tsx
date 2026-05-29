@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 
 export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -22,13 +22,14 @@ type PwaStoreSnapshot = {
 };
 
 const listeners = new Set<() => void>();
-let registered = false;
 let snapshot: PwaStoreSnapshot = {
   deferredPrompt: null,
   isStandalone: false,
   isInstalled: false,
   isIosSafari: false,
 };
+let subscriberCount = 0;
+let detachListeners: (() => void) | null = null;
 
 function isIosSafariBrowser() {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
@@ -62,19 +63,20 @@ function updateSnapshot(next: Partial<PwaStoreSnapshot>) {
   emitChange();
 }
 
-function ensureRegistered() {
-  if (registered || typeof window === "undefined") {
-    return;
-  }
-
-  registered = true;
-
+function syncSnapshotFromEnvironment() {
+  const standalone = isStandaloneMode();
   snapshot = {
     deferredPrompt: snapshot.deferredPrompt,
-    isStandalone: isStandaloneMode(),
-    isInstalled: isStandaloneMode(),
+    isStandalone: standalone,
+    isInstalled: standalone ? true : snapshot.isInstalled,
     isIosSafari: isIosSafariBrowser(),
   };
+}
+
+function attachListeners() {
+  if (detachListeners || typeof window === "undefined") {
+    return;
+  }
 
   const handleBeforeInstallPrompt = (event: Event) => {
     event.preventDefault();
@@ -100,33 +102,45 @@ function ensureRegistered() {
 
   const standaloneMediaQuery = window.matchMedia("(display-mode: standalone)");
 
-  updateStandaloneState();
-
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleAppInstalled);
   window.addEventListener("resize", updateStandaloneState);
   standaloneMediaQuery.addEventListener("change", updateStandaloneState);
 
-  const cleanup = () => {
+  detachListeners = () => {
     window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.removeEventListener("appinstalled", handleAppInstalled);
     window.removeEventListener("resize", updateStandaloneState);
     standaloneMediaQuery.removeEventListener("change", updateStandaloneState);
+    detachListeners = null;
   };
 
-  window.addEventListener("beforeunload", cleanup, { once: true });
+  updateStandaloneState();
 }
 
 function getSnapshot() {
-  ensureRegistered();
+  if (typeof window !== "undefined") {
+    syncSnapshotFromEnvironment();
+  }
+
   return snapshot;
 }
 
 function subscribe(listener: () => void) {
-  ensureRegistered();
   listeners.add(listener);
+  subscriberCount += 1;
+
+  if (subscriberCount === 1) {
+    attachListeners();
+  }
+
   return () => {
     listeners.delete(listener);
+    subscriberCount = Math.max(0, subscriberCount - 1);
+
+    if (subscriberCount === 0 && detachListeners) {
+      detachListeners();
+    }
   };
 }
 

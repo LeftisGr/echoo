@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { AppLanguage } from "@/lib/presence-types";
 
@@ -99,8 +99,6 @@ export function getSessionProgression(startedAt: string | null | undefined, now 
 
 export function useSessionProgression(startedAt: string | null | undefined) {
   const [now, setNow] = useState(() => Date.now());
-  const lastPhaseRef = useRef<SessionPhase | null>(null);
-
   const progression = useMemo(() => getSessionProgression(startedAt, now), [now, startedAt]);
 
   useEffect(() => {
@@ -114,22 +112,6 @@ export function useSessionProgression(startedAt: string | null | undefined) {
 
     return () => window.clearInterval(interval);
   }, [progression.phase, startedAt]);
-
-  useEffect(() => {
-    if (!startedAt) {
-      lastPhaseRef.current = null;
-      return;
-    }
-
-    if (lastPhaseRef.current !== progression.phase) {
-      lastPhaseRef.current = progression.phase;
-      console.info("[session] phase entered", {
-        startedAt,
-        phase: progression.phase,
-        elapsedSeconds: progression.elapsedSeconds,
-      });
-    }
-  }, [progression.elapsedSeconds, progression.phase, startedAt]);
 
   return progression;
 }

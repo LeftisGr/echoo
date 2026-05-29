@@ -45,6 +45,10 @@ export interface VoiceTransmissionDiagnostics {
 }
 
 function rtcLog(message: string, data?: unknown) {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
   if (data !== undefined) {
     console.info("[rtc]", message, data);
     return;
@@ -54,6 +58,10 @@ function rtcLog(message: string, data?: unknown) {
 }
 
 function pttLog(message: string, data?: unknown) {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
   if (data !== undefined) {
     console.info("[ptt]", message, data);
     return;
@@ -779,12 +787,6 @@ export async function createPeerToPeerVoiceSession({
     }
   };
 
-  const bindRemoteTrackDebug = (track: MediaStreamTrack) => {
-    track.onmute = () => rtcLog("remote track muted", { roomId, sessionId, ...trackSnapshot(track) });
-    track.onunmute = () => rtcLog("remote track unmuted", { roomId, sessionId, ...trackSnapshot(track) });
-    track.onended = () => rtcLog("remote track ended", { roomId, sessionId, ...trackSnapshot(track) });
-  };
-
   const attachPeerHandlers = (peer: RTCPeerConnection) => {
     peer.onnegotiationneeded = () => {
       rtcLog("negotiation needed", {
@@ -895,8 +897,6 @@ export async function createPeerToPeerVoiceSession({
         track: trackSnapshot(event.track),
         streams: event.streams.map((stream) => streamSnapshot(stream)),
       });
-
-      bindRemoteTrackDebug(event.track);
 
       const receivedStream = event.streams[0] ?? new MediaStream([event.track]);
       if (!receivedStream.getTracks().some((track) => track.id === event.track.id)) {

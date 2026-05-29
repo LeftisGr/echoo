@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { ArrowRight, Check, Flag, Home, ImagePlus, Mic, Paperclip, PhoneOff, ShieldAlert, Send, Video, X } from "lucide-react";
 
@@ -104,6 +104,8 @@ function requestApproximatePosition() {
   });
 }
 
+const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"] as const;
+
 const SessionPage = () => {
 
   const navigate = useNavigate();
@@ -122,7 +124,6 @@ const SessionPage = () => {
     copy,
     language,
     matchSoundEnabled,
-    supporter,
     online,
     unlockVoice,
     sendMessage,
@@ -156,7 +157,6 @@ const SessionPage = () => {
   const [mediaCaption, setMediaCaption] = useState("");
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
 
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
@@ -173,7 +173,6 @@ const SessionPage = () => {
 
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
-  const pttStartedAtRef = useRef<number | null>(null);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
@@ -181,8 +180,6 @@ const SessionPage = () => {
   const mediaCooldownRef = useRef(0);
   const mediaSendCountRef = useRef(0);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
@@ -196,8 +193,6 @@ const SessionPage = () => {
   const progressionMomentTimeoutRef = useRef<number | null>(null);
   const reactionHoldTimeoutRef = useRef<number | null>(null);
   const reactionHoldMessageIdRef = useRef<string | null>(null);
-  const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"];
-
   const sessionProgression = useSessionProgression(room?.startedAt);
   const phase = sessionProgression.phase;
   const featureGates = useFeatureGates(room?.startedAt, room?.status);
@@ -274,13 +269,6 @@ const SessionPage = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     if (!room || !profile || room.status !== "active") {
@@ -467,7 +455,6 @@ const SessionPage = () => {
     }
 
     appendSystemMessage(copy.session.mediaUnlocked);
-    console.info("[session] media unlocked", { roomId: room.id, feature: FeatureGateKey.EphemeralContent });
     setProgressionMoment(language === "en" ? "A little more of the room is visible now." : "Λίγο περισσότερο room είναι τώρα ορατό.");
     playSoundFeedback("content-reveal", matchSoundEnabled);
   }, [appendSystemMessage, copy.session.mediaUnlocked, featureGates, language, matchSoundEnabled, room]);
@@ -735,14 +722,6 @@ const SessionPage = () => {
     }
 
     setMediaBusy(true);
-    console.info("[media] upload started", {
-      roomId: room?.id ?? null,
-      phase,
-      kind: selectedMedia.kind,
-      fileName: selectedMedia.displayName,
-      fileSize: selectedMedia.size,
-      fileType: selectedMedia.file.type,
-    });
 
     try {
       await sendMediaMessage({
@@ -752,21 +731,9 @@ const SessionPage = () => {
       });
       mediaCooldownRef.current = Date.now();
       mediaSendCountRef.current += 1;
-      console.info("[media] upload success", {
-        roomId: room?.id ?? null,
-        phase,
-        kind: selectedMedia.kind,
-        fileName: selectedMedia.displayName,
-      });
 
       resetMediaSelection();
     } catch (mediaSendError) {
-      console.info("[media] upload failed", {
-        roomId: room?.id ?? null,
-        phase,
-        error: mediaSendError instanceof Error ? mediaSendError.message : String(mediaSendError),
-      });
-
       setMediaError(mediaSendError instanceof Error ? mediaSendError.message : language === "en" ? "Upload failed." : "Η αποστολή απέτυχε.");
     } finally {
       setMediaBusy(false);
@@ -781,17 +748,6 @@ const SessionPage = () => {
     };
   }, [selectedMedia?.previewUrl]);
 
-  useEffect(() => {
-    console.info("[ptt] component rerender", {
-
-      roomId: room?.id ?? null,
-      phase,
-      voiceState,
-      voiceReady,
-      isPressing: Boolean(voiceDiagnostics?.isPressing),
-      transmitting: Boolean(voiceDiagnostics?.transmitting),
-    });
-  }, [phase, room?.id, voiceDiagnostics?.isPressing, voiceDiagnostics?.transmitting, voiceReady, voiceState]);
 
   const clearPushToTalkReleaseTimeout = useCallback(() => {
     if (pttReleaseTimeoutRef.current !== null) {
@@ -813,59 +769,25 @@ const SessionPage = () => {
       clearPushToTalkReleaseTimeout();
       isPressingRef.current = false;
       pttPointerIdRef.current = null;
-      pttStartedAtRef.current = null;
-      console.info("[ptt] press end", {
-        roomId: room?.id ?? null,
-        phase,
-        pointerId: pointerId ?? null,
-      });
-      console.info("[ptt] disabling track", {
-        roomId: room?.id ?? null,
-        phase,
-        pointerId: pointerId ?? null,
-      });
       setVoiceTransmissionEnabled(false);
       playSoundFeedback("ptt-release", matchSoundEnabled);
-
     },
-    [clearPushToTalkReleaseTimeout, matchSoundEnabled, phase, room?.id, setVoiceTransmissionEnabled],
+    [clearPushToTalkReleaseTimeout, matchSoundEnabled, setVoiceTransmissionEnabled],
   );
 
   const handlePushToTalkPress = useCallback(
     (pointerId: number) => {
       if (!voiceReady || voiceState !== "connected" || isPressingRef.current) {
-        console.info("[ptt] pointerdown ignored", {
-          roomId: room?.id ?? null,
-          phase,
-          voiceState,
-          voiceReady,
-          pointerId,
-          alreadyPressing: isPressingRef.current,
-        });
         return;
       }
 
       clearPushToTalkReleaseTimeout();
       isPressingRef.current = true;
       pttPointerIdRef.current = pointerId;
-      pttStartedAtRef.current = Date.now();
-
-      console.info("[ptt] press start", {
-        roomId: room?.id ?? null,
-        phase,
-        voiceState,
-        pointerId,
-      });
-      console.info("[ptt] enabling track", {
-        roomId: room?.id ?? null,
-        phase,
-        pointerId,
-      });
       setVoiceTransmissionEnabled(true);
       playSoundFeedback("ptt-press", matchSoundEnabled);
-
     },
-    [clearPushToTalkReleaseTimeout, matchSoundEnabled, phase, room?.id, setVoiceTransmissionEnabled, voiceReady, voiceState],
+    [clearPushToTalkReleaseTimeout, matchSoundEnabled, setVoiceTransmissionEnabled, voiceReady, voiceState],
   );
 
   useEffect(() => () => {
@@ -983,11 +905,14 @@ const SessionPage = () => {
 
   const roomDisplayName = getRoomDisplayName(room.id);
 
-  const reportReasonOptions = [
-    { value: "harassment", label: language === "en" ? "Harassment or abuse" : "Παρενόχληση ή κακοποίηση" },
-    { value: "threats", label: language === "en" ? "Threats or hate speech" : "Απειλές ή λόγος μίσους" },
-    { value: "spam", label: language === "en" ? "Spam or unwanted content" : "Spam ή ανεπιθύμητο περιεχόμενο" },
-  ];
+  const reportReasonOptions = useMemo(
+    () => [
+      { value: "harassment", label: language === "en" ? "Harassment or abuse" : "Παρενόχληση ή κακοποίηση" },
+      { value: "threats", label: language === "en" ? "Threats or hate speech" : "Απειλές ή λόγος μίσους" },
+      { value: "spam", label: language === "en" ? "Spam or unwanted content" : "Spam ή ανεπιθύμητο περιεχόμενο" },
+    ],
+    [language],
+  );
 
   const submitRoomReport = async () => {
     const shortDetails = reportDetails.trim();
@@ -1570,7 +1495,6 @@ const SessionPage = () => {
               </div>
             )}
 
-            <div ref={chatEndRef} />
 
           </div>
         </main>
@@ -1878,64 +1802,26 @@ const SessionPage = () => {
                       )}
                       onPointerDown={(event) => {
                         event.preventDefault();
-                        console.info("[ptt] pointerdown event", {
-                          roomId: room?.id ?? null,
-                          phase,
-                          pointerId: event.pointerId,
-                          button: event.button,
-                          pointerType: event.pointerType,
-                        });
                         try {
                           event.currentTarget.setPointerCapture(event.pointerId);
-                          console.info("[ptt] pointer capture set", {
-                            roomId: room?.id ?? null,
-                            phase,
-                            pointerId: event.pointerId,
-                          });
-                        } catch (error) {
-                          console.info("[ptt] pointer capture failed", {
-                            roomId: room?.id ?? null,
-                            phase,
-                            pointerId: event.pointerId,
-                            error: error instanceof Error ? error.message : String(error),
-                          });
+                        } catch {
+                          /* noop */
                         }
                         handlePushToTalkPress(event.pointerId);
                       }}
                       onPointerUp={(event) => {
-                        console.info("[ptt] pointerup event", {
-                          roomId: room?.id ?? null,
-                          phase,
-                          pointerId: event.pointerId,
-                        });
                         try {
                           event.currentTarget.releasePointerCapture(event.pointerId);
-                          console.info("[ptt] pointer capture released", {
-                            roomId: room?.id ?? null,
-                            phase,
-                            pointerId: event.pointerId,
-                          });
                         } catch {
                           /* noop */
                         }
                         releasePushToTalk(event.pointerId);
                       }}
                       onPointerCancel={(event) => {
-                        console.info("[ptt] pointercancel event", {
-                          roomId: room?.id ?? null,
-                          phase,
-                          pointerId: event.pointerId,
-                        });
                         releasePushToTalk(event.pointerId);
                       }}
                       onPointerLeave={(event) => {
                         const hasCapture = event.currentTarget.hasPointerCapture(event.pointerId);
-                        console.info("[ptt] pointerleave event", {
-                          roomId: room?.id ?? null,
-                          phase,
-                          pointerId: event.pointerId,
-                          hasCapture,
-                        });
                         if (!hasCapture) {
                           releasePushToTalk(event.pointerId);
                         }

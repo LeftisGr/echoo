@@ -8,8 +8,7 @@ export function PwaBootstrap() {
 
     const register = async () => {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-        console.info("[pwa] service worker registered", { scope: registration.scope });
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       } catch (error) {
         console.error("[pwa] service worker registration failed", {
           error: error instanceof Error ? error.message : String(error),
