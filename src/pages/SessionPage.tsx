@@ -1486,10 +1486,14 @@ const SessionPage = () => {
                 const normalizedSystemMessage = message.content.toLowerCase().replace(/[.·…]+/g, " ");
                 const isPositiveSystemMessage =
                   normalizedSystemMessage.includes("connection opened") ||
+                  normalizedSystemMessage.includes("connection unlocked") ||
                   normalizedSystemMessage.includes("stay curious") ||
                   normalizedSystemMessage.includes("voice is now open") ||
+                  normalizedSystemMessage.includes("media sharing is now open") ||
+                  normalizedSystemMessage.includes("temporary media sharing is now open") ||
                   normalizedSystemMessage.includes("room opens") ||
                   normalizedSystemMessage.includes("unlocked");
+
                   return (
                     <div
                       key={message.id}
