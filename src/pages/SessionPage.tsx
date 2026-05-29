@@ -45,6 +45,15 @@ import { playSoundFeedback } from "@/lib/sound-feedback";
 import { cn } from "@/lib/utils";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
 import { buyMeACoffeeUrl } from "@/lib/support";
+import {
+  deleteRoomPresenceSignal,
+  getApproxDistance,
+  getPresenceHelperCopy,
+  getPresenceLabel,
+  loadRoomPresenceSignals,
+  roundPresenceCoordinate,
+  upsertRoomPresenceSignal,
+} from "@/lib/room-presence";
 
 import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
@@ -69,6 +78,30 @@ function formatBytes(bytes: number) {
 
 function getAvatarGlyph(profile?: { avatarEmoji?: string | null; username?: string } | null) {
   return profile?.avatarEmoji ?? profile?.username?.slice(0, 1).toUpperCase() ?? "E";
+}
+
+function requestApproximatePosition() {
+  return new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation unavailable"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: roundPresenceCoordinate(position.coords.latitude),
+          longitude: roundPresenceCoordinate(position.coords.longitude),
+        });
+      },
+      reject,
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 5 * 60 * 1000,
+      },
+    );
+  });
 }
 
 const SessionPage = () => {
@@ -133,6 +166,7 @@ const SessionPage = () => {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
+  const [presenceDistanceKm, setPresenceDistanceKm] = useState<number | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
@@ -249,6 +283,92 @@ const SessionPage = () => {
   }, []);
 
   useEffect(() => {
+    if (!room || !profile || room.status !== "active") {
+      setPresenceDistanceKm(null);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setPresenceDistanceKm(null);
+      return;
+    }
+
+    let cancelled = false;
+    let refreshTimer: number | null = null;
+    let settleTimer: number | null = null;
+
+    const refreshPresence = async () => {
+
+      try {
+        const position = await requestApproximatePosition();
+        if (cancelled) {
+          return;
+        }
+
+        const currentPoint = {
+          latitude: position.latitude,
+          longitude: position.longitude,
+        };
+
+        await upsertRoomPresenceSignal(room.id, profile.id, {
+          ...currentPoint,
+          updatedAt: new Date().toISOString(),
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        const signals = await loadRoomPresenceSignals(room.id);
+        if (cancelled) {
+          return;
+        }
+
+        const partnerSignal = signals.find((signal) => signal.user_id !== profile.id);
+        if (!partnerSignal) {
+          setPresenceDistanceKm(null);
+          return;
+        }
+
+        const distanceKm = getApproxDistance(currentPoint, {
+          latitude: partnerSignal.coarse_latitude,
+          longitude: partnerSignal.coarse_longitude,
+        });
+        setPresenceDistanceKm(distanceKm);
+      } catch (error) {
+        const maybeError = error as GeolocationPositionError | Error | null;
+        if (maybeError && "code" in maybeError && maybeError.code === 1) {
+          setPresenceDistanceKm(null);
+          return;
+        }
+
+        setPresenceDistanceKm(null);
+      }
+    };
+
+    void refreshPresence();
+    settleTimer = window.setTimeout(() => {
+      void refreshPresence();
+    }, 3000);
+    refreshTimer = window.setInterval(() => {
+      void refreshPresence();
+    }, 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      if (settleTimer !== null) {
+        window.clearTimeout(settleTimer);
+      }
+      if (refreshTimer !== null) {
+        window.clearInterval(refreshTimer);
+      }
+      void deleteRoomPresenceSignal(room.id, profile.id).catch(() => undefined);
+    };
+
+  }, [profile?.id, room?.id, room?.status]);
+
+  useEffect(() => {
+
     if (!room) {
       return;
     }
@@ -872,6 +992,9 @@ const SessionPage = () => {
           ? "border-rose-400/18 bg-[#28161a]/92"
           : "border-violet-300/18 bg-[#151826]/92";
 
+  const presenceLabel = presenceDistanceKm !== null ? getPresenceLabel(presenceDistanceKm, language) : null;
+  const presenceHelper = presenceDistanceKm !== null ? getPresenceHelperCopy(presenceDistanceKm, language) : null;
+
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
   const visibleMessages = room.messages;
@@ -1293,6 +1416,24 @@ const SessionPage = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+
+              {presenceLabel && presenceHelper && (
+                <div className="mt-3 max-w-[10.5rem] rounded-[20px] border border-white/10 bg-white/[0.05] px-3 py-2 text-left shadow-[0_12px_30px_rgba(10,14,25,0.22),0_0_22px_rgba(139,92,246,0.08)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm sm:max-w-[12rem]">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
+                        presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
+                      )}
+                    />
+
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">{language === "en" ? "Presence" : "Παρουσία"}</span>
+
+                  </div>
+                  <p className="mt-1 text-sm font-medium tracking-tight text-white/90">{presenceLabel}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-white/45">{presenceHelper}</p>
+                </div>
+              )}
             </div>
           </div>
         </header>

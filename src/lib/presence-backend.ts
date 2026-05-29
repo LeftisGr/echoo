@@ -106,6 +106,15 @@ create table if not exists public.user_blocks (
   created_at timestamptz not null default now(),
   primary key (blocker_id, blocked_user_id)
 );
+
+create table if not exists public.room_presence_signals (
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  coarse_latitude numeric(5,1) not null,
+  coarse_longitude numeric(5,1) not null,
+  updated_at timestamptz not null default now(),
+  primary key (room_id, user_id)
+);
 `;
 
 interface QueueRow {
@@ -474,7 +483,7 @@ export async function cleanupUserSession(userId: string) {
   }
 
   const endedAt = new Date().toISOString();
-  const [roomsResult, queueResult] = await Promise.all([
+  const [roomsResult, queueResult, presenceResult] = await Promise.all([
     supabase
       .from("rooms")
       .update({ ended_at: endedAt, rtc_state: "idle", rtc_connection_id: null, rtc_updated_at: endedAt })
@@ -494,6 +503,8 @@ export async function cleanupUserSession(userId: string) {
         joined_at: endedAt,
       })
       .select("user_id"),
+
+    supabase.from("room_presence_signals").delete().eq("user_id", userId),
   ]);
 
   if (roomsResult.error) {
@@ -502,6 +513,10 @@ export async function cleanupUserSession(userId: string) {
 
   if (queueResult.error) {
     throw queueResult.error;
+  }
+
+  if (presenceResult.error) {
+    throw presenceResult.error;
   }
 
   return { ok: true, userId };
@@ -962,22 +977,32 @@ export async function endRoom(room: RoomSession) {
   }
 
   const endedAt = room.endedAt ?? new Date().toISOString();
-  const { error } = await supabase
-    .from("rooms")
-    .update({
-      ended_at: endedAt,
-      voice_enabled: room.voiceEnabled,
-      rtc_state: "idle",
-      rtc_connection_id: null,
-      rtc_updated_at: new Date().toISOString(),
-    })
-    .eq("id", room.id);
+  const [{ error: roomError }, { error: presenceError }] = await Promise.all([
+    supabase
+      .from("rooms")
+      .update({
+        ended_at: endedAt,
+        voice_enabled: room.voiceEnabled,
+        rtc_state: "idle",
+        rtc_connection_id: null,
+        rtc_updated_at: new Date().toISOString(),
+      })
+      .eq("id", room.id),
+    supabase.from("room_presence_signals").delete().eq("room_id", room.id),
+  ]);
+
+  const error = roomError;
 
   if (error) {
     throw error;
   }
 
+  if (presenceError) {
+    throw presenceError;
+  }
+
   void logAnalyticsEvent("room_ended", {
+
     userId: room.userA,
     roomId: room.id,
     properties: {
