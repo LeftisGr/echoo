@@ -364,6 +364,16 @@ const AdminPage = () => {
                 ? "This profile is still a member. Change the role in public.profiles to admin when you want to grant access."
                 : "Αυτό το προφίλ είναι ακόμα μέλος. Άλλαξε το role στο public.profiles σε admin όταν θέλεις να δώσεις πρόσβαση."}
           </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:ml-0 lg:w-full xl:max-w-[560px]">
+            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Signed-in email" : "Email σύνδεσης"}</p>
+              <p className="mt-2 break-all text-sm font-medium text-white">{profile.email ?? (language === "en" ? "No email available" : "Δεν υπάρχει διαθέσιμο email")}</p>
+            </div>
+            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Profile ID" : "ID προφίλ"}</p>
+              <p className="mt-2 break-all text-sm font-medium text-white">{profile.id}</p>
+            </div>
+          </div>
           <div className="flex gap-2 sm:ml-auto">
             <Button
               type="button"

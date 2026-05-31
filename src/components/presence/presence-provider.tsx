@@ -285,11 +285,12 @@ function generateUsername() {
   return `${randomFrom(usernamePrefixes)}${randomFrom(usernameSuffixes)}`;
 }
 
-function createDefaultProfile(userId?: string, profileMode: PresenceProfile["profileMode"] = "guest"): PresenceProfile {
+function createDefaultProfile(userId?: string, profileMode: PresenceProfile["profileMode"] = "guest", email: string | null = null): PresenceProfile {
   const createdAt = new Date().toISOString();
   return {
     id: userId ?? createId(),
     username: generateUsername(),
+    email,
     profileMode,
     bio: null,
     avatarEmoji: randomFrom(guestAvatarEmojis),
@@ -496,7 +497,7 @@ function readStoredGuestProfile() {
 
   try {
     const parsed = JSON.parse(raw) as Partial<PresenceProfile>;
-    const fallback = createDefaultProfile(parsed.id ?? undefined);
+    const fallback = createDefaultProfile(parsed.id ?? undefined, parsed.profileMode ?? "guest", parsed.email ?? null);
     return {
       ...fallback,
       ...parsed,
@@ -516,10 +517,11 @@ function readStoredGuestProfile() {
   }
 }
 
-function promoteGuestProfile(profile: PresenceProfile, userId: string): PresenceProfile {
+function promoteGuestProfile(profile: PresenceProfile, userId: string, email: string | null): PresenceProfile {
   return {
     ...profile,
     id: userId,
+    email,
     profileMode: "registered",
     updatedAt: new Date().toISOString(),
   };
@@ -1218,7 +1220,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: { id: string; is_anonymous?: boolean } | null) => {
+    const initializeSession = async (sessionUser: { id: string; email?: string | null; is_anonymous?: boolean } | null) => {
       const isAnonymousSession = Boolean(sessionUser?.is_anonymous);
 
       setInitializing(true);
@@ -1261,7 +1263,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id, isAnonymousSession);
+          await hydrateAuthenticatedUser(sessionUser.id, isAnonymousSession, sessionUser.email ?? null);
         }
       } catch {
         hydratedSessionUserIdRef.current = null;
@@ -1612,23 +1614,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string, isAnonymousSession: boolean) {
+  async function hydrateAuthenticatedUser(currentUserId: string, isAnonymousSession: boolean, email: string | null) {
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =
       loadedProfile
-        ? !isAnonymousSession && loadedProfile.profileMode !== "registered"
-          ? promoteGuestProfile(loadedProfile, currentUserId)
-          : loadedProfile
+        ? !isAnonymousSession && (loadedProfile.profileMode !== "registered" || loadedProfile.email !== email)
+          ? promoteGuestProfile(loadedProfile, currentUserId, email ?? loadedProfile.email ?? null)
+          : { ...loadedProfile, email: email ?? loadedProfile.email }
         : storedGuestProfile
           ? isAnonymousSession
             ? {
                 ...storedGuestProfile,
                 id: currentUserId,
+                email: null,
                 profileMode: "guest",
               }
-            : promoteGuestProfile(storedGuestProfile, currentUserId)
-          : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered");
+            : promoteGuestProfile(storedGuestProfile, currentUserId, email ?? storedGuestProfile.email ?? null)
+          : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered", email);
     const profileWithAvatar = ensureProfileAvatar(profileToUse);
 
     setIsAdmin(profileWithAvatar.role === "admin");
@@ -1643,7 +1646,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       },
     }));
 
-    if (!loadedProfile || profileWithAvatar.profileMode !== loadedProfile.profileMode || profileWithAvatar.avatarEmoji !== loadedProfile.avatarEmoji) {
+    if (!loadedProfile || profileWithAvatar.profileMode !== loadedProfile.profileMode || profileWithAvatar.avatarEmoji !== loadedProfile.avatarEmoji || profileWithAvatar.email !== loadedProfile.email) {
       await syncProfile(profileWithAvatar);
     }
 
@@ -2389,7 +2392,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       delete safeUpdates.username;
       setProfile((current) => {
         const nextProfile = {
-          ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered")),
+          ...(current ?? createDefaultProfile(userId ?? undefined, guestMode ? "guest" : "registered", current?.email ?? null)),
           ...safeUpdates,
           updatedAt: new Date().toISOString(),
         };
@@ -2425,13 +2428,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const activeProfile =
-      profile ??
-      (userId
-        ? {
-            ...(createDefaultProfile(userId, guestMode ? "guest" : "registered")),
-          }
-        : null);
+    const activeProfile = profile ?? (userId ? createDefaultProfile(userId, guestMode ? "guest" : "registered", profile?.email ?? null) : null);
 
     if (!activeProfile) {
       return;

@@ -70,10 +70,21 @@ const SettingsPage = () => {
               </div>
             )}
           </div>
-          <div className="flex gap-3">
-            <Button asChild className="h-11 rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
-              <Link to="/profile">{language === "en" ? "Edit profile" : "Επεξεργασία προφίλ"}</Link>
-            </Button>
+          <div className="grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Signed-in email" : "Email σύνδεσης"}</p>
+              <p className="mt-2 break-all text-sm font-medium text-white">{profile.email ?? (language === "en" ? "No email on this account" : "Δεν υπάρχει email σε αυτόν τον λογαριασμό")}</p>
+              <p className="mt-2 text-xs leading-5 text-white/40">
+                {language === "en"
+                  ? "This confirms which registered account is active."
+                  : "Αυτό επιβεβαιώνει ποιος registered λογαριασμός είναι ενεργός."}
+              </p>
+            </div>
+            <div className="flex items-end">
+              <Button asChild className="h-11 w-full rounded-full bg-violet-500 px-4 text-white hover:bg-violet-400">
+                <Link to="/profile">{language === "en" ? "Edit profile" : "Επεξεργασία προφίλ"}</Link>
+              </Button>
+            </div>
           </div>
           <p className="text-sm leading-6 text-white/60">{copy.auth.helper}</p>
         </Surface>

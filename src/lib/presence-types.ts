@@ -33,6 +33,7 @@ export interface PresenceProfile {
 
   id: string;
   username: string;
+  email: string | null;
   profileMode: ProfileMode;
   bio: string | null;
   avatarEmoji: string | null;

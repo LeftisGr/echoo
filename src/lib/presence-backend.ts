@@ -21,6 +21,7 @@ export const presenceSchemaSql = `
 create table if not exists public.profiles (
   id uuid not null references auth.users(id) on delete cascade,
   username text not null unique,
+  email text,
   profile_mode text not null default 'guest',
   bio text,
   avatar_emoji text,
@@ -127,6 +128,7 @@ interface QueueRow {
 interface LiveProfileRow {
   id: string;
   username: string;
+  email: string | null;
   profile_mode: ProfileMode;
   bio: string | null;
   avatar_emoji: string | null;
@@ -215,6 +217,7 @@ function mapProfileRow(row: LiveProfileRow): PresenceProfile {
   return {
     id: row.id,
     username: row.username,
+    email: row.email,
     profileMode: normalizeProfileMode(row.profile_mode),
     bio: row.bio,
     avatarEmoji: row.avatar_emoji,
@@ -282,6 +285,7 @@ export async function syncProfile(profile: PresenceProfile) {
   const { error } = await supabase.from("profiles").upsert({
     id: profile.id,
     username: profile.username,
+    email: profile.email,
     profile_mode: profile.profileMode,
     bio: profile.bio,
     avatar_emoji: profile.avatarEmoji,
@@ -313,7 +317,7 @@ export async function loadProfile(userId: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
+    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -590,7 +594,7 @@ export async function findBestMatch(user: PresenceProfile, relaxed = false) {
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, username, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
+    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
     .in("id", candidateIds);
 
   if (profilesError) {
