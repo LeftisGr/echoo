@@ -1615,48 +1615,41 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   async function hydrateAuthenticatedUser(currentUserId: string, isAnonymousSession: boolean) {
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
-    const profileToUse =
-      loadedProfile ??
-      (storedGuestProfile
-        ? isAnonymousSession
-          ? {
-              ...storedGuestProfile,
-              id: currentUserId,
-              profileMode: "guest",
-            }
-          : promoteGuestProfile(storedGuestProfile, currentUserId)
-        : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered"));
+    const profileToUse: PresenceProfile =
+      loadedProfile
+        ? !isAnonymousSession && loadedProfile.profileMode !== "registered"
+          ? promoteGuestProfile(loadedProfile, currentUserId)
+          : loadedProfile
+        : storedGuestProfile
+          ? isAnonymousSession
+            ? {
+                ...storedGuestProfile,
+                id: currentUserId,
+                profileMode: "guest",
+              }
+            : promoteGuestProfile(storedGuestProfile, currentUserId)
+          : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered");
     const profileWithAvatar = ensureProfileAvatar(profileToUse);
 
     setIsAdmin(profileWithAvatar.role === "admin");
     setAccountRestriction(await loadModerationState(currentUserId).catch(() => ({ status: "ok" as const, reason: null, expiresAt: null })));
 
-    if (loadedProfile) {
-      setProfile(profileWithAvatar);
-      setQueue((current) => ({
-        ...current,
-        filters: {
-          preference: profileWithAvatar.preference,
-          language: profileWithAvatar.language,
-        },
-      }));
+    setProfile(profileWithAvatar);
+    setQueue((current) => ({
+      ...current,
+      filters: {
+        preference: profileWithAvatar.preference,
+        language: profileWithAvatar.language,
+      },
+    }));
 
-      if (profileWithAvatar.avatarEmoji !== loadedProfile.avatarEmoji) {
-        await syncProfile(profileWithAvatar);
-      }
-
-      if (!isAnonymousSession) {
-        writeStoredGuestSession(false);
-        writeStoredGuestProfile(null);
-      }
-    } else {
-      setProfile(profileWithAvatar);
+    if (!loadedProfile || profileWithAvatar.profileMode !== loadedProfile.profileMode || profileWithAvatar.avatarEmoji !== loadedProfile.avatarEmoji) {
       await syncProfile(profileWithAvatar);
+    }
 
-      if (!isAnonymousSession) {
-        writeStoredGuestSession(false);
-        writeStoredGuestProfile(null);
-      }
+    if (!isAnonymousSession) {
+      writeStoredGuestSession(false);
+      writeStoredGuestProfile(null);
     }
 
     const activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
@@ -1669,7 +1662,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredMatchTransition(null);
       }
       await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profileToUse));
+      setQueue(createInitialQueue(profileWithAvatar));
       return;
     }
 

@@ -35,7 +35,13 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match("/")),
+      (async () => {
+        try {
+          return await fetch(event.request);
+        } catch {
+          return (await caches.match("/")) ?? new Response("", { status: 503, statusText: "Service Unavailable" });
+        }
+      })(),
     );
     return;
   }
@@ -45,16 +51,23 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const networkResponse = fetch(event.request).then((response) => {
-        if (response && response.ok) {
+    (async () => {
+      const cachedResponse = await caches.match(event.request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      try {
+        const response = await fetch(event.request);
+        if (response.ok) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, responseClone);
         }
         return response;
-      });
-
-      return cachedResponse ?? networkResponse;
-    }),
+      } catch {
+        return new Response("", { status: 503, statusText: "Service Unavailable" });
+      }
+    })(),
   );
 });
