@@ -73,7 +73,10 @@ function MenuSheet() {
 
 export function PresenceLogo({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-3">
+      <div className={cn("flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_24px_rgba(139,92,246,0.15)]", compact && "h-9 w-9") }>
+        <img src="/icons/echoo-mark.png" alt="Echoo" className="h-full w-full rounded-full object-cover" />
+      </div>
       <p
         className={cn(
           "font-serif text-2xl font-semibold tracking-[0.22em] text-white sm:text-3xl",

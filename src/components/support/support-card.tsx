@@ -19,6 +19,7 @@ export function SupportCard({ className, language }: { className?: string; langu
   const cta = language === "en" ? "Support the project" : "Υποστήριξε το project";
   const badge = language === "en" ? "100% optional" : "100% προαιρετικό";
   const providerLabel = activeProvider.label;
+  const providerTag = "revtag" in activeProvider ? activeProvider.revtag : null;
   const tagline = SUPPORT_CONFIG.tagline[language];
   const message = SUPPORT_CONFIG.message[language];
 
@@ -59,6 +60,7 @@ export function SupportCard({ className, language }: { className?: string; langu
           </Button>
           <div className="flex items-center gap-2 text-xs text-white/45">
             <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{providerLabel}</span>
+            {providerTag && <span className="rounded-full border border-violet-300/15 bg-violet-500/10 px-2.5 py-1 text-violet-50">{providerTag}</span>}
             <span>{footer}</span>
           </div>
         </div>

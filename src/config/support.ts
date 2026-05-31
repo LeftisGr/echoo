@@ -4,7 +4,8 @@ export const SUPPORT_CONFIG = {
   providers: {
     revolut: {
       label: "Revolut",
-      url: "https://revolut.me/REPLACE_ME",
+      revtag: "@echooapp",
+      url: "https://revolut.me/echooapp",
     },
     buymeacoffee: {
       label: "Buy Me a Coffee",
