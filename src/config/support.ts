@@ -7,11 +7,8 @@ export const SUPPORT_CONFIG = {
       revtag: "@echooapp",
       url: "https://revolut.me/echooapp",
     },
-    buymeacoffee: {
-      label: "Buy Me a Coffee",
-      url: "",
-    },
   },
+
   tagline: {
     en: "Help keep Echoo alive.",
     el: "Βοήθησε το Echoo να συνεχίσει να ζει.",

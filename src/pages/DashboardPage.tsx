@@ -101,6 +101,11 @@ const DashboardPage = () => {
 
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-3xl font-semibold text-white">{profile.username}</p>
+            {profile.supporterBadge && (
+              <Badge className="rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-1 text-[11px] font-medium text-rose-50 hover:bg-rose-500/10">
+                ❤️ Supporter
+              </Badge>
+            )}
             <Button
               variant="outline"
               className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
@@ -110,6 +115,7 @@ const DashboardPage = () => {
               {copy.dashboard.profile}
             </Button>
           </div>
+  
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">

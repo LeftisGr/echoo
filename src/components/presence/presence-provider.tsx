@@ -43,7 +43,6 @@ import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
-import { supporterStorageKey } from "@/lib/support";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import {
@@ -307,7 +306,9 @@ function createDefaultProfile(userId?: string, profileMode: PresenceProfile["pro
     conversationsCompleted: 0,
     streakDays: 0,
     lastCompletedAt: null,
+    supporterBadge: false,
     role: "member",
+
     createdAt,
     updatedAt: createdAt,
   };
@@ -513,6 +514,8 @@ function readStoredGuestProfile() {
       conversationsCompleted: parsed.conversationsCompleted ?? fallback.conversationsCompleted,
       streakDays: parsed.streakDays ?? fallback.streakDays,
       lastCompletedAt: parsed.lastCompletedAt ?? fallback.lastCompletedAt,
+      supporterBadge: parsed.supporterBadge ?? fallback.supporterBadge,
+
       updatedAt: parsed.updatedAt ?? fallback.updatedAt,
     } satisfies PresenceProfile;
   } catch {
@@ -562,27 +565,6 @@ function writeStoredGuestSession(isGuest: boolean) {
   }
 
   window.localStorage.setItem(guestSessionStorageKey, "true");
-}
-
-function readStoredSupporter() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.localStorage.getItem(supporterStorageKey) === "true";
-}
-
-function writeStoredSupporter(supporter: boolean) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!supporter) {
-    window.localStorage.removeItem(supporterStorageKey);
-    return;
-  }
-
-  window.localStorage.setItem(supporterStorageKey, "true");
 }
 
 function readStoredRoute() {
@@ -792,7 +774,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [reconnectEnabled, setReconnectEnabled] = useState(true);
   const [matchSoundEnabled, setMatchSoundEnabledState] = useState(stored.matchSoundEnabled ?? true);
-  const [supporter, setSupporterState] = useState(readStoredSupporter());
+  const supporter = profile?.supporterBadge ?? false;
+
   const [initializing, setInitializing] = useState(true);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [roomLoaded, setRoomLoaded] = useState(false);
@@ -2450,8 +2433,19 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const rerollUsername = useCallback(() => {}, []);
 
   const setSupporter = useCallback((enabled: boolean) => {
-    setSupporterState(enabled);
-    writeStoredSupporter(enabled);
+    setProfile((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextProfile = {
+        ...current,
+        supporterBadge: enabled,
+        updatedAt: new Date().toISOString(),
+      };
+      void syncProfile(nextProfile);
+      return nextProfile;
+    });
   }, []);
 
   const updateProfile = useCallback(

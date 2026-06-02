@@ -3,18 +3,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  BadgeCheck,
   Clock3,
   Flag,
   Gauge,
+  Heart,
   Home,
   MessagesSquare,
   RefreshCcw,
+  Search,
   Shield,
   UserMinus,
   UserPlus,
   Users,
   WifiOff,
 } from "lucide-react";
+
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { Link, Navigate } from "react-router-dom";
 
@@ -92,7 +96,6 @@ interface UserRestrictionRow {
 }
 
 interface ActiveRoomRow {
-
   id: string;
   user_a: string;
   user_b: string;
@@ -102,12 +105,21 @@ interface ActiveRoomRow {
   voice_unlocked_at: string | null;
 }
 
+interface SupporterRow {
+  id: string;
+  username: string;
+  email: string | null;
+  supporter_badge: boolean;
+  updated_at: string;
+}
+
 type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
 
 const cleanupStorageKey = "echoo-admin-log-cleanup";
 
 const AdminPage = () => {
-  const { authenticated, adminMetrics, isAdmin, profile, copy, language } = usePresence();
+  const { authenticated, adminMetrics, isAdmin, profile, copy, language, updateProfile } = usePresence();
+
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
   const [recentModeration, setRecentModeration] = useState<ModerationLogRow[]>([]);
@@ -118,6 +130,11 @@ const AdminPage = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
+  const [supporterQuery, setSupporterQuery] = useState("");
+  const [supporterResults, setSupporterResults] = useState<SupporterRow[]>([]);
+  const [supporterLoading, setSupporterLoading] = useState(false);
+  const [supporterBusyId, setSupporterBusyId] = useState<string | null>(null);
+  const [supporterSearchError, setSupporterSearchError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -258,6 +275,95 @@ const AdminPage = () => {
       toast.error(language === "en" ? "Cleanup failed." : "Ο καθαρισμός απέτυχε.");
     }
   }, [language]);
+
+  const loadSupporters = useCallback(
+    async (query: string) => {
+      setSupporterLoading(true);
+      setSupporterSearchError(null);
+      try {
+        const { data, error } = await supabase.rpc("admin_search_supporters", {
+          p_query: query.trim(),
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        setSupporterResults((Array.isArray(data) ? data : []) as SupporterRow[]);
+      } catch (error) {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : language === "en" ? "Supporter search failed." : "Η αναζήτηση supporter απέτυχε.";
+        setSupporterSearchError(message);
+        toast.error(message);
+      } finally {
+        if (isMountedRef.current) {
+          setSupporterLoading(false);
+        }
+      }
+    },
+    [language],
+  );
+
+  const toggleSupporterBadge = useCallback(
+    async (userId: string, nextValue: boolean) => {
+      setSupporterBusyId(userId);
+      try {
+        const { data, error } = await supabase.rpc("admin_set_supporter_badge", {
+          p_user_id: userId,
+          p_supporter_badge: nextValue,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        const updatedProfile = Array.isArray(data) ? data[0] : data;
+        const resolvedValue = Boolean(updatedProfile?.supporter_badge ?? nextValue);
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        setSupporterResults((current) =>
+          current.map((row) =>
+            row.id === userId
+              ? {
+                  ...row,
+                  supporter_badge: resolvedValue,
+                  updated_at: updatedProfile?.updated_at ?? new Date().toISOString(),
+                }
+              : row,
+          ),
+        );
+        if (profile?.id === userId) {
+          updateProfile({ supporterBadge: resolvedValue });
+        }
+        toast.success(resolvedValue ? (language === "en" ? "Supporter badge enabled." : "Το supporter badge ενεργοποιήθηκε.") : (language === "en" ? "Supporter badge disabled." : "Το supporter badge απενεργοποιήθηκε."));
+
+      } catch (error) {
+        const message = error instanceof Error ? error.message : language === "en" ? "Badge update failed." : "Η ενημέρωση badge απέτυχε.";
+        toast.error(message);
+      } finally {
+        if (isMountedRef.current) {
+          setSupporterBusyId(null);
+        }
+      }
+    },
+    [language, profile?.id, updateProfile],
+  );
+
+  useEffect(() => {
+
+    if (isAdmin) {
+      void loadSupporters("");
+    }
+  }, [isAdmin, loadSupporters]);
 
   const adminRefreshTimeoutRef = useRef<number | null>(null);
 
@@ -414,7 +520,110 @@ const AdminPage = () => {
         </div>
       </Surface>
 
+      {isAdmin && (
+        <Surface className="space-y-5 border-rose-300/15 bg-[#0d1424]/80 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.22em] text-white/40">Supporters</p>
+              <p className="mt-1 text-sm text-white/55">
+                {language === "en"
+                  ? "Supporter status is granted manually after support is verified."
+                  : "Η κατάσταση supporter αποδίδεται χειροκίνητα αφού επαληθευτεί η υποστήριξη."}
+              </p>
+            </div>
+            <Badge className="rounded-full border border-rose-300/15 bg-rose-500/10 px-3 py-1 text-rose-50 hover:bg-rose-500/10">
+              <Heart className="mr-1 h-3.5 w-3.5" />
+              Echoo
+            </Badge>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <input
+                value={supporterQuery}
+                onChange={(event) => setSupporterQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void loadSupporters(supporterQuery);
+                  }
+                }}
+                placeholder={language === "en" ? "Search by email or username" : "Αναζήτηση με email ή username"}
+                className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-rose-300/20 focus:bg-white/10"
+              />
+            </div>
+            <Button
+              type="button"
+              className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+              onClick={() => void loadSupporters(supporterQuery)}
+            >
+              {language === "en" ? "Search" : "Αναζήτηση"}
+            </Button>
+          </div>
+
+          {supporterSearchError && (
+            <div className="rounded-[20px] border border-rose-300/15 bg-rose-500/10 p-4 text-sm text-rose-50">{supporterSearchError}</div>
+          )}
+
+          <div className="space-y-3">
+            {supporterLoading ? (
+              <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                {language === "en" ? "Loading supporters..." : "Φορτώνουμε τους supporters..."}
+              </div>
+            ) : supporterResults.length ? (
+              supporterResults.map((row) => (
+                <div key={row.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-base font-medium text-white">{row.username}</p>
+                      <p className="break-all text-sm text-white/55">{row.email ?? (language === "en" ? "No email" : "Χωρίς email")}</p>
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/35">
+                        {language === "en" ? "Current status" : "Τρέχουσα κατάσταση"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      <Badge className={cn("rounded-full border px-3 py-1 text-[11px] font-medium", row.supporter_badge ? "border-rose-300/20 bg-rose-500/10 text-rose-50" : "border-white/10 bg-white/5 text-white/60")}>
+                        {row.supporter_badge ? "❤️ Supporter" : (language === "en" ? "No badge" : "Χωρίς badge")}
+                      </Badge>
+                      <p className="text-xs text-white/35">{new Date(row.updated_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white"
+                      disabled={supporterBusyId === row.id || row.supporter_badge}
+                      onClick={() => void toggleSupporterBadge(row.id, true)}
+                    >
+                      <BadgeCheck className="mr-2 h-4 w-4" />
+                      {language === "en" ? "Enable supporter badge" : "Ενεργοποίηση supporter badge"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white"
+                      disabled={supporterBusyId === row.id || !row.supporter_badge}
+                      onClick={() => void toggleSupporterBadge(row.id, false)}
+                    >
+                      {language === "en" ? "Disable supporter badge" : "Απενεργοποίηση supporter badge"}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                {language === "en" ? "Search by email or username to find a supporter." : "Αναζήτησε με email ή username για να βρεις έναν supporter."}
+              </div>
+            )}
+          </div>
+        </Surface>
+      )}
+
       {isAdmin ? (
+
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard icon={Users} label={language === "en" ? "Total users" : "Σύνολο χρηστών"} value={adminMetrics.totalUsers.toString()} />

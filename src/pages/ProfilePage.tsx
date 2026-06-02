@@ -128,15 +128,17 @@ const ProfilePage = () => {
               {profile.vibeLabel}
             </Badge>
             {supporter && (
-              <Badge className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-50 hover:bg-amber-400/10">
-                {language === "en" ? "Early supporter" : "Early supporter"}
+              <Badge className="rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-1 text-[11px] font-medium text-rose-50 hover:bg-rose-500/10">
+                ❤️ Supporter
               </Badge>
             )}
+
           </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <Surface className={cn("space-y-5 bg-[#0d1424]/80 p-5", supporter ? "border-amber-300/15" : "border-white/10")}>
+          <Surface className={cn("space-y-5 bg-[#0d1424]/80 p-5", supporter ? "border-rose-300/15" : "border-white/10")}>
+
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20 border border-white/10 bg-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
                 <AvatarFallback className="bg-[#121b31] text-2xl text-white">{avatarLabel}</AvatarFallback>
@@ -169,6 +171,12 @@ const ProfilePage = () => {
                   ? "Guest profiles stay quiet and lightweight, with an avatar that only shows while you chat."
                   : "Τα guest profiles μένουν ήσυχα και ελαφριά, με avatar που εμφανίζεται μόνο όταν μιλάς."}
             </div>
+            {supporter && (
+              <div className="rounded-[24px] border border-rose-300/15 bg-rose-500/10 p-4 text-sm leading-6 text-rose-50">
+                <p className="font-medium">❤️ Supporter</p>
+                <p className="mt-1 text-rose-50/75">{copy.settings.supporterNote}</p>
+              </div>
+            )}
 
             {!isRegistered && (
 

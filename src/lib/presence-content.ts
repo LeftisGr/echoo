@@ -287,11 +287,13 @@ export const copy = {
       haptics: "Haptic feedback",
       reconnect: "Reconnect when possible",
       matchSound: "Sound feedback",
+      supporterNote: "Supporter status is granted manually after support is verified.",
 
       save: "Saved",
       privacy: "Privacy and data",
       account: "Account",
       signOut: "Sign out",
+
     },
     contact: {
       title: "Contact",
@@ -613,11 +615,13 @@ export const copy = {
       haptics: "Δόνηση",
       reconnect: "Επανασύνδεση όταν γίνεται",
       matchSound: "Ήχοι feedback",
+      supporterNote: "Η κατάσταση supporter αποδίδεται χειροκίνητα αφού επαληθευτεί η υποστήριξη.",
 
       save: "Αποθηκεύτηκε",
       privacy: "Απόρρητο και δεδομένα",
       account: "Λογαριασμός",
       signOut: "Έξοδος",
+
     },
     contact: {
       title: "Επικοινωνία",

@@ -47,7 +47,9 @@ export interface PresenceProfile {
   conversationsCompleted: number;
   streakDays: number;
   lastCompletedAt: string | null;
+  supporterBadge: boolean;
   role: ProfileRole;
+
   createdAt: string;
   updatedAt: string;
 }

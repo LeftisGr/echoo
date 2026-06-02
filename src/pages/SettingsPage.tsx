@@ -65,10 +65,14 @@ const SettingsPage = () => {
               {language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο"}
             </div>
             {supporter && (
-              <div className="mt-3 inline-flex items-center rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-50">
-                {language === "en" ? "Early supporter" : "Early supporter"}
+              <div className="mt-3 space-y-2">
+                <div className="inline-flex items-center rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-50">
+                  ❤️ Supporter
+                </div>
+                <p className="text-xs leading-5 text-white/45">{copy.settings.supporterNote}</p>
               </div>
             )}
+
           </div>
           <div className="grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">

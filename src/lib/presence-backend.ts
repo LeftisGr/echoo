@@ -35,6 +35,7 @@ create table if not exists public.profiles (
   conversations_completed integer not null default 0,
   streak_days integer not null default 0,
   last_completed_at timestamptz,
+  supporter_badge boolean not null default false,
   role text not null default 'member',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -142,7 +143,9 @@ interface LiveProfileRow {
   conversations_completed: number | null;
   streak_days: number | null;
   last_completed_at: string | null;
+  supporter_badge: boolean | null;
   role: string | null;
+
   created_at: string;
   updated_at: string | null;
 }
@@ -231,7 +234,9 @@ function mapProfileRow(row: LiveProfileRow): PresenceProfile {
     conversationsCompleted: row.conversations_completed ?? 0,
     streakDays: row.streak_days ?? 0,
     lastCompletedAt: row.last_completed_at,
+    supporterBadge: row.supporter_badge ?? false,
     role: normalizeRole(row.role),
+
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
   };
@@ -299,7 +304,9 @@ export async function syncProfile(profile: PresenceProfile) {
     conversations_completed: profile.conversationsCompleted,
     streak_days: profile.streakDays,
     last_completed_at: profile.lastCompletedAt,
+    supporter_badge: profile.supporterBadge,
     role: profile.role,
+
     updated_at: profile.updatedAt,
   });
 
@@ -317,7 +324,7 @@ export async function loadProfile(userId: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
+    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, supporter_badge, role, created_at, updated_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -594,7 +601,7 @@ export async function findBestMatch(user: PresenceProfile, relaxed = false) {
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, role, created_at, updated_at")
+    .select("id, username, email, profile_mode, bio, avatar_emoji, avatar_url, age_range, gender, preference, language, interests, vibe_label, conversations_completed, streak_days, last_completed_at, supporter_badge, role, created_at, updated_at")
     .in("id", candidateIds);
 
   if (profilesError) {
