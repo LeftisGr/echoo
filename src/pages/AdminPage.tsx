@@ -118,8 +118,16 @@ const AdminPage = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const loadAdminData = useCallback(async (silent = false) => {
+
     if (!silent) {
       setLoadingData(true);
     }
@@ -178,6 +186,10 @@ const AdminPage = () => {
       if (suspensionsResult.error) throw suspensionsResult.error;
       if (bansResult.error) throw bansResult.error;
 
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setRecentReports((reportsResult.data ?? []) as ReportRow[]);
       setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
       setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
@@ -185,6 +197,7 @@ const AdminPage = () => {
       setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
+
     } finally {
       if (!silent) {
         setLoadingData(false);
@@ -224,8 +237,11 @@ const AdminPage = () => {
       } catch (error) {
         toast.error(error instanceof Error ? error.message : language === "en" ? "Moderation action failed." : "Η ενέργεια moderation απέτυχε.");
       } finally {
-        setActiveAction(null);
+        if (isMountedRef.current) {
+          setActiveAction(null);
+        }
       }
+
     },
     [applyActionLocally, language, loadAdminData],
   );
@@ -233,6 +249,9 @@ const AdminPage = () => {
   const runCleanup = useCallback(async () => {
     try {
       const result = await cleanupOperationalLogs();
+      if (!isMountedRef.current) {
+        return;
+      }
       setCleanupStatus(result);
       toast.success(language === "en" ? "Operational logs cleaned up." : "Τα operational logs καθαρίστηκαν.");
     } catch {
@@ -384,13 +403,14 @@ const AdminPage = () => {
               <RefreshCcw className="mr-2 h-4 w-4" />
               {language === "en" ? "Refresh" : "Ανανέωση"}
             </Button>
-            <Link to="/">
-              <Button variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+            <Button asChild variant="outline" className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+              <Link to="/">
                 <Home className="mr-2 h-4 w-4" />
                 {copy.nav.home}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
+
         </div>
       </Surface>
 

@@ -143,6 +143,29 @@ function AppRoutes() {
   const navigate = useNavigate();
   const { appReady, initializing, copy } = usePresence();
 
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error("[app] runtime error", {
+        message: event.message,
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno,
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error("[app] unhandled rejection", { reason: event.reason });
+    };
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    };
+  }, []);
+
   const { isStandalone } = usePwaInstall();
   const initialRouteHandledRef = useRef(false);
   const storedRoute = readStoredRoute();
@@ -234,8 +257,10 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/presence" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
+
       </Routes>
       </div>
     </>

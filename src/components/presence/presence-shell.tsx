@@ -58,7 +58,7 @@ function MenuSheet() {
           ))}
           {isAdmin && (
             <Link
-              to="/admin/presence"
+              to="/admin"
               className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/50 transition hover:bg-white/10 hover:text-white/80"
             >
               {copy.nav.admin}
