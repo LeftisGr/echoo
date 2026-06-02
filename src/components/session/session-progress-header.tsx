@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import type { AppLanguage } from "@/lib/presence-types";
 import type { SessionPhase } from "@/lib/session-progression";
-import { SessionPhaseBadge } from "@/components/session/session-phase-badge";
 import SessionFreeConversationState from "@/components/session/session-free-conversation-state";
 import { cn } from "@/lib/utils";
 
@@ -33,16 +32,17 @@ export function SessionProgressHeader({
   const visibleTimerLabel = lastVisibleTimerLabelRef.current;
 
   return (
-    <div className="relative z-20 flex min-h-[4.75rem] items-center justify-center text-center">
+    <div className="relative z-20 flex min-h-[6rem] items-center justify-center text-center">
       <div
         className={cn(
-          "absolute inset-0 space-y-2 transition-all duration-300 ease-out",
+          "absolute inset-0 space-y-3 transition-all duration-300 ease-out",
           sessionComplete ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100",
         )}
       >
-        <SessionPhaseBadge phase={phase} language={language} />
-        <div className={cn("text-2xl font-semibold tracking-tight transition-all duration-300 sm:text-[2rem]", toneClassName)}>{visibleTimerLabel}</div>
-        <Progress value={timerProgress} className="h-1 rounded-full bg-white/10" />
+        <div className={cn("text-4xl font-semibold tracking-[0.08em] tabular-nums transition-all duration-300 sm:text-5xl lg:text-6xl", toneClassName)}>
+          {visibleTimerLabel}
+        </div>
+        <Progress value={timerProgress} className="h-1.5 rounded-full bg-white/10" />
       </div>
 
       <div
@@ -55,4 +55,5 @@ export function SessionProgressHeader({
       </div>
     </div>
   );
+
 }
