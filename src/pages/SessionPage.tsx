@@ -1480,7 +1480,7 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-self-center text-center">
+            <div className="flex flex-col items-start justify-self-start text-left">
               <SessionProgressHeader
                 phase={phase}
                 timerLabel={timerLabel}

@@ -32,23 +32,23 @@ export function SessionProgressHeader({
   const visibleTimerLabel = lastVisibleTimerLabelRef.current;
 
   return (
-    <div className="relative z-20 flex min-h-[7rem] w-full items-center justify-center text-center">
+    <div className="relative z-20 flex min-h-[5.75rem] w-full items-center justify-start text-left">
       <div
         className={cn(
-          "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out",
+          "absolute inset-0 flex items-center justify-start transition-all duration-300 ease-out",
           sessionComplete ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100",
         )}
       >
-        <div className="flex w-full max-w-[14rem] flex-col items-center gap-4 sm:max-w-[16rem] lg:max-w-[18rem]">
+        <div className="flex w-full max-w-[12rem] flex-col items-start gap-3 sm:max-w-[13rem] lg:max-w-[14rem]">
           <div
             className={cn(
-              "w-full text-4xl font-semibold leading-none tracking-[0.08em] tabular-nums transition-all duration-300 sm:text-5xl lg:text-6xl",
+              "w-full text-3xl font-semibold leading-none tracking-[0.08em] tabular-nums transition-all duration-300 sm:text-4xl lg:text-5xl",
               toneClassName,
             )}
           >
             {visibleTimerLabel}
           </div>
-          <Progress value={timerProgress} className="h-2.5 w-full rounded-full bg-white/10" />
+          <Progress value={timerProgress} className="h-2 w-full rounded-full bg-white/10" />
         </div>
       </div>
 
