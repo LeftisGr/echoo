@@ -39,8 +39,9 @@ const ProfilePage = () => {
     login,
     blockedUserCount,
     blockedUserIds,
-    supporter,
   } = usePresence();
+
+  const supporter = profile?.supporterBadge ?? false;
 
   const [draftBio, setDraftBio] = useState("");
   const [draftInterests, setDraftInterests] = useState<string[]>([]);

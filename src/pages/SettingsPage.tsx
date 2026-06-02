@@ -21,13 +21,14 @@ const SettingsPage = () => {
     hapticsEnabled,
     reconnectEnabled,
     matchSoundEnabled,
-    supporter,
     setHapticsEnabled,
     setReconnectEnabled,
 
     setMatchSoundEnabled,
     logout,
   } = usePresence();
+
+  const supporter = profile?.supporterBadge ?? false;
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
