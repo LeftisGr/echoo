@@ -38,6 +38,7 @@ const ProfilePage = () => {
     updateProfile,
     login,
     blockedUserCount,
+    blockedUserIds,
     supporter,
   } = usePresence();
 
@@ -335,11 +336,27 @@ const ProfilePage = () => {
                   {blockedUserCount}
                 </Badge>
               </div>
+              {blockedUserIds.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Blocked list" : "Λίστα αποκλεισμών"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {blockedUserIds.map((blockedUserId) => (
+                      <span
+                        key={blockedUserId}
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/70"
+                      >
+                        {blockedUserId.slice(0, 8)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/60">
                 {language === "en"
                   ? "No public profile browsing, no follower counts, and no pressure to perform. Your account only remembers what helps Echoo work better for you."
                   : "Χωρίς δημόσια περιήγηση προφίλ, χωρίς counts followers και χωρίς πίεση για επίδειξη. Ο λογαριασμός σου θυμάται μόνο ό,τι βοηθά το Echoo να δουλεύει καλύτερα για σένα."}
               </div>
+
             </Surface>
           </div>
         </div>

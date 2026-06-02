@@ -151,6 +151,7 @@ interface PresenceContextValue {
   userId: string | null;
   isAdmin: boolean;
   blockedUserCount: number;
+  blockedUserIds: string[];
   accountRestriction: AccountRestriction;
 
   login: (method: AuthMethod, email?: string) => Promise<void>;
@@ -850,6 +851,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const matchingIntervalRef = useRef<number | null>(null);
 
   const copy = useMemo(() => getCopy(language), [language]);
+
+  const refreshBlockedUsers = useCallback(async () => {
+    if (!userId) {
+      setBlockedUserIds([]);
+      setBlockedUsersLoaded(false);
+      return [] as string[];
+    }
+
+    const blockedIds = await loadBlockedUserIds(userId);
+    setBlockedUserIds(blockedIds);
+    setBlockedUsersLoaded(true);
+    writeStoredBlockedUsers(userId, blockedIds);
+    return blockedIds;
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3219,21 +3234,30 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     const partnerId = room.userA === userId ? room.userB : room.userA;
+    const nextBlockedIds = blockedUserIds.includes(partnerId) ? blockedUserIds : [...blockedUserIds, partnerId];
+
+    setBlockedUserIds(nextBlockedIds);
+    setBlockedUsersLoaded(true);
+    writeStoredBlockedUsers(userId, nextBlockedIds);
+
+    let blockPersisted = false;
     try {
       await persistBlock(room.id, userId, partnerId);
+      blockPersisted = true;
+      await refreshBlockedUsers();
     } catch {
       // Guest sessions and transient auth failures still get a local block.
     }
 
-    if (!blockedUserIds.includes(partnerId)) {
-      const nextBlockedIds = [...blockedUserIds, partnerId];
+    if (!blockPersisted) {
       setBlockedUserIds(nextBlockedIds);
+      setBlockedUsersLoaded(true);
       writeStoredBlockedUsers(userId, nextBlockedIds);
     }
 
     toast.success(copy.misc.blocked);
     leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
-  }, [blockedUserIds, copy.misc.blocked, language, leaveRoom, room, userId]);
+  }, [blockedUserIds, copy.misc.blocked, language, leaveRoom, refreshBlockedUsers, room, userId]);
 
   const startNewSessionFromEndedRoom = useCallback(async () => {
     if (room) {
@@ -3290,7 +3314,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       userId,
       isAdmin,
       blockedUserCount: blockedUserIds.length,
+      blockedUserIds,
       accountRestriction,
+
       login,
 
       logout,
