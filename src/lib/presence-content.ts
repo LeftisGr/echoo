@@ -208,6 +208,10 @@ export const copy = {
       cancel: "Leave queue",
       changeFilters: "Adjust preferences",
       found: "A room is opening...",
+      backLeaveTitle: "Leave queue?",
+      backLeaveBody: "You will stop searching for a conversation.",
+      backStay: "Stay",
+      backLeave: "Leave",
 
       relaxed: "No one feels ready yet. Stay softly in the queue?",
       offline: "You’re offline. We’ll keep listening when the connection returns.",
@@ -219,6 +223,10 @@ export const copy = {
     session: {
       title: "Private room",
       textNote: "Text comes first. Voice opens only after the room has settled.",
+      backLeaveTitle: "Leave conversation?",
+      backLeaveBody: "Your current room will be closed.",
+      backStay: "Stay",
+      backLeave: "Leave",
       demoTimer: "The room learns your pace before voice opens.",
 
       leave: "Leave",
@@ -526,6 +534,10 @@ export const copy = {
       cancel: "Έξοδος από την ουρά",
       changeFilters: "Ρύθμισε προτιμήσεις",
       found: "Ένα room ανοίγει...",
+      backLeaveTitle: "Να φύγεις από την ουρά;",
+      backLeaveBody: "Θα σταματήσεις να αναζητάς μια συνομιλία.",
+      backStay: "Μείνε",
+      backLeave: "Έξοδος",
 
       relaxed: "Δεν νιώθει έτοιμος κανείς ακόμη. Να μείνεις απαλά στην ουρά;",
       offline: "Είσαι offline. Θα συνεχίσουμε όταν επιστρέψει η σύνδεση.",
@@ -537,6 +549,10 @@ export const copy = {
     session: {
       title: "Ιδιωτικό room",
       textNote: "Το text έρχεται πρώτο. Η φωνή ανοίγει μόνο όταν το room ηρεμήσει.",
+      backLeaveTitle: "Να φύγεις από τη συνομιλία;",
+      backLeaveBody: "Το τωρινό room θα κλείσει.",
+      backStay: "Μείνε",
+      backLeave: "Έξοδος",
       demoTimer: "Το room μαθαίνει τον ρυθμό σας πριν ανοίξει η φωνή.",
 
       leave: "Έξοδος",

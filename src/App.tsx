@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,6 +49,93 @@ function writeStoredRoute(route: string) {
   }
 
   window.sessionStorage.setItem(routeStorageKey, route);
+}
+
+function BackNavigationGuard() {
+  const { queue, room, cancelQueue, leaveRoom, copy, language } = usePresence();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [modalOpen, setModalOpen] = useState(false);
+  const pendingActionRef = useRef<"queue" | "room" | null>(null);
+  const armedRef = useRef(false);
+  const currentUrl = `${location.pathname}${location.search}${location.hash}`;
+  const guardMode = room?.status === "active" ? "room" : queue.active ? "queue" : null;
+
+  const closeModal = useCallback(() => {
+    pendingActionRef.current = null;
+    setModalOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!guardMode) {
+      armedRef.current = false;
+      closeModal();
+      return;
+    }
+
+    if (modalOpen) {
+      pendingActionRef.current = guardMode;
+    }
+
+    if (!armedRef.current) {
+      armedRef.current = true;
+      window.history.pushState({ echooBackGuard: true, guardMode, currentUrl }, "", currentUrl);
+    }
+  }, [closeModal, currentUrl, guardMode, modalOpen]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!guardMode) {
+        return;
+      }
+
+      pendingActionRef.current = guardMode;
+      setModalOpen(true);
+      window.history.pushState({ echooBackGuard: true, guardMode, currentUrl }, "", currentUrl);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [currentUrl, guardMode]);
+
+  const handleLeave = useCallback(async () => {
+    const action = pendingActionRef.current;
+    closeModal();
+
+    if (action === "queue") {
+      await cancelQueue();
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    if (action === "room") {
+      leaveRoom(copy.session.partnerDisconnected);
+    }
+  }, [cancelQueue, closeModal, copy.session.partnerDisconnected, leaveRoom, navigate]);
+
+  const title = pendingActionRef.current === "room" ? copy.session.backLeaveTitle : copy.queue.backLeaveTitle;
+  const body = pendingActionRef.current === "room" ? copy.session.backLeaveBody : copy.queue.backLeaveBody;
+  const stayLabel = pendingActionRef.current === "room" ? copy.session.backStay : copy.queue.backStay;
+  const leaveLabel = pendingActionRef.current === "room" ? copy.session.backLeave : copy.queue.backLeave;
+
+  return (
+    <AlertDialog open={modalOpen} onOpenChange={(open) => (!open ? closeModal() : setModalOpen(true))}>
+      <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-white/55">{body}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={closeModal}>
+            {stayLabel}
+          </AlertDialogCancel>
+          <AlertDialogAction className="rounded-full bg-rose-500 text-white hover:bg-rose-400" onClick={() => void handleLeave()}>
+            {leaveLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 function AppRoutes() {
@@ -123,7 +211,9 @@ function AppRoutes() {
   }
 
   return (
-    <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <>
+      <BackNavigationGuard />
+      <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       <Routes location={location}>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<AuthPage />} />
@@ -147,7 +237,8 @@ function AppRoutes() {
         <Route path="/admin/presence" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </div>
+      </div>
+    </>
   );
 }
 
