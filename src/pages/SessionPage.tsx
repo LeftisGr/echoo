@@ -381,16 +381,6 @@ const SessionPage = () => {
         const userBSignal = signalMap.get(room.userB);
 
         if (!userASignal || !userBSignal) {
-          console.log("[session] Badge result", {
-            roomId: room.id,
-            badgeResult: null,
-            visible: false,
-            reason,
-            missing: {
-              userA: Boolean(userASignal),
-              userB: Boolean(userBSignal),
-            },
-          });
           clearPresenceBadge();
           return;
         }
@@ -406,29 +396,7 @@ const SessionPage = () => {
         const distanceKm = getApproxDistance(userACoords, userBCoords);
         const badgeResult = getPresenceLabel(distanceKm, language);
 
-        console.log("[session] User A coords", {
-          roomId: roomSnapshot.roomId,
-          userId: roomSnapshot.userA,
-          coords: userACoords,
-          reason,
-        });
-        console.log("[session] User B coords", {
-          roomId: roomSnapshot.roomId,
-          userId: roomSnapshot.userB,
-          coords: userBCoords,
-          reason,
-        });
-        console.log("[session] Distance", {
-          roomId: roomSnapshot.roomId,
-          distanceKm,
-          reason,
-        });
-        console.log("[session] Badge result", {
-          roomId: roomSnapshot.roomId,
-          badgeResult,
-          visible: true,
-          reason,
-        });
+
 
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
@@ -526,13 +494,8 @@ const SessionPage = () => {
   }, [room?.id]);
 
   useEffect(() => {
-    if (room) {
-      console.log("[room-flow] Room loaded", {
-        roomId: room.id,
-        routeRoomId: routeRoomId ?? null,
-        status: room.status,
-        partnerLoaded: Boolean(room.partner),
-      });
+    if (!room) {
+      return;
     }
   }, [room?.id, room?.status, room?.partner, routeRoomId]);
 
@@ -580,7 +543,7 @@ const SessionPage = () => {
     }
 
     voiceAutoStartRoomIdRef.current = room.id;
-    void startVoiceChat();
+    void startVoiceChat().catch(() => undefined);
   }, [appendSystemMessage, copy.session.voiceUnlocked, language, room?.id, room?.voiceUnlockedAt, startVoiceChat]);
 
   useEffect(() => {
@@ -2144,9 +2107,6 @@ const SessionPage = () => {
                   <Button
                     className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                     onClick={async () => {
-                      console.log("[room-flow] New room requested", {
-                        roomId: room?.id ?? null,
-                      });
                       await startNewSessionFromEndedRoom();
                       navigate("/queue");
                     }}

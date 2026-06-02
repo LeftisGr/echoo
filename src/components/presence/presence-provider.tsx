@@ -137,10 +137,9 @@ interface PresenceContextValue {
   hapticsEnabled: boolean;
   reconnectEnabled: boolean;
   matchSoundEnabled: boolean;
-  supporter: boolean;
-  setSupporter: (enabled: boolean) => void;
 
   initializing: boolean;
+
   authLoaded: boolean;
   roomLoaded: boolean;
   roomFlowError: string | null;
@@ -159,8 +158,8 @@ interface PresenceContextValue {
 
   logout: () => void;
 
-  rerollUsername: () => void;
   updateProfile: (updates: Partial<PresenceProfile>) => void;
+
   startQueue: () => Promise<void>;
   cancelQueue: () => Promise<void>;
   unlockVoice: () => void;
@@ -244,15 +243,8 @@ function createId() {
 }
 
 function PersistentVoiceAudio({ audioRef }: { audioRef: RefObject<HTMLAudioElement | null> }) {
-
-  useEffect(() => {
-    console.info("[rtc] audio element mounted");
-    return () => {
-      console.info("[rtc] audio element unmounted");
-    };
-  }, []);
-
   return (
+
     <audio
       ref={audioRef}
       autoPlay
@@ -915,18 +907,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.info("[rtc] manual audio enable requested");
     try {
       setVoiceMutedState(false);
       audioElement.muted = false;
       audioElement.volume = 1;
       await audioElement.play();
       setVoicePlaybackBlocked(false);
-      console.info("[rtc] manual audio enable success");
-    } catch (error) {
-      console.info("[rtc] manual audio enable failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+    } catch {
+      // Intentionally silent: the UI already reflects blocked playback.
     }
   }, []);
 
@@ -1523,16 +1511,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       contentCleanupInFlightRef.current = true;
       void cleanupExpiredEphemeralContent()
-        .then((result) => {
-          if (result) {
-            console.info("[media] cleanup success", result);
-          }
-        })
-
         .catch(() => undefined)
         .finally(() => {
           contentCleanupInFlightRef.current = false;
         });
+
     };
 
     runCleanup();
@@ -1569,49 +1552,54 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const interval = window.setInterval(async () => {
+    const interval = window.setInterval(() => {
+      void (async () => {
+        try {
+          const latestRoom = await loadRoomById(room.id);
+          if (latestRoom) {
+            setRoom((current) => {
+              if (!current || current.id !== room.id) {
+                return current;
+              }
 
-      const latestRoom = await loadRoomById(room.id);
-      if (latestRoom) {
-        setRoom((current) => {
-          if (!current || current.id !== room.id) {
-            return current;
+              return {
+                ...current,
+                endedAt: latestRoom.endedAt,
+                voiceEnabled: latestRoom.voiceEnabled,
+                rtcState: latestRoom.rtcState ?? current.rtcState,
+                rtcConnectionId: latestRoom.rtcConnectionId ?? current.rtcConnectionId,
+                rtcUpdatedAt: latestRoom.rtcUpdatedAt ?? current.rtcUpdatedAt,
+                voiceUnlockedAt: latestRoom.voiceUnlockedAt ?? current.voiceUnlockedAt,
+                typingUserId: latestRoom.typingUserId ?? current.typingUserId,
+                typingUpdatedAt: latestRoom.typingUpdatedAt ?? current.typingUpdatedAt,
+                status: latestRoom.endedAt ? "ended" : "active",
+              };
+            });
           }
 
-          return {
-            ...current,
-            endedAt: latestRoom.endedAt,
-            voiceEnabled: latestRoom.voiceEnabled,
-            rtcState: latestRoom.rtcState ?? current.rtcState,
-            rtcConnectionId: latestRoom.rtcConnectionId ?? current.rtcConnectionId,
-            rtcUpdatedAt: latestRoom.rtcUpdatedAt ?? current.rtcUpdatedAt,
-            voiceUnlockedAt: latestRoom.voiceUnlockedAt ?? current.voiceUnlockedAt,
-            typingUserId: latestRoom.typingUserId ?? current.typingUserId,
-            typingUpdatedAt: latestRoom.typingUpdatedAt ?? current.typingUpdatedAt,
-            status: latestRoom.endedAt ? "ended" : "active",
-          };
-        });
-      }
+          const latestMessages = (await loadRoomMessages(room.id)) as ChatMessage[];
+          setRoom((current) => {
+            if (!current || current.id !== room.id) {
+              return current;
+            }
 
-      const latestMessages = (await loadRoomMessages(room.id)) as ChatMessage[];
-      setRoom((current) => {
-        if (!current || current.id !== room.id) {
-          return current;
+            const mergedMessages = latestMessages.reduce((acc: ChatMessage[], message) => {
+              if (acc.some((item) => item.id === message.id)) {
+                return acc;
+              }
+              acc.push(message);
+              return acc;
+            }, current.messages.slice());
+
+            return {
+              ...current,
+              messages: mergedMessages,
+            };
+          });
+        } catch {
+          // Ignore transient sync failures; the next tick will retry.
         }
-
-        const mergedMessages = latestMessages.reduce((acc: ChatMessage[], message) => {
-          if (acc.some((item) => item.id === message.id)) {
-            return acc;
-          }
-          acc.push(message);
-          return acc;
-        }, current.messages.slice());
-
-        return {
-          ...current,
-          messages: mergedMessages,
-        };
-      });
+      })();
     }, 2400);
 
     return () => window.clearInterval(interval);
@@ -1733,12 +1721,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       status: nextRoom.endedAt ? "ended" : "active",
     });
 
-    console.log("[room-flow] Room loaded", {
-      roomId: nextRoom.id,
-      currentUserId,
-      partnerLoaded: Boolean(partnerProfile),
-      messageCount: messages.length,
-    });
   }
 
   function stopRoomSubscriptions() {
@@ -1822,12 +1804,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log("[room-flow] Match found", {
-        currentUserId,
-        roomId: match.roomId,
-        partnerId: match.partnerId ?? null,
-        relaxed,
-      });
 
       if (match.partnerId && blockedUserIds.includes(match.partnerId)) {
         if (match.roomId) {
@@ -1863,12 +1839,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        console.log("[room-flow] Creating room", {
-          currentUserId,
-          roomId: match.roomId,
-        });
-
         let activeRoom: RoomRecord | null = (await loadRoomById(match.roomId)) as RoomRecord | null;
+
         if (!activeRoom) {
           activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
         }
@@ -1886,12 +1858,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
         playSoundFeedback("match", matchSoundEnabled);
 
-        console.log("[room-flow] Joining room", {
-          currentUserId,
-          roomId: activeRoom.id,
-        });
-
         await openRoom(activeRoom.id, currentUserId, activeRoom);
+
         setQueue(createInitialQueue(profile));
         setRoomFlowError(null);
         toast.success(copy.misc.sessionReady);
@@ -2239,12 +2207,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    console.log("[room-flow] Joining room", {
-      currentUserId,
-      roomId: roomSession.id,
-    });
-
     setRoom(roomSession);
+
     await hydrateRoomPartner(roomSession, currentUserId);
     subscribeToRoom(roomId, currentUserId);
 
@@ -2430,25 +2394,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [copy.misc.signedOut, profile, stopVoiceChat]);
 
 
-  const rerollUsername = useCallback(() => {}, []);
-
-  const setSupporter = useCallback((enabled: boolean) => {
-    setProfile((current) => {
-      if (!current) {
-        return current;
-      }
-
-      const nextProfile = {
-        ...current,
-        supporterBadge: enabled,
-        updatedAt: new Date().toISOString(),
-      };
-      void syncProfile(nextProfile);
-      return nextProfile;
-    });
-  }, []);
-
   const updateProfile = useCallback(
+
     (updates: Partial<PresenceProfile>) => {
       const safeUpdates = { ...updates };
       delete safeUpdates.username;
@@ -2497,13 +2444,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     setRoomFlowError(null);
-    console.log("[room-flow] Entering queue", {
-      userId: activeProfile.id,
-      preference: activeProfile.preference,
-      language: activeProfile.language,
-    });
 
     if (!profile) {
+
       setProfile(activeProfile);
       await syncProfile(activeProfile);
     }
@@ -2652,10 +2595,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const textGate = createFeatureGateSnapshot(room.startedAt, room.status)[FeatureGateKey.RealtimeTextChat];
       if (!textGate.unlocked) {
-        console.info("[gate] feature locked", {
-          feature: FeatureGateKey.RealtimeTextChat,
-          roomId: room.id,
-        });
         return false;
       }
 
@@ -2711,14 +2650,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           : featureGates[FeatureGateKey.EphemeralContent];
 
     if (!mediaGate.unlocked) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "blocked",
-        feature: mediaGate.key,
-        status: mediaGate.status,
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2753,12 +2686,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const isValidDuration = preview.kind === "video" ? (preview.durationSeconds ?? 0) <= MAX_VIDEO_DURATION_SECONDS : true;
 
     if (!isValidType || !isValidSize || !isValidDuration) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "validation",
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2809,12 +2738,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCooldownRef.current && now - mediaUploadCooldownRef.current < MEDIA_UPLOAD_COOLDOWN_MS) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "cooldown",
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2836,12 +2761,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     if (mediaUploadCountRef.current >= MAX_MEDIA_MESSAGES_PER_SESSION) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "limit-reached",
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2867,12 +2788,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       size: file.size,
     });
     if (!safety.allowed) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "rate-limited",
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2893,16 +2810,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       throw new Error("Please wait a moment before sending another media item.");
     }
 
-    console.info("[media] upload started", {
-
-      roomId: currentRoom.id,
-      userId: currentUser,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      kind: preview.kind,
-    });
     void logAnalyticsEvent("upload_started", {
+
       userId: currentUser,
       roomId: currentRoom.id,
       properties: {
@@ -2972,13 +2881,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       mediaUploadCooldownRef.current = Date.now();
       mediaUploadCountRef.current += 1;
 
-      console.info("[media] upload success", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        messageId: mediaMessage.id,
-        kind: preview.kind,
-      });
       void logAnalyticsEvent("upload_success", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -2989,12 +2893,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       playSoundFeedback("content-reveal", matchSoundEnabled);
 
     } catch (error) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        error: error instanceof Error ? error.message : String(error),
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
@@ -3364,9 +3264,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       reconnectEnabled,
       matchSoundEnabled,
-      supporter,
-      setSupporter,
       initializing,
+
       authLoaded,
       roomLoaded,
       roomFlowError,
@@ -3384,8 +3283,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       login,
 
       logout,
-      rerollUsername,
       updateProfile,
+
       startQueue,
       cancelQueue,
       unlockVoice,
@@ -3450,9 +3349,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setHapticsEnabled,
       setReconnectEnabled,
       setMatchSoundEnabledState,
-      setSupporter,
-      supporter,
       startNewSessionFromEndedRoom,
+
       startQueue,
       startVoiceChat,
       stopVoiceChat,

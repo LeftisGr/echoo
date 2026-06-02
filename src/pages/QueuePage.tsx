@@ -34,11 +34,10 @@ const QueuePage = () => {
     }
 
     if (queue.active && !room && !matchTransition) {
-      console.log("[room-flow] Entering queue", {
-        queueJoinedAt: queue.joinedAt,
-        active: queue.active,
-      });
+      // queue state already handled by the presence provider
     }
+
+
 
     if (!queue.active && !room && !matchTransition) {
       setElapsedSeconds(0);
@@ -65,15 +64,21 @@ const QueuePage = () => {
       return;
     }
 
+    let timeout: number | null = null;
     const interval = window.setInterval(() => {
       setMessageFading(true);
-      window.setTimeout(() => {
+      timeout = window.setTimeout(() => {
         setMessageIndex((current) => (current + 1) % queueMessages[language].length);
         setMessageFading(false);
       }, 160);
     }, 3000);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      if (timeout !== null) {
+        window.clearTimeout(timeout);
+      }
+    };
   }, [language, queue.active, room, matchTransition]);
 
   const phase = matchTransition ? "match-found" : room ? "opening" : elapsedSeconds < loadingWindowSeconds ? "loading" : "searching";

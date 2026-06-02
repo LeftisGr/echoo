@@ -118,28 +118,6 @@ export function useFeatureGates(startedAt: string | null | undefined, roomStatus
       }
 
       previousStatusRef.current[key] = gate.status;
-      if (gate.status === "unlocked") {
-        if (import.meta.env.DEV) {
-          console.info("[gate] feature unlocked", {
-            feature: key,
-            unlockedAt: gate.unlockedAt,
-            secondsUntilUnlock: gate.secondsUntilUnlock,
-          });
-        }
-      } else if (gate.status === "locked") {
-        if (import.meta.env.DEV) {
-          console.info("[gate] feature locked", {
-            feature: key,
-            secondsUntilUnlock: gate.secondsUntilUnlock,
-          });
-        }
-      } else {
-        if (import.meta.env.DEV) {
-          console.info("[gate] feature expired", {
-            feature: key,
-          });
-        }
-      }
     });
   }, [gates]);
 

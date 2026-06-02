@@ -44,31 +44,9 @@ export interface VoiceTransmissionDiagnostics {
   lastStatsAt: string | null;
 }
 
-function rtcLog(message: string, data?: unknown) {
-  if (!import.meta.env.DEV) {
-    return;
-  }
+function rtcLog(_message: string, _data?: unknown) {}
 
-  if (data !== undefined) {
-    console.info("[rtc]", message, data);
-    return;
-  }
-
-  console.info("[rtc]", message);
-}
-
-function pttLog(message: string, data?: unknown) {
-  if (!import.meta.env.DEV) {
-    return;
-  }
-
-  if (data !== undefined) {
-    console.info("[ptt]", message, data);
-    return;
-  }
-
-  console.info("[ptt]", message);
-}
+function pttLog(_message: string, _data?: unknown) {}
 
 function trackSnapshot(track: MediaStreamTrack) {
 
