@@ -714,5 +714,11 @@ export function createClient(url: string, key: string) {
     channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
       return new ChannelShim(topic ?? "default", options?.config?.presence?.key);
     },
+    async removeChannel(channel: { unsubscribe?: () => Promise<unknown> } | null) {
+      if (channel?.unsubscribe) {
+        await channel.unsubscribe();
+      }
+      return channel;
+    },
   };
 }
