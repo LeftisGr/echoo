@@ -34,12 +34,11 @@ const QueuePage = () => {
     }
 
     if (queue.active && !room && !matchTransition) {
-      // queue state already handled by the presence provider
+      return;
     }
 
-
-
     if (!queue.active && !room && !matchTransition) {
+
       setElapsedSeconds(0);
       setMessageIndex(0);
       setMessageFading(false);
@@ -64,20 +63,19 @@ const QueuePage = () => {
       return;
     }
 
-    let timeout: number | null = null;
+    const timeoutIds: number[] = [];
     const interval = window.setInterval(() => {
       setMessageFading(true);
-      timeout = window.setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         setMessageIndex((current) => (current + 1) % queueMessages[language].length);
         setMessageFading(false);
       }, 160);
+      timeoutIds.push(timeoutId);
     }, 3000);
 
     return () => {
       window.clearInterval(interval);
-      if (timeout !== null) {
-        window.clearTimeout(timeout);
-      }
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
     };
   }, [language, queue.active, room, matchTransition]);
 

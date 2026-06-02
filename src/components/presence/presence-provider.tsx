@@ -2711,12 +2711,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
 
     if (mediaUploadInFlightRef.current) {
-      console.info("[media] upload failed", {
-        roomId: currentRoom.id,
-        userId: currentUser,
-        reason: "in-flight",
-      });
       void logAnalyticsEvent("upload_failed", {
+
         userId: currentUser,
         roomId: currentRoom.id,
         properties: {
