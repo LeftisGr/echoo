@@ -30,6 +30,8 @@ import { SessionTypingIndicator } from "@/components/session/session-typing-indi
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_MEDIA_MESSAGES_PER_SESSION,
@@ -167,10 +169,12 @@ const SessionPage = () => {
   const [recentMessageId, setRecentMessageId] = useState<string | null>(null);
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
   const [presenceDistanceKm, setPresenceDistanceKm] = useState<number | null>(null);
+  const [presenceBadgeReady, setPresenceBadgeReady] = useState(false);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
+  const presenceRefreshRunIdRef = useRef(0);
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
@@ -273,27 +277,81 @@ const SessionPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!room || !profile) {
+      return;
+    }
+
+    return () => {
+      void deleteRoomPresenceSignal(room.id, profile.id).catch(() => undefined);
+    };
+  }, [profile?.id, room?.id]);
+
+  useEffect(() => {
+    if (!room || !profile || room.status === "active") {
+      return;
+    }
+
+    void deleteRoomPresenceSignal(room.id, profile.id).catch(() => undefined);
+  }, [profile?.id, room?.id, room?.status]);
 
   useEffect(() => {
     if (!room || !profile || room.status !== "active") {
       setPresenceDistanceKm(null);
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setPresenceDistanceKm(null);
+      setPresenceBadgeReady(false);
       return;
     }
 
     let cancelled = false;
+    const runId = ++presenceRefreshRunIdRef.current;
     let refreshTimer: number | null = null;
     let settleTimer: number | null = null;
 
-    const refreshPresence = async () => {
+    setPresenceDistanceKm(null);
+    setPresenceBadgeReady(false);
+
+    const clearPresenceBadge = () => {
+      if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+        return;
+      }
+
+      setPresenceDistanceKm(null);
+      setPresenceBadgeReady(false);
+    };
+
+    const refreshPresence = async (reason: string) => {
+      if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+        return;
+      }
+
+      const roomSnapshot = {
+        roomId: room.id,
+        userA: room.userA,
+        userB: room.userB,
+        status: room.status,
+      };
+
+      if (!navigator.geolocation) {
+        clearPresenceBadge();
+        return;
+      }
 
       try {
+        const permissionStatus = navigator.permissions
+          ? await navigator.permissions.query({ name: "geolocation" as PermissionName })
+          : null;
+
+        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+          return;
+        }
+
+        if (permissionStatus && permissionStatus.state !== "granted") {
+          clearPresenceBadge();
+          return;
+        }
+
         const position = await requestApproximatePosition();
-        if (cancelled) {
+        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
 
@@ -307,44 +365,115 @@ const SessionPage = () => {
           updatedAt: new Date().toISOString(),
         });
 
-        if (cancelled) {
+        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
 
         const signals = await loadRoomPresenceSignals(room.id);
-        if (cancelled) {
+        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
 
-        const partnerSignal = signals.find((signal) => signal.user_id !== profile.id);
-        if (!partnerSignal) {
-          setPresenceDistanceKm(null);
+        const signalMap = new Map(signals.map((signal) => [signal.user_id, signal]));
+        const userASignal = signalMap.get(room.userA);
+        const userBSignal = signalMap.get(room.userB);
+
+        if (!userASignal || !userBSignal) {
+          console.log("[session] Badge result", {
+            roomId: room.id,
+            badgeResult: null,
+            visible: false,
+            reason,
+            missing: {
+              userA: Boolean(userASignal),
+              userB: Boolean(userBSignal),
+            },
+          });
+          clearPresenceBadge();
           return;
         }
 
-        const distanceKm = getApproxDistance(currentPoint, {
-          latitude: partnerSignal.coarse_latitude,
-          longitude: partnerSignal.coarse_longitude,
+        const userACoords = {
+          latitude: userASignal.coarse_latitude,
+          longitude: userASignal.coarse_longitude,
+        };
+        const userBCoords = {
+          latitude: userBSignal.coarse_latitude,
+          longitude: userBSignal.coarse_longitude,
+        };
+        const distanceKm = getApproxDistance(userACoords, userBCoords);
+        const badgeResult = getPresenceLabel(distanceKm, language);
+
+        console.log("[session] User A coords", {
+          roomId: roomSnapshot.roomId,
+          userId: roomSnapshot.userA,
+          coords: userACoords,
+          reason,
         });
+        console.log("[session] User B coords", {
+          roomId: roomSnapshot.roomId,
+          userId: roomSnapshot.userB,
+          coords: userBCoords,
+          reason,
+        });
+        console.log("[session] Distance", {
+          roomId: roomSnapshot.roomId,
+          distanceKm,
+          reason,
+        });
+        console.log("[session] Badge result", {
+          roomId: roomSnapshot.roomId,
+          badgeResult,
+          visible: true,
+          reason,
+        });
+
+        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+          return;
+        }
+
         setPresenceDistanceKm(distanceKm);
+        setPresenceBadgeReady(true);
       } catch (error) {
         const maybeError = error as GeolocationPositionError | Error | null;
         if (maybeError && "code" in maybeError && maybeError.code === 1) {
-          setPresenceDistanceKm(null);
+          clearPresenceBadge();
           return;
         }
 
-        setPresenceDistanceKm(null);
+        clearPresenceBadge();
       }
     };
 
-    void refreshPresence();
+    const roomPresenceChannel = supabase
+      .channel(`session-presence-${room.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_presence_signals", filter: `room_id=eq.${room.id}` }, (payload) => {
+        const signalUserId = (payload.new as { user_id?: string } | null | undefined)?.user_id ?? null;
+        if (signalUserId === profile.id) {
+          return;
+        }
+
+        void refreshPresence("peer-location-update");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, () => {
+        void refreshPresence("room-state-change");
+      })
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") {
+          clearPresenceBadge();
+          return;
+        }
+
+        void refreshPresence("reconnect");
+      });
+
+    void refreshPresence("initial-load");
     settleTimer = window.setTimeout(() => {
-      void refreshPresence();
-    }, 3000);
+      void refreshPresence("settled-load");
+    }, 2500);
     refreshTimer = window.setInterval(() => {
-      void refreshPresence();
-    }, 5 * 60 * 1000);
+      void refreshPresence("poll-sync");
+    }, 15000);
 
     return () => {
       cancelled = true;
@@ -354,10 +483,9 @@ const SessionPage = () => {
       if (refreshTimer !== null) {
         window.clearInterval(refreshTimer);
       }
-      void deleteRoomPresenceSignal(room.id, profile.id).catch(() => undefined);
+      void supabase.removeChannel(roomPresenceChannel);
     };
-
-  }, [profile?.id, room?.id, room?.status]);
+  }, [language, online, profile?.id, room?.id, room?.partner?.id, room?.rtcConnectionId, room?.rtcState, room?.status, room?.typingUserId, room?.voiceUnlockedAt, voiceState]);
 
   useEffect(() => {
 
@@ -961,7 +1089,7 @@ const SessionPage = () => {
           ? "border-rose-400/18 bg-[#28161a]/92"
           : "border-violet-300/18 bg-[#151826]/92";
 
-  const presenceLabel = presenceDistanceKm !== null ? getPresenceLabel(presenceDistanceKm, language) : null;
+  const presenceLabel = presenceBadgeReady && presenceDistanceKm !== null ? getPresenceLabel(presenceDistanceKm, language) : null;
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
