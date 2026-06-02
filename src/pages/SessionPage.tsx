@@ -339,20 +339,24 @@ const SessionPage = () => {
       }
 
       try {
-        const permissionStatus = navigator.permissions
-          ? await navigator.permissions.query({ name: "geolocation" as PermissionName })
-          : null;
+        if (navigator.permissions) {
+          try {
+            const permissionStatus = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+            if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+              return;
+            }
 
-        if (cancelled || runId !== presenceRefreshRunIdRef.current) {
-          return;
-        }
-
-        if (permissionStatus && permissionStatus.state !== "granted") {
-          clearPresenceBadge();
-          return;
+            if (permissionStatus.state === "denied") {
+              clearPresenceBadge();
+              return;
+            }
+          } catch {
+            // If permission state can't be queried, still ask the browser normally.
+          }
         }
 
         const position = await requestApproximatePosition();
+
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
