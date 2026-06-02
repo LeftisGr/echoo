@@ -1427,17 +1427,41 @@ const SessionPage = () => {
                   <Flag className="mr-1 h-3 w-3" />
                   {language === "en" ? "Report" : "Αναφορά"}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-6 w-fit rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
-                  onClick={() => {
-                    void blockCurrentPartner();
-                  }}
-                >
-                  <PhoneOff className="mr-1 h-3 w-3" />
-                  {language === "en" ? "Block" : "Αποκλεισμός"}
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-6 w-fit rounded-full border-rose-300/15 bg-rose-500/10 px-2 text-[10px] font-medium text-rose-50/75 hover:bg-rose-500/15 hover:text-rose-50"
+                    >
+                      <PhoneOff className="mr-1 h-3 w-3" />
+                      {language === "en" ? "Block" : "Αποκλεισμός"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white sm:max-w-md">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{language === "en" ? "Block this user?" : "Να γίνει αποκλεισμός αυτού του χρήστη;"}</AlertDialogTitle>
+                      <AlertDialogDescription className="text-white/55">
+                        {language === "en"
+                          ? "You will not be matched with this person again."
+                          : "Δεν θα ξαναταιριάξετε με αυτό το άτομο."}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                        {language === "en" ? "Cancel" : "Ακύρωση"}
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                        onClick={() => {
+                          void blockCurrentPartner();
+                        }}
+                      >
+                        {language === "en" ? "Block User" : "Αποκλεισμός χρήστη"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 {voicePlaybackBlocked && (
                   <Button
                     type="button"
@@ -1450,6 +1474,7 @@ const SessionPage = () => {
                     {language === "en" ? "Audio on" : "Ήχος on"}
                   </Button>
                 )}
+
               </div>
             </div>
 
@@ -1510,7 +1535,6 @@ const SessionPage = () => {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </header>
