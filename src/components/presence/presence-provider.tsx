@@ -583,25 +583,25 @@ function writeStoredRoute(route: string | null) {
 
 function readStoredState(): PresenceStoredState {
   if (typeof window === "undefined") {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 
   const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<PresenceStoredState>;
     return {
-      language: parsed.language ?? "el",
+      language: parsed.language ?? "en",
       authenticated: parsed.authenticated ?? false,
       reportsCount: parsed.reportsCount ?? 0,
       ratings: parsed.ratings ?? [],
       matchSoundEnabled: parsed.matchSoundEnabled ?? true,
     };
   } catch {
-    return { language: "el", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
+    return { language: "en", authenticated: false, reportsCount: 0, ratings: [], matchSoundEnabled: true };
   }
 }
 
