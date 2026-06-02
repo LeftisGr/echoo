@@ -18,7 +18,7 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction } = usePresence();
+  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction, roomFlowError } = usePresence();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -33,12 +33,19 @@ const QueuePage = () => {
       return;
     }
 
+    if (queue.active && !room && !matchTransition) {
+      console.log("[room-flow] Entering queue", {
+        queueJoinedAt: queue.joinedAt,
+        active: queue.active,
+      });
+    }
+
     if (!queue.active && !room && !matchTransition) {
       setElapsedSeconds(0);
       setMessageIndex(0);
       setMessageFading(false);
     }
-  }, [authenticated, queue.active, room, matchTransition]);
+  }, [authenticated, queue.active, queue.joinedAt, room, matchTransition]);
 
   useEffect(() => {
     if (!queue.active || room || matchTransition) {
@@ -143,6 +150,32 @@ const QueuePage = () => {
     return <Navigate to={`/session/${room.id}`} replace />;
   }
 
+  if (roomFlowError && !room && !matchTransition) {
+    return (
+      <PageShell className="flex items-center">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Room error" : "Σφάλμα room"}
+            title={language === "en" ? "We couldn’t open that room" : "Δεν μπορέσαμε να ανοίξουμε το room"}
+            body={roomFlowError}
+            status={language === "en" ? "Please try again from the dashboard." : "Δοκίμασε ξανά από το dashboard."}
+            tone="rose"
+            action={
+              <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                <Link to="/dashboard">{language === "en" ? "Go to dashboard" : "Πήγαινε στο dashboard"}</Link>
+              </Button>
+            }
+            secondaryAction={
+              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Link to="/">{copy.nav.home}</Link>
+              </Button>
+            }
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
   if (accountRestriction.status !== "ok" && !room && !matchTransition) {
     return (
       <PageShell className="flex items-center">
@@ -179,6 +212,7 @@ const QueuePage = () => {
   }
 
   if (!queue.active && !room && !matchTransition) {
+
     return <Navigate to="/dashboard" replace />;
   }
 

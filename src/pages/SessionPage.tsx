@@ -121,8 +121,10 @@ const SessionPage = () => {
     room,
 
     roomLoaded,
+    roomFlowError,
 
     profile,
+
     copy,
     language,
     matchSoundEnabled,
@@ -522,6 +524,17 @@ const SessionPage = () => {
   useEffect(() => {
     setMessageReactions({});
   }, [room?.id]);
+
+  useEffect(() => {
+    if (room) {
+      console.log("[room-flow] Room loaded", {
+        roomId: room.id,
+        routeRoomId: routeRoomId ?? null,
+        status: room.status,
+        partnerLoaded: Boolean(room.partner),
+      });
+    }
+  }, [room?.id, room?.status, room?.partner, routeRoomId]);
 
   useEffect(() => {
 
@@ -989,7 +1002,7 @@ const SessionPage = () => {
   }, [releasePushToTalk, room?.id, room?.status]);
 
 
-  if (initializing || !appReady || !roomLoaded || (queue.active && !room)) {
+  if ((initializing || !appReady || !roomLoaded || (queue.active && !room)) && !roomFlowError) {
     const loadingTitle = queue.active
       ? language === "en"
         ? "Finding your room..."
@@ -1024,6 +1037,32 @@ const SessionPage = () => {
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (roomFlowError && !room) {
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Room error" : "Σφάλμα room"}
+            title={language === "en" ? "We couldn’t finish your room" : "Δεν μπορέσαμε να ολοκληρώσουμε το room"}
+            body={roomFlowError}
+            status={language === "en" ? "Please go back to the dashboard and try again." : "Πήγαινε πίσω στο dashboard και δοκίμασε ξανά."}
+            tone="rose"
+            action={
+              <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                <Link to="/dashboard">{language === "en" ? "Go to dashboard" : "Πήγαινε στο dashboard"}</Link>
+              </Button>
+            }
+            secondaryAction={
+              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Link to="/queue">{language === "en" ? "Go to queue" : "Πήγαινε στην ουρά"}</Link>
+              </Button>
+            }
+          />
+        </div>
+      </PageShell>
+    );
   }
 
   if (!room) {
@@ -2105,9 +2144,13 @@ const SessionPage = () => {
                   <Button
                     className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                     onClick={async () => {
+                      console.log("[room-flow] New room requested", {
+                        roomId: room?.id ?? null,
+                      });
                       await startNewSessionFromEndedRoom();
                       navigate("/queue");
                     }}
+
                   >
                     {language === "en" ? "Start a new room" : "Νεο room"}
 

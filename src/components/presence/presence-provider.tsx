@@ -144,7 +144,9 @@ interface PresenceContextValue {
   initializing: boolean;
   authLoaded: boolean;
   roomLoaded: boolean;
+  roomFlowError: string | null;
   appReady: boolean;
+
   sessionReady: boolean;
   presenceStats: RealtimePresenceStats;
   adminMetrics: AdminMetrics;
@@ -794,7 +796,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [initializing, setInitializing] = useState(true);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [roomLoaded, setRoomLoaded] = useState(false);
+  const [roomFlowError, setRoomFlowError] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
+
   const [sessionReady, setSessionReady] = useState(false);
   const [presenceStats, setPresenceStats] = useState<RealtimePresenceStats>({
     onlineCount: 0,
@@ -1242,6 +1246,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setAppReady(false);
       setAuthLoaded(false);
       setRoomLoaded(false);
+      setRoomFlowError(null);
       setSessionReady(false);
 
       setAuthenticated(Boolean(sessionUser));
@@ -1744,6 +1749,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         : [createSystemMessage(nextRoom.id, language === "en" ? "Connection opened. Stay curious and respectful." : "Η σύνδεση άνοιξε. Μείνε περίεργος και με σεβασμό.")],
       status: nextRoom.endedAt ? "ended" : "active",
     });
+
+    console.log("[room-flow] Room loaded", {
+      roomId: nextRoom.id,
+      currentUserId,
+      partnerLoaded: Boolean(partnerProfile),
+      messageCount: messages.length,
+    });
   }
 
   function stopRoomSubscriptions() {
@@ -1827,6 +1839,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      console.log("[room-flow] Match found", {
+        currentUserId,
+        roomId: match.roomId,
+        partnerId: match.partnerId ?? null,
+        relaxed,
+      });
+
       if (match.partnerId && blockedUserIds.includes(match.partnerId)) {
         if (match.roomId) {
           const blockedRoom = (await loadRoomById(match.roomId)) as RoomRecord | null;
@@ -1860,30 +1879,57 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      let activeRoom: RoomRecord | null = (await loadRoomById(match.roomId)) as RoomRecord | null;
-      if (!activeRoom) {
-        activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+      try {
+        console.log("[room-flow] Creating room", {
+          currentUserId,
+          roomId: match.roomId,
+        });
+
+        let activeRoom: RoomRecord | null = (await loadRoomById(match.roomId)) as RoomRecord | null;
+        if (!activeRoom) {
+          activeRoom = (await loadActiveRoomForUser(currentUserId)) as RoomRecord | null;
+        }
+
+        if (!activeRoom || activeRoom.endedAt || (activeRoom.userA !== currentUserId && activeRoom.userB !== currentUserId)) {
+          throw new Error("room_not_ready");
+        }
+
+        matchedRoomIdsRef.current.add(activeRoom.id);
+        stopQueueSubscriptions();
+        setMatchTransition({
+          roomId: activeRoom.id,
+          secondsLeft: 3,
+        });
+
+        playSoundFeedback("match", matchSoundEnabled);
+
+        console.log("[room-flow] Joining room", {
+          currentUserId,
+          roomId: activeRoom.id,
+        });
+
+        await openRoom(activeRoom.id, currentUserId, activeRoom);
+        setQueue(createInitialQueue(profile));
+        setRoomFlowError(null);
+        toast.success(copy.misc.sessionReady);
+        if (hapticsEnabled) {
+          vibrate([60, 40, 80]);
+        }
+      } catch (error) {
+        const friendlyMessage = language === "en"
+          ? "We couldn't open that room right now. Please try again."
+          : "Δεν μπορέσαμε να ανοίξουμε το room τώρα. Δοκίμασε ξανά.";
+        console.error("[room-flow] Room flow failed", {
+          currentUserId,
+          roomId: match.roomId,
+          error,
+        });
+        setMatchTransition(null);
+        setRoom(null);
+        setRoomFlowError(friendlyMessage);
+        toast.error(friendlyMessage);
       }
 
-      if (!activeRoom || activeRoom.endedAt || (activeRoom.userA !== currentUserId && activeRoom.userB !== currentUserId)) {
-        return;
-      }
-
-      matchedRoomIdsRef.current.add(activeRoom.id);
-      stopQueueSubscriptions();
-      setMatchTransition({
-        roomId: activeRoom.id,
-        secondsLeft: 3,
-      });
-
-      playSoundFeedback("match", matchSoundEnabled);
-
-      await openRoom(activeRoom.id, currentUserId, activeRoom);
-      setQueue(createInitialQueue(profile));
-      toast.success(copy.misc.sessionReady);
-      if (hapticsEnabled) {
-        vibrate([60, 40, 80]);
-      }
     } finally {
       matchmakingInFlightRef.current = false;
     }
@@ -2178,7 +2224,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const roomBase = existingRoom ?? ((await loadActiveRoomForUser(currentUserId)) as RoomRecord | null);
     if (!roomBase) {
-      return;
+      throw new Error("room_base_missing");
     }
 
     const roomSession: RoomSession = {
@@ -2209,6 +2255,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         },
       });
     }
+
+    console.log("[room-flow] Joining room", {
+      currentUserId,
+      roomId: roomSession.id,
+    });
 
     setRoom(roomSession);
     await hydrateRoomPartner(roomSession, currentUserId);
@@ -2378,7 +2429,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     writeStoredQueueState(null);
     setQueue(createInitialQueue(profile));
     setRoom(null);
+    setRoomFlowError(null);
     setVoiceState("idle");
+
     setVoiceDiagnostics(null);
     setIsAdmin(false);
     setGuestMode(false);
@@ -2449,6 +2502,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    setRoomFlowError(null);
+    console.log("[room-flow] Entering queue", {
+      userId: activeProfile.id,
+      preference: activeProfile.preference,
+      language: activeProfile.language,
+    });
+
     if (!profile) {
       setProfile(activeProfile);
       await syncProfile(activeProfile);
@@ -2474,53 +2534,60 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const safety = await recordSafetyEvent("queue_join", null, null, {
-
-      preference: activeProfile.preference,
-      language: activeProfile.language,
-    });
-    if (!safety.allowed) {
-      toast.error(language === "en" ? "Please wait a moment before starting another room." : "Περίμενε λίγο πριν ξεκινήσεις άλλο room.");
-      return;
-    }
-
-    stopQueueSubscriptions();
-    stopRoomSubscriptions();
-    matchingEnabledRef.current = false;
-    matchedRoomIdsRef.current.clear();
-    setMatchTransition(null);
-    setRoom(null);
-
-    await cleanupUserSession(activeProfile.id);
-
-    const nextQueue: QueueState = {
-
-      active: true,
-      joinedAt: new Date().toISOString(),
-      estimatedWaitSeconds: 18,
-      filters: {
+    try {
+      const safety = await recordSafetyEvent("queue_join", null, null, {
         preference: activeProfile.preference,
         language: activeProfile.language,
-      },
-      messageIndex: 0,
-      softRelaxed: false,
-    };
+      });
+      if (!safety.allowed) {
+        toast.error(language === "en" ? "Please wait a moment before starting another room." : "Περίμενε λίγο πριν ξεκινήσεις άλλο room.");
+        return;
+      }
 
-    setQueue(nextQueue);
-    writeStoredQueueState(nextQueue);
+      stopQueueSubscriptions();
+      stopRoomSubscriptions();
+      matchingEnabledRef.current = false;
+      matchedRoomIdsRef.current.clear();
+      setMatchTransition(null);
+      setRoom(null);
 
-    await joinQueue(activeProfile.id, {
-      preference: activeProfile.preference,
-      language: activeProfile.language,
-    });
+      await cleanupUserSession(activeProfile.id);
 
-    matchingEnabledRef.current = true;
-    void attemptRealtimeMatch(activeProfile.id, false, true).catch(() => undefined);
+      const nextQueue: QueueState = {
+        active: true,
+        joinedAt: new Date().toISOString(),
+        estimatedWaitSeconds: 18,
+        filters: {
+          preference: activeProfile.preference,
+          language: activeProfile.language,
+        },
+        messageIndex: 0,
+        softRelaxed: false,
+      };
 
-    if (hapticsEnabled) {
-      vibrate([40, 20, 40]);
+      setQueue(nextQueue);
+      writeStoredQueueState(nextQueue);
+
+      await joinQueue(activeProfile.id, {
+        preference: activeProfile.preference,
+        language: activeProfile.language,
+      });
+
+      matchingEnabledRef.current = true;
+      void attemptRealtimeMatch(activeProfile.id, false, true).catch(() => undefined);
+
+      if (hapticsEnabled) {
+        vibrate([40, 20, 40]);
+      }
+    } catch (error) {
+      const friendlyMessage = language === "en"
+        ? "We couldn’t start your queue right now. Please try again."
+        : "Δεν μπορέσαμε να ξεκινήσουμε την ουρά τώρα. Δοκίμασε ξανά.";
+      console.error("[room-flow] Queue entry failed", { userId: activeProfile.id, error });
+      setRoomFlowError(friendlyMessage);
+      toast.error(friendlyMessage);
     }
-  }, [authenticated, hapticsEnabled, language, profile, userId]);
+  }, [accountRestriction.reason, accountRestriction.status, authenticated, attemptRealtimeMatch, guestMode, hapticsEnabled, language, profile, userId]);
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
@@ -2540,6 +2607,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
     const nextQueue = createInitialQueue(profile);
     setQueue(nextQueue);
+    setRoomFlowError(null);
     writeStoredQueueState(nextQueue);
   }, [profile]);
 
@@ -3307,7 +3375,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       initializing,
       authLoaded,
       roomLoaded,
+      roomFlowError,
       appReady,
+
       sessionReady,
       presenceStats,
       adminMetrics,
@@ -3375,7 +3445,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       reportCurrentRoom,
       room,
       roomLoaded,
+      roomFlowError,
       userId,
+
       sendMessage,
       sendMediaMessage,
       sessionReady,
