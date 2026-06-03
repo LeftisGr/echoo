@@ -1,10 +1,4 @@
-import { usePresence } from "@/components/presence/presence-provider";
-import { usePwaInstall } from "@/hooks/use-pwa-install";
-
 export function PwaSplashScreen({ message }: { message: string }) {
-  const { language } = usePresence();
-  const { isStandalone } = usePwaInstall();
-
   return (
     <div className="flex h-[var(--app-height,100vh)] items-center justify-center bg-[#08101b] px-4 text-center text-white">
       <div className="max-w-sm space-y-5">
@@ -15,17 +9,9 @@ export function PwaSplashScreen({ message }: { message: string }) {
         </div>
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.35em] text-white/35">Echoo</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">
-            {isStandalone
-              ? language === "en"
-                ? "Opening Echoo..."
-                : "Ανοίγει το Echoo..."
-              : message}
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">{message}</h1>
           <p className="text-sm leading-6 text-white/55">
-            {language === "en"
-              ? "Your moment is being restored quietly in the background."
-              : "Το moment σου επανέρχεται ήσυχα στο παρασκήνιο."}
+            Your moment is being restored quietly in the background.
           </p>
         </div>
       </div>

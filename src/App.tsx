@@ -16,7 +16,7 @@ import { PresenceProvider, usePresence } from "@/components/presence/presence-pr
 
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
-import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
+import { PwaProvider } from "@/hooks/use-pwa-install";
 
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
@@ -152,13 +152,21 @@ function BackNavigationGuard() {
   );
 }
 
+function isStandaloneMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(display-mode: standalone)").matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 function AppLayoutContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { appReady, initializing, copy } = usePresence();
-  const { isStandalone } = usePwaInstall();
   const initialRouteHandledRef = useRef(false);
   const storedRoute = readStoredRoute();
+  const isStandalone = isStandaloneMode();
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
