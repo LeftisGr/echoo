@@ -307,8 +307,6 @@ const SessionPage = () => {
 
     let cancelled = false;
     const runId = ++presenceRefreshRunIdRef.current;
-    let refreshTimer: number | null = null;
-    let settleTimer: number | null = null;
 
     setPresenceDistanceKm(null);
     setPresenceBadgeReady(false);
@@ -322,17 +320,11 @@ const SessionPage = () => {
       setPresenceBadgeReady(false);
     };
 
-    const refreshPresence = async (reason: string) => {
+    const refreshPresence = async () => {
+
       if (cancelled || runId !== presenceRefreshRunIdRef.current) {
         return;
       }
-
-      const roomSnapshot = {
-        roomId: room.id,
-        userA: room.userA,
-        userB: room.userB,
-        status: room.status,
-      };
 
       if (!navigator.geolocation) {
         clearPresenceBadge();
@@ -362,13 +354,9 @@ const SessionPage = () => {
           return;
         }
 
-        const currentPoint = {
+        await upsertRoomPresenceSignal(room.id, profile.id, {
           latitude: position.latitude,
           longitude: position.longitude,
-        };
-
-        await upsertRoomPresenceSignal(room.id, profile.id, {
-          ...currentPoint,
           updatedAt: new Date().toISOString(),
         });
 
@@ -390,24 +378,23 @@ const SessionPage = () => {
           return;
         }
 
-        const userACoords = {
-          latitude: userASignal.coarse_latitude,
-          longitude: userASignal.coarse_longitude,
-        };
-        const userBCoords = {
-          latitude: userBSignal.coarse_latitude,
-          longitude: userBSignal.coarse_longitude,
-        };
-        const distanceKm = getApproxDistance(userACoords, userBCoords);
-        const badgeResult = getPresenceLabel(distanceKm, language);
-
-
+        const distanceKm = getApproxDistance(
+          {
+            latitude: userASignal.coarse_latitude,
+            longitude: userASignal.coarse_longitude,
+          },
+          {
+            latitude: userBSignal.coarse_latitude,
+            longitude: userBSignal.coarse_longitude,
+          },
+        );
 
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
 
         setPresenceDistanceKm(distanceKm);
+
         setPresenceBadgeReady(true);
       } catch (error) {
         const maybeError = error as GeolocationPositionError | Error | null;
@@ -428,39 +415,52 @@ const SessionPage = () => {
           return;
         }
 
-        void refreshPresence("peer-location-update");
+        void refreshPresence();
+
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, () => {
-        void refreshPresence("room-state-change");
+        void refreshPresence();
       })
       .subscribe((status) => {
+
         if (status !== "SUBSCRIBED") {
           clearPresenceBadge();
           return;
         }
 
-        void refreshPresence("reconnect");
+        void refreshPresence();
+
       });
 
-    void refreshPresence("initial-load");
-    settleTimer = window.setTimeout(() => {
-      void refreshPresence("settled-load");
-    }, 2500);
-    refreshTimer = window.setInterval(() => {
-      void refreshPresence("poll-sync");
-    }, 15000);
+    let permissionStatus: PermissionStatus | null = null;
+    const bindPermissionChange = async () => {
+      if (!navigator.permissions) {
+        return;
+      }
+
+      try {
+        permissionStatus = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        permissionStatus.onchange = () => {
+          void refreshPresence();
+        };
+
+      } catch {
+        permissionStatus = null;
+      }
+    };
+
+    void refreshPresence();
+
+    void bindPermissionChange();
 
     return () => {
       cancelled = true;
-      if (settleTimer !== null) {
-        window.clearTimeout(settleTimer);
-      }
-      if (refreshTimer !== null) {
-        window.clearInterval(refreshTimer);
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
       }
       void supabase.removeChannel(roomPresenceChannel);
     };
-  }, [language, online, profile?.id, room?.id, room?.partner?.id, room?.rtcConnectionId, room?.rtcState, room?.status, room?.typingUserId, room?.voiceUnlockedAt, voiceState]);
+  }, [online, profile?.id, room?.id, room?.rtcConnectionId, room?.rtcState, room?.status]);
 
   useEffect(() => {
 
@@ -1096,7 +1096,21 @@ const SessionPage = () => {
           ? "border-rose-400/18 bg-[#28161a]/92"
           : "border-violet-300/18 bg-[#151826]/92";
 
-  const presenceLabel = presenceBadgeReady && presenceDistanceKm !== null ? getPresenceLabel(presenceDistanceKm, language) : null;
+  const presenceTone = useMemo(() => {
+    if (!presenceBadgeReady || presenceDistanceKm === null) {
+      return null;
+    }
+
+    return presenceDistanceKm < 50 ? "nearby" : "away";
+  }, [presenceBadgeReady, presenceDistanceKm]);
+
+  const presenceLabel = useMemo(() => {
+    if (!presenceBadgeReady || presenceDistanceKm === null) {
+      return null;
+    }
+
+    return getPresenceLabel(presenceDistanceKm, language);
+  }, [language, presenceBadgeReady, presenceDistanceKm]);
 
   const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
 
@@ -1531,16 +1545,20 @@ const SessionPage = () => {
                 </AlertDialog>
 
                 {presenceLabel && (
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm">
+                  <div
+                    key={presenceTone ?? "unknown"}
+                    className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm"
+                  >
                     <span
                       className={cn(
                         "h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.02)]",
-                        presenceDistanceKm !== null && presenceDistanceKm < 50 ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
+                        presenceTone === "nearby" ? "bg-emerald-300 shadow-emerald-300/25" : "bg-sky-300 shadow-sky-300/20",
                       )}
                     />
                     <span className="text-[10px] font-medium uppercase tracking-[0.26em] text-white/55">{presenceLabel}</span>
                   </div>
                 )}
+
               </div>
             </div>
           </div>
