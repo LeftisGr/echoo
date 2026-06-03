@@ -85,10 +85,16 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
 
       const response = await requestEphemeralContentAccess(message.id);
 
+      if (!response) {
+        setError("Content will unlock when connection restores.");
+        return;
+      }
+
       setOpenedUrl(response.signedUrl);
       startViewerExpiryTimer();
     } catch (contentError) {
       setError(contentError instanceof Error ? contentError.message : "Could not open content.");
+
     } finally {
       setOpening(false);
     }

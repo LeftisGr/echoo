@@ -15,15 +15,16 @@ interface CleanupContentResponse {
   storageDeletedCount: number;
 }
 
-async function getAccessToken() {
+async function getSessionToken() {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
 
-export async function requestEphemeralContentAccess(messageId: string) {
-  const accessToken = await getAccessToken();
+export async function requestEphemeralContentAccess(messageId: string): Promise<SignedContentResponse | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token ?? null;
   if (!accessToken) {
-    throw new Error("Authentication is required.");
+    return null;
   }
 
   const response = await fetch(CONTENT_FUNCTION_URL, {
@@ -35,6 +36,10 @@ export async function requestEphemeralContentAccess(messageId: string) {
     body: JSON.stringify({ action: "sign", messageId }),
   });
 
+  if (response.status === 401) {
+    return null;
+  }
+
   const payload = (await response.json().catch(() => null)) as SignedContentResponse | { error?: string } | null;
   if (!response.ok) {
     throw new Error((payload && "error" in payload && payload.error) || "Could not open content.");
@@ -44,7 +49,7 @@ export async function requestEphemeralContentAccess(messageId: string) {
 }
 
 export async function cleanupExpiredEphemeralContent() {
-  const accessToken = await getAccessToken();
+  const accessToken = await getSessionToken();
   if (!accessToken) {
     return null;
   }
@@ -57,6 +62,10 @@ export async function cleanupExpiredEphemeralContent() {
     },
     body: JSON.stringify({ action: "cleanup" }),
   });
+
+  if (response.status === 401) {
+    return null;
+  }
 
   const payload = (await response.json().catch(() => null)) as CleanupContentResponse | { error?: string } | null;
   if (!response.ok) {

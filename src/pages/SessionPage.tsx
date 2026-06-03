@@ -320,14 +320,22 @@ const SessionPage = () => {
       setPresenceBadgeReady(false);
     };
 
-    const refreshPresence = async () => {
+    const removeOwnSignal = async () => {
+      if (cancelled || runId !== presenceRefreshRunIdRef.current) {
+        return;
+      }
 
+      await deleteRoomPresenceSignal(room.id, profile.id).catch(() => undefined);
+      clearPresenceBadge();
+    };
+
+    const refreshPresence = async () => {
       if (cancelled || runId !== presenceRefreshRunIdRef.current) {
         return;
       }
 
       if (!navigator.geolocation) {
-        clearPresenceBadge();
+        await removeOwnSignal();
         return;
       }
 
@@ -340,7 +348,7 @@ const SessionPage = () => {
             }
 
             if (permissionStatus.state === "denied") {
-              clearPresenceBadge();
+              await removeOwnSignal();
               return;
             }
           } catch {
@@ -358,6 +366,7 @@ const SessionPage = () => {
           latitude: position.latitude,
           longitude: position.longitude,
           updatedAt: new Date().toISOString(),
+          locationEnabled: true,
         });
 
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
@@ -373,33 +382,29 @@ const SessionPage = () => {
         const userASignal = signalMap.get(room.userA);
         const userBSignal = signalMap.get(room.userB);
 
-        if (!userASignal || !userBSignal) {
+        if (!userASignal || !userBSignal || !userASignal.location_enabled || !userBSignal.location_enabled) {
           clearPresenceBadge();
           return;
         }
 
-        const distanceKm = getApproxDistance(
-          {
-            latitude: userASignal.coarse_latitude,
-            longitude: userASignal.coarse_longitude,
-          },
-          {
-            latitude: userBSignal.coarse_latitude,
-            longitude: userBSignal.coarse_longitude,
-          },
-        );
+        const sourceLocation = userASignal.lat !== null && userASignal.lng !== null
+          ? { latitude: userASignal.lat, longitude: userASignal.lng }
+          : { latitude: userASignal.coarse_latitude, longitude: userASignal.coarse_longitude };
+        const targetLocation = userBSignal.lat !== null && userBSignal.lng !== null
+          ? { latitude: userBSignal.lat, longitude: userBSignal.lng }
+          : { latitude: userBSignal.coarse_latitude, longitude: userBSignal.coarse_longitude };
+        const distanceKm = getApproxDistance(sourceLocation, targetLocation);
 
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
         }
 
         setPresenceDistanceKm(distanceKm);
-
         setPresenceBadgeReady(true);
       } catch (error) {
         const maybeError = error as GeolocationPositionError | Error | null;
         if (maybeError && "code" in maybeError && maybeError.code === 1) {
-          clearPresenceBadge();
+          await removeOwnSignal();
           return;
         }
 
@@ -1041,11 +1046,19 @@ const SessionPage = () => {
   }
 
   if (!room) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (routeRoomId && routeRoomId !== room.id) {
-    return <Navigate to={`/session/${room.id}`} replace />;
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={language === "en" ? "Restoring your room..." : "Φέρνουμε ξανά το room σου..."}
+            body={language === "en" ? "Hold for a second while Echoo settles the room." : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room."}
+            status={language === "en" ? "Trying to reconnect the room gently..." : "Προσπαθούμε να επανασυνδέσουμε το room απαλά..."}
+            tone="sky"
+          />
+        </div>
+      </PageShell>
+    );
   }
 
   const isActive = room.status === "active";
@@ -1493,6 +1506,7 @@ const SessionPage = () => {
   return (
     <div className="h-[var(--app-height,100vh)] overflow-hidden bg-[#08101b] text-white">
       <div className="flex h-full min-h-0 flex-col">
+
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-3 py-2 pt-[calc(env(safe-area-inset-top,0px)+8px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-4 sm:py-2">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
             <div className="min-w-0 space-y-1 text-left">
@@ -2278,8 +2292,8 @@ const SessionPage = () => {
         </DialogContent>
       </Dialog>
       </div>
-    );
+  );
 
-  }
+}
 
 export default SessionPage;

@@ -5,6 +5,7 @@ export interface RoomPresencePoint {
   latitude: number;
   longitude: number;
   updatedAt: string;
+  locationEnabled: boolean;
 }
 
 export function roundPresenceCoordinate(value: number) {
@@ -37,11 +38,13 @@ export function getPresenceLabel(distanceKm: number, language: AppLanguage) {
 }
 
 interface RoomPresenceRow {
-
   room_id: string;
   user_id: string;
   coarse_latitude: number;
   coarse_longitude: number;
+  lat: number | null;
+  lng: number | null;
+  location_enabled: boolean;
   updated_at: string;
 }
 
@@ -50,6 +53,9 @@ export async function upsertRoomPresenceSignal(roomId: string, userId: string, p
     {
       room_id: roomId,
       user_id: userId,
+      location_enabled: point.locationEnabled,
+      lat: point.latitude,
+      lng: point.longitude,
       coarse_latitude: roundPresenceCoordinate(point.latitude),
       coarse_longitude: roundPresenceCoordinate(point.longitude),
       updated_at: point.updatedAt,
@@ -67,7 +73,7 @@ export async function upsertRoomPresenceSignal(roomId: string, userId: string, p
 export async function loadRoomPresenceSignals(roomId: string) {
   const { data, error } = await supabase
     .from("room_presence_signals")
-    .select("room_id, user_id, coarse_latitude, coarse_longitude, updated_at")
+    .select("room_id, user_id, coarse_latitude, coarse_longitude, lat, lng, location_enabled, updated_at")
     .eq("room_id", roomId);
 
   if (error) {
@@ -79,6 +85,9 @@ export async function loadRoomPresenceSignals(roomId: string) {
     user_id: row.user_id,
     coarse_latitude: Number(row.coarse_latitude),
     coarse_longitude: Number(row.coarse_longitude),
+    lat: row.lat === null ? null : Number(row.lat),
+    lng: row.lng === null ? null : Number(row.lng),
+    location_enabled: Boolean(row.location_enabled),
     updated_at: row.updated_at,
   })) as RoomPresenceRow[];
 }
