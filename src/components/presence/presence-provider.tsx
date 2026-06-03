@@ -1265,9 +1265,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setGuestMode(isGuestSession);
       setUserId(sessionUser?.id ?? null);
       setProfile(null);
-      setRoom(null);
       setQueue(createInitialQueue(null));
       setMatchTransition(null);
+
       setVoiceState("idle");
       setVoiceDiagnostics(null);
       setIsAdmin(false);

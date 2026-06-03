@@ -129,7 +129,7 @@ export function UnlockProgress({
 
   return (
     <div className="flex w-full justify-center">
-      <div className="w-full max-w-[22rem] sm:max-w-[24rem]">
+      <div className="shrink-0" style={{ width: "min(20rem, calc(100vw - 1.5rem))" }}>
         <div className="relative mx-auto min-h-[10rem] w-full overflow-visible rounded-[28px] border border-white/10 bg-white/5 px-4 py-5 text-center shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm sm:px-5 sm:py-6">
           {previousStage && renderStage(previousStage, !animateIn)}
           {renderStage(visibleStage, animateIn)}
