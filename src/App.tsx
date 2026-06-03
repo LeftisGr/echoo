@@ -298,8 +298,8 @@ const App = () => (
       <PwaProvider>
         <PwaBootstrap />
         <PresenceProvider>
-          <Toaster />
           <RouterProvider router={router} />
+          <Toaster />
         </PresenceProvider>
 
       </PwaProvider>
