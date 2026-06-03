@@ -125,9 +125,9 @@ export const copy = {
     },
     landing: {
       heroEyebrow: "Anonymous live conversation",
-      heroTitle: "Open a conversation nearby or online, without giving away who you are.",
+      heroTitle: "Anonymous conversations that unfold naturally.",
       heroBody:
-        "Echoo is a privacy-first space for live one-to-one conversation. Start with text, hold to talk when the room opens, and share temporary media that fades with the room.",
+        "No profile photos. No followers. No pressure. Start with text. Unlock voice later. Share content only when both people choose to.",
 
       heroPrimary: "Open a room",
 
@@ -453,9 +453,9 @@ export const copy = {
     },
     landing: {
       heroEyebrow: "Ανώνυμες live συνομιλίες",
-      heroTitle: "Άνοιξε μια κουβέντα κοντά σου ή online, χωρίς να αποκαλύψεις ποιος είσαι.",
+      heroTitle: "Ανώνυμες κουβέντες που ξεδιπλώνονται φυσικά.",
       heroBody:
-        "Το Echoo είναι ένας privacy-first χωρος για live one-to-one κουβεντες. Ξεκινα με text, κρατα για να μιλησεις οταν ανοιγει το room και μοιρασου προσωρινο media που σβηνει μαζι με το room.",
+        "Χωρίς φωτογραφίες προφίλ. Χωρίς followers. Χωρίς πίεση. Ξεκίνα με text. Ξεκλείδωσε τη φωνή αργότερα. Μοιράσου περιεχόμενο μόνο όταν το θέλουν και οι δύο.",
 
       heroPrimary: "Ανοιξε ενα room",
 

@@ -105,14 +105,13 @@ const Index = () => {
             <div className="space-y-4">
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
                 {language === "en"
-                  ? "Echoo helps people talk slowly, privately, and with less pressure."
-                  : "Το Echoo βοηθά ανθρώπους να μιλούν αργά, ιδιωτικά και με λιγότερη πίεση."}
+                  ? "Anonymous conversations that unfold naturally."
+                  : "Ανώνυμες κουβέντες που ξεδιπλώνονται φυσικά."}
               </h1>
               <p className="max-w-xl text-sm leading-7 text-white/65 sm:text-base">
-
                 {language === "en"
-                  ? "Start with anonymous text, let trust build naturally, and unlock voice only when the room feels ready."
-                  : "Ξεκίνα με ανώνυμο text, άσε την εμπιστοσύνη να χτιστεί φυσικά και άνοιξε τη φωνή μόνο όταν το room νιώσει έτοιμο."}
+                  ? "No profile photos. No followers. No pressure. Start with text. Unlock voice later. Share content only when both people choose to."
+                  : "Χωρίς φωτογραφίες προφίλ. Χωρίς followers. Χωρίς πίεση. Ξεκίνα με text. Ξεκλείδωσε τη φωνή αργότερα. Μοιράσου περιεχόμενο μόνο όταν το θέλουν και οι δύο."}
               </p>
             </div>
 
@@ -129,7 +128,7 @@ const Index = () => {
                   variant="outline"
                   className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
                 >
-                  {language === "en" ? "See how it works" : "Δες πώς λειτουργεί"}
+                  {language === "en" ? "How Echoo works" : "Πώς λειτουργεί το Echoo"}
                 </Button>
               </a>
             </div>
