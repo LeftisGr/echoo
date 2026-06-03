@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
 
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
-import { useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
 
@@ -21,33 +20,20 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { allowNavigationOnce } = useNavigationGuard();
-
   const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction, roomFlowError } = usePresence();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
-  const roomRedirectRef = useRef<string | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
   useEffect(() => {
-    if (!room || matchTransition) {
-      roomRedirectRef.current = null;
-      return;
+    if (room && !matchTransition) {
     }
-
-    if (roomRedirectRef.current === room.id) {
-      return;
-    }
-
-    roomRedirectRef.current = room.id;
-    allowNavigationOnce();
-    navigate(`/session/${room.id}`, { replace: true });
-  }, [allowNavigationOnce, matchTransition, navigate, room]);
+  }, [matchTransition, room]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -171,7 +157,7 @@ const QueuePage = () => {
   }
 
   if (room && !matchTransition) {
-    return null;
+    return <Navigate to={`/session/${room.id}`} replace />;
   }
 
   if (roomFlowError && !room && !matchTransition) {
@@ -375,11 +361,10 @@ const QueuePage = () => {
               variant="outline"
               className="h-12 flex-1 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={async () => {
-                await cancelQueue();
-                allowNavigationOnce();
-                navigate("/dashboard", { replace: true });
-              }}
-
+                  await cancelQueue();
+                  navigate("/dashboard", { replace: true });
+                }}
+  
             >
               <X className="mr-2 h-4 w-4" />
               {copy.queue.cancel}

@@ -29,7 +29,6 @@ import { SessionProgressHeader } from "@/components/session/session-progress-hea
 import { SessionTypingIndicator } from "@/components/session/session-typing-indicator";
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
-import { useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -112,7 +111,6 @@ const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"] as co
 const SessionPage = () => {
 
   const navigate = useNavigate();
-  const { allowNavigationOnce } = useNavigationGuard();
   const { roomId: routeRoomId } = useParams();
 
   const {
@@ -1382,7 +1380,6 @@ const SessionPage = () => {
                       className="h-11 flex-1 rounded-full bg-violet-500 px-4 text-sm font-medium text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                       onClick={async () => {
                         await startNewSessionFromEndedRoom();
-                        allowNavigationOnce();
                         navigate("/queue");
                       }}
 
@@ -2116,7 +2113,6 @@ const SessionPage = () => {
                     className="h-12 flex-1 rounded-full bg-violet-500 text-white transition-transform duration-150 active:scale-95 hover:bg-violet-400"
                     onClick={async () => {
                       await startNewSessionFromEndedRoom();
-                      allowNavigationOnce();
                       navigate("/queue");
                     }}
 

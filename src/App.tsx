@@ -11,7 +11,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,9 +18,7 @@ import { PresenceProvider, usePresence } from "@/components/presence/presence-pr
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
-import { NavigationGuardProvider, useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 import AboutPage from "@/pages/AboutPage";
-
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunityGuidelinesPage from "@/pages/CommunityGuidelinesPage";
@@ -40,16 +37,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import SupportPage from "@/pages/SupportPage";
 import TermsPage from "@/pages/TermsPage";
 import VoiceUnlockPage from "@/pages/VoiceUnlockPage";
-import {
-  Outlet,
-  Route,
-  RouterProvider,
-  createBrowserRouter,
-  createRoutesFromElements,
-  useBlocker,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useBlocker, useLocation, useNavigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 const routeStorageKey = "presence-mvp-route";
@@ -75,34 +63,33 @@ function isRouteBypassed(pathname: string) {
 }
 
 function BackNavigationGuard() {
-  const { queue, room, matchTransition, cancelQueue, leaveRoom, copy } = usePresence();
-  const { navigationBypassRef, allowNavigationOnce } = useNavigationGuard();
-
+  const { queue, room, matchTransition, roomLoaded, cancelQueue, leaveRoom, copy } = usePresence();
   const location = useLocation();
   const navigate = useNavigate();
-  const blocker = useBlocker(Boolean((queue.active || matchTransition || room?.status === "active") && !isRouteBypassed(location.pathname) && !navigationBypassRef.current));
+
+  const isQueueRoute = location.pathname === "/queue";
+  const isRoomRoute = location.pathname === "/session" || location.pathname.startsWith("/session/");
+  const queueGuardActive = isQueueRoute && queue.active && !matchTransition && !room;
+  const roomGuardActive = isRoomRoute && roomLoaded && room?.status === "active";
+  const guardActive = (queueGuardActive || roomGuardActive) && !isRouteBypassed(location.pathname);
+  const blocker = useBlocker(guardActive);
 
   const [modalOpen, setModalOpen] = useState(false);
   const pendingActionRef = useRef<"queue" | "room" | null>(null);
-  const isLeavingRef = useRef(false);
-
-  const guardMode = room?.status === "active" ? "room" : queue.active || matchTransition ? "queue" : null;
 
   useEffect(() => {
     if (blocker.state === "blocked") {
-      pendingActionRef.current = guardMode;
-      isLeavingRef.current = false;
+      pendingActionRef.current = roomGuardActive ? "room" : "queue";
       setModalOpen(true);
       return;
     }
 
     pendingActionRef.current = null;
-    isLeavingRef.current = false;
     setModalOpen(false);
-  }, [blocker.state, guardMode]);
+  }, [blocker.state, location.pathname, queueGuardActive, roomGuardActive]);
 
   useEffect(() => {
-    if (!(queue.active || matchTransition || room?.status === "active") || isRouteBypassed(location.pathname)) {
+    if (!guardActive) {
       return;
     }
 
@@ -113,34 +100,28 @@ function BackNavigationGuard() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [location.pathname, matchTransition, queue.active, room?.status]);
+  }, [guardActive]);
 
   const closeModal = useCallback(() => {
-    isLeavingRef.current = false;
-    setModalOpen(false);
     pendingActionRef.current = null;
+    setModalOpen(false);
     blocker.reset();
   }, [blocker]);
 
   const handleLeave = useCallback(async () => {
-    const action = pendingActionRef.current ?? guardMode;
-    isLeavingRef.current = true;
+    const action = pendingActionRef.current ?? (roomGuardActive ? "room" : "queue");
     setModalOpen(false);
     pendingActionRef.current = null;
 
     if (action === "queue") {
       await cancelQueue();
-    }
-
-    if (action === "room") {
+    } else {
       leaveRoom(copy.session.partnerDisconnected);
     }
 
     blocker.reset();
-    allowNavigationOnce();
     navigate("/dashboard", { replace: true });
-    isLeavingRef.current = false;
-  }, [allowNavigationOnce, blocker, cancelQueue, copy.session.partnerDisconnected, guardMode, leaveRoom, navigate]);
+  }, [blocker, cancelQueue, copy.session.partnerDisconnected, leaveRoom, location.pathname, navigate, roomGuardActive]);
 
   const title = pendingActionRef.current === "room" ? copy.session.backLeaveTitle : copy.queue.backLeaveTitle;
   const body = pendingActionRef.current === "room" ? copy.session.backLeaveBody : copy.queue.backLeaveBody;
@@ -151,25 +132,15 @@ function BackNavigationGuard() {
     <AlertDialog
       open={modalOpen}
       onOpenChange={(open) => {
-        if (open) {
-          setModalOpen(true);
-          return;
+        if (!open) {
+          closeModal();
         }
-
-        if (isLeavingRef.current) {
-          setModalOpen(false);
-          return;
-        }
-
-        closeModal();
       }}
     >
-
       <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription className="whitespace-pre-line text-white/55">{body}</AlertDialogDescription>
-
         </AlertDialogHeader>
         <AlertDialogFooter>
           <Button variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={closeModal}>
@@ -179,7 +150,6 @@ function BackNavigationGuard() {
             {leaveLabel}
           </Button>
         </AlertDialogFooter>
-
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -189,9 +159,7 @@ function AppLayoutContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { appReady, initializing, copy } = usePresence();
-  const { allowNavigationOnce } = useNavigationGuard();
   const { isStandalone } = usePwaInstall();
-
   const initialRouteHandledRef = useRef(false);
   const storedRoute = readStoredRoute();
 
@@ -264,10 +232,8 @@ function AppLayoutContent() {
     initialRouteHandledRef.current = true;
 
     if (location.pathname === "/" && storedRoute && storedRoute !== "/") {
-      allowNavigationOnce();
       navigate(storedRoute, { replace: true });
     }
-
   }, [appReady, location.pathname, navigate, storedRoute]);
 
   if (initializing || !appReady) {
@@ -294,15 +260,10 @@ function AppLayoutContent() {
 }
 
 function AppLayout() {
-  return (
-    <NavigationGuardProvider>
-      <AppLayoutContent />
-    </NavigationGuardProvider>
-  );
+  return <AppLayoutContent />;
 }
 
 const router = createBrowserRouter(
-
   createRoutesFromElements(
     <Route element={<AppLayout />}>
       <Route path="/" element={<Index />} />
