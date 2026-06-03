@@ -976,7 +976,8 @@ const SessionPage = () => {
   }, [releasePushToTalk, room?.id, room?.status]);
 
 
-  if ((initializing || !appReady || !roomLoaded || (queue.active && !room)) && !roomFlowError) {
+  if ((initializing || !appReady || !roomLoaded || (queue.active && !room) || (routeRoomId && !room)) && !roomFlowError) {
+
     const loadingTitle = queue.active
       ? language === "en"
         ? "Finding your room..."
