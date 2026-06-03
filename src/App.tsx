@@ -13,11 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
+
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunityGuidelinesPage from "@/pages/CommunityGuidelinesPage";
@@ -298,11 +298,9 @@ const App = () => (
       <PwaProvider>
         <PwaBootstrap />
         <PresenceProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner position="top-center" richColors />
-            <RouterProvider router={router} />
-          </TooltipProvider>
+          <Toaster />
+          <Sonner position="top-center" richColors />
+          <RouterProvider router={router} />
         </PresenceProvider>
       </PwaProvider>
     </ThemeProvider>
