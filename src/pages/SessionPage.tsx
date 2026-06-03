@@ -1011,127 +1011,15 @@ const SessionPage = () => {
   }, [releasePushToTalk, room?.id, room?.status]);
 
 
-  if ((initializing || !appReady || !roomLoaded || (queue.active && !room) || (routeRoomId && !room)) && !roomFlowError) {
-    const loadingTitle = queue.active
-      ? language === "en"
-        ? "Finding your room..."
-        : "Βρίσκουμε το room σου..."
-      : language === "en"
-        ? "Restoring your room..."
-        : "Φέρνουμε ξανά το room σου...";
+  const shouldShowInitialLoading = (initializing || !appReady || !roomLoaded || (queue.active && !room) || (routeRoomId && !room)) && !roomFlowError;
+  const shouldShowRestoreFallback = routeRoomId && !room && restoreTimeoutElapsed;
+  const shouldShowRoomError = roomFlowError && !room;
+  const shouldShowNoRoom = !shouldShowInitialLoading && !shouldShowRoomError && !room;
+  const shouldShowProfileLoading = !shouldShowInitialLoading && !shouldShowRoomError && !shouldShowNoRoom && !profile;
 
-    const loadingBody = queue.active
-      ? language === "en"
-        ? "We’re gently reconnecting the path between queue and room."
-        : "Επανασυνδέουμε απαλά τη διαδρομή ανάμεσα στην ουρά και το room."
-      : language === "en"
-        ? "Hold for a second while Echoo settles the room."
-        : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room.";
+  const isActive = room?.status === "active";
 
-    if (routeRoomId && !room && restoreTimeoutElapsed) {
-      return (
-        <PageShell className="flex items-center" showStickyBottomBar={false}>
-          <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-            <CalmStateCard
-              eyebrow="Echoo"
-              title={language === "en" ? "We couldn't restore this room." : "Δεν μπορέσαμε να επαναφέρουμε αυτό το room."}
-              body={language === "en" ? "Start a new one." : "Ξεκίνα ένα νέο."}
-              status={language === "en" ? "Back home" : "Πίσω στην αρχική"}
-              tone="rose"
-              action={
-                <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
-                  <Link to="/">{language === "en" ? "Back home" : "Πίσω στην αρχική"}</Link>
-                </Button>
-              }
-            />
-          </div>
-        </PageShell>
-      );
-    }
-
-    return (
-      <PageShell className="flex items-center" showStickyBottomBar={false}>
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow="Echoo"
-            title={loadingTitle}
-            body={loadingBody}
-            status={queue.active ? copy.misc.listening : copy.misc.reconnectingMoment}
-            tone={queue.active ? "violet" : "sky"}
-            className="shadow-2xl"
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
-  if (!authenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  if (roomFlowError && !room) {
-    return (
-      <PageShell className="flex items-center" showStickyBottomBar={false}>
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow={language === "en" ? "Room error" : "Σφάλμα room"}
-            title={language === "en" ? "We couldn’t finish your room" : "Δεν μπορέσαμε να ολοκληρώσουμε το room"}
-            body={roomFlowError}
-            status={language === "en" ? "Please go back to the dashboard and try again." : "Πήγαινε πίσω στο dashboard και δοκίμασε ξανά."}
-            tone="rose"
-            action={
-              <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
-                <Link to="/dashboard">{language === "en" ? "Go to dashboard" : "Πήγαινε στο dashboard"}</Link>
-              </Button>
-            }
-            secondaryAction={
-              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                <Link to="/queue">{language === "en" ? "Go to queue" : "Πήγαινε στην ουρά"}</Link>
-              </Button>
-            }
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
-  if (!room) {
-
-    return (
-      <PageShell className="flex items-center" showStickyBottomBar={false}>
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow="Echoo"
-            title={language === "en" ? "Restoring your room..." : "Φέρνουμε ξανά το room σου..."}
-            body={language === "en" ? "Hold for a second while Echoo settles the room." : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room."}
-            status={language === "en" ? "Trying to reconnect the room gently..." : "Προσπαθούμε να επανασυνδέσουμε το room απαλά..."}
-            tone="sky"
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
-  if (!profile) {
-
-    return (
-      <PageShell className="flex items-center" showStickyBottomBar={false}>
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow="Echoo"
-            title={copy.misc.loadingProfile}
-            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
-            status={copy.misc.restoring}
-            tone="amber"
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
-  const isActive = room.status === "active";
-
-  const isEnded = room.status === "ended";
+  const isEnded = room?.status === "ended";
 
   const unlockStage = sessionProgression.mediaUnlocked ? "content" : sessionProgression.voiceUnlocked ? "voice" : "chat";
 
@@ -1195,33 +1083,34 @@ const SessionPage = () => {
     return getPresenceLabel(presenceDistanceKm, language);
   }, [language, presenceBadgeReady, presenceDistanceKm]);
 
-  const latestSystemMessage = [...room.messages].reverse().find((message) => message.type === "system")?.content;
+  const roomMessages = room?.messages ?? [];
+  const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 
-  const visibleMessages = room.messages;
+  const visibleMessages = roomMessages;
 
   const groupedVisibleMessages = useMemo(() => {
     const groups: Array<
-      | { kind: "system"; message: (typeof room.messages)[number]; arrivedHot: boolean }
+      | { kind: "system"; message: (typeof roomMessages)[number]; arrivedHot: boolean }
       | {
           kind: "chat";
           key: string;
           isSelf: boolean;
           senderLabel: string;
           showSenderLabel: boolean;
-          messages: Array<{ message: (typeof room.messages)[number]; timestamp: string; arrivedHot: boolean }>;
+          messages: Array<{ message: (typeof roomMessages)[number]; timestamp: string; arrivedHot: boolean }>;
         }
     > = [];
 
-    room.messages.forEach((message, index) => {
+    roomMessages.forEach((message, index) => {
       const arrivedHot = message.id === recentMessageId;
-      const previousMessage = room.messages[index - 1];
+      const previousMessage = roomMessages[index - 1];
 
       if (message.type === "system") {
         groups.push({ kind: "system", message, arrivedHot });
         return;
       }
 
-      const isSelf = message.senderId === profile.id;
+      const isSelf = message.senderId === (profile?.id ?? null);
       const shouldStartNewGroup =
         !previousMessage ||
         previousMessage.type === "system" ||
@@ -1257,9 +1146,9 @@ const SessionPage = () => {
     });
 
     return groups;
-  }, [profile.id, recentMessageId, room.messages]);
+  }, [profile?.id, recentMessageId, roomMessages]);
 
-  const roomDisplayName = getRoomDisplayName(room.id);
+  const roomDisplayName = room ? getRoomDisplayName(room.id) : "";
 
   const reportReasonOptions = useMemo(
     () => [
@@ -1286,8 +1175,119 @@ const SessionPage = () => {
     }
   };
 
-  const sessionBanner = !online
+  if (shouldShowInitialLoading) {
+    const loadingTitle = queue.active
+      ? language === "en"
+        ? "Finding your room..."
+        : "Βρίσκουμε το room σου..."
+      : language === "en"
+        ? "Restoring your room..."
+        : "Φέρνουμε ξανά το room σου...";
 
+    const loadingBody = queue.active
+      ? language === "en"
+        ? "We’re gently reconnecting the path between queue and room."
+        : "Επανασυνδέουμε απαλά τη διαδρομή ανάμεσα στην ουρά και το room."
+      : language === "en"
+        ? "Hold for a second while Echoo settles the room."
+        : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room.";
+
+    if (shouldShowRestoreFallback) {
+      return (
+        <PageShell className="flex items-center" showStickyBottomBar={false}>
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+            <CalmStateCard
+              eyebrow="Echoo"
+              title={language === "en" ? "We couldn't restore this room." : "Δεν μπορέσαμε να επαναφέρουμε αυτό το room."}
+              body={language === "en" ? "Start a new one." : "Ξεκίνα ένα νέο."}
+              status={language === "en" ? "Back home" : "Πίσω στην αρχική"}
+              tone="rose"
+              action={
+                <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                  <Link to="/">{language === "en" ? "Back home" : "Πίσω στην αρχική"}</Link>
+                </Button>
+              }
+            />
+          </div>
+        </PageShell>
+      );
+    }
+
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={loadingTitle}
+            body={loadingBody}
+            status={queue.active ? copy.misc.listening : copy.misc.reconnectingMoment}
+            tone={queue.active ? "violet" : "sky"}
+            className="shadow-2xl"
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (shouldShowRoomError) {
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow={language === "en" ? "Room error" : "Σφάλμα room"}
+            title={language === "en" ? "We couldn’t finish your room" : "Δεν μπορέσαμε να ολοκληρώσουμε το room"}
+            body={roomFlowError}
+            status={language === "en" ? "Please go back to the dashboard and try again." : "Πήγαινε πίσω στο dashboard και δοκίμασε ξανά."}
+            tone="rose"
+            action={
+              <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                <Link to="/dashboard">{language === "en" ? "Go to dashboard" : "Πήγαινε στο dashboard"}</Link>
+              </Button>
+            }
+            secondaryAction={
+              <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                <Link to="/queue">{language === "en" ? "Go to queue" : "Πήγαινε στην ουρά"}</Link>
+              </Button>
+            }
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (shouldShowNoRoom) {
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={language === "en" ? "Restoring your room..." : "Φέρνουμε ξανά το room σου..."}
+            body={language === "en" ? "Hold for a second while Echoo settles the room." : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room."}
+            status={language === "en" ? "Trying to reconnect the room gently..." : "Προσπαθούμε να επανασυνδέσουμε το room απαλά..."}
+            tone="sky"
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (shouldShowProfileLoading) {
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.misc.loadingProfile}
+            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
+            status={copy.misc.restoring}
+            tone="amber"
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  const sessionBanner = !online
     ? copy.session.connectionLost
     : isEnded
       ? latestSystemMessage ?? copy.session.ended
@@ -1556,6 +1556,7 @@ const SessionPage = () => {
 
   return (
     <div className="h-[var(--app-height,100vh)] overflow-hidden bg-[#08101b] text-white">
+
       <div className="flex h-full min-h-0 flex-col">
 
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-3 py-2 pt-[calc(env(safe-area-inset-top,0px)+8px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-4 sm:py-2">
