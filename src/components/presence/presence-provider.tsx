@@ -1713,19 +1713,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (storedRoomState?.userId === currentUserId && storedRoomState.room) {
+    if (storedRoomState?.room) {
       const fallbackRoom = storedRoomState.room;
-      if (!fallbackRoom.endedAt || roomMatchesUser(fallbackRoom, currentUserId)) {
-        await openRoom(fallbackRoom.id, currentUserId, {
-          id: fallbackRoom.id,
-          userA: fallbackRoom.userA,
-          userB: fallbackRoom.userB,
-          startedAt: fallbackRoom.startedAt,
-          endedAt: fallbackRoom.endedAt,
-          voiceEnabled: fallbackRoom.voiceEnabled,
-          typingUserId: fallbackRoom.typingUserId,
-          typingUpdatedAt: fallbackRoom.typingUpdatedAt,
-        });
+      if (!fallbackRoom.endedAt) {
+        setRoom(fallbackRoom);
+        subscribeToRoom(fallbackRoom.id, currentUserId);
         setQueue(createInitialQueue(profileToUse));
         return;
       }

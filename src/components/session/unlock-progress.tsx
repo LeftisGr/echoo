@@ -35,7 +35,7 @@ export function UnlockProgress({
 
     const timeout = window.setTimeout(() => {
       setPreviousStage(null);
-    }, 320);
+    }, 300);
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -72,6 +72,12 @@ export function UnlockProgress({
     const isVoice = viewStage === "voice";
     const isFinal = viewStage === "content";
 
+    const statusLabel = isChat ? copy.chatOpen : isVoice ? copy.voiceOpen : copy.everythingOpen;
+    const icon = isChat ? "💬" : isVoice ? "🎤" : "✨";
+    const nextIcon = isChat ? "🎤" : "🖼";
+    const accentText = isFinal ? "text-violet-50" : isVoice ? "text-emerald-50" : "text-white";
+    const accentProgress = isChat ? "bg-white/30" : "bg-emerald-300/60";
+
     return (
       <div
         className={cn(
@@ -79,38 +85,38 @@ export function UnlockProgress({
           isActive ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.98] opacity-0",
         )}
       >
-        <div className="flex items-center gap-2 text-sm font-medium text-white/85">
-          <span aria-hidden="true" className="text-base leading-none">
-            {isChat ? "💬" : isVoice ? "🎤" : "✨"}
-          </span>
-          <span>{isChat ? copy.chatOpen : isVoice ? copy.voiceOpen : copy.everythingOpen}</span>
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center justify-center gap-2 text-sm font-medium text-white/82">
+            <span aria-hidden="true" className="text-base leading-none">
+              {icon}
+            </span>
+            <span>{statusLabel}</span>
+          </div>
+
+          {isFinal ? (
+            <p className="max-w-[17rem] text-xs leading-5 text-white/56 sm:text-sm">{copy.finalSubtitle}</p>
+          ) : (
+            <>
+              <div className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-white/45">{copy.nextUnlock}</div>
+              <div className="flex items-center justify-center gap-2 text-xs font-medium text-white/62 sm:text-sm">
+                <span aria-hidden="true" className="text-sm leading-none">
+                  {nextIcon}
+                </span>
+                <span>{isChat ? copy.voiceNext : copy.contentNext}</span>
+              </div>
+            </>
+          )}
         </div>
 
-        {isFinal ? (
-          <p className="max-w-[17rem] text-xs leading-5 text-white/55 sm:text-sm">{copy.finalSubtitle}</p>
-        ) : (
+        {!isFinal && (
           <div className="w-full space-y-2.5">
-            <div className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-white/45">
-              {copy.nextUnlock}
-            </div>
-
-            <div className="flex items-center justify-center gap-2 text-sm font-medium text-white/70">
-              <span aria-hidden="true" className="text-sm leading-none">
-                {isChat ? "🎤" : "🖼"}
-              </span>
-              <span>{isChat ? copy.voiceNext : copy.contentNext}</span>
-            </div>
-
-            <div className="w-full text-[clamp(2.7rem,11vw,4.4rem)] font-semibold leading-none tracking-[0.04em] tabular-nums text-white">
+            <div className={cn("w-full text-[clamp(2.9rem,12vw,4.6rem)] font-semibold leading-none tracking-[0.04em] tabular-nums", accentText)}>
               {timerLabel}
             </div>
 
             <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
               <div
-                className={cn(
-                  "h-full rounded-full transition-[width,opacity] duration-500 ease-out",
-                  isChat ? "bg-white/35" : "bg-emerald-300/60",
-                )}
+                className={cn("h-full rounded-full transition-[width,opacity] duration-500 ease-out", accentProgress)}
                 style={{ width: `${Math.max(0, Math.min(100, timerProgress))}%` }}
               />
             </div>
