@@ -209,7 +209,7 @@ export const copy = {
       changeFilters: "Adjust preferences",
       found: "A room is opening...",
       backLeaveTitle: "Leave queue?",
-      backLeaveBody: "You will pause the search for a conversation.",
+      backLeaveBody: "You are currently waiting for a conversation.\nIf you leave now, your place in queue will be lost.",
       backStay: "Stay",
       backLeave: "Leave",
 
@@ -223,10 +223,10 @@ export const copy = {
     session: {
       title: "Private room",
       textNote: "Text comes first. Voice opens only after the room has settled.",
-      backLeaveTitle: "Leave conversation?",
-      backLeaveBody: "Your current room will be closed.",
+      backLeaveTitle: "Leave room?",
+      backLeaveBody: "Leaving closes this room for both people.",
       backStay: "Stay",
-      backLeave: "Leave",
+      backLeave: "Leave room",
       demoTimer: "The room learns your pace before voice opens.",
 
       leave: "Leave",

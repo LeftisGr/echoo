@@ -1508,22 +1508,21 @@ const SessionPage = () => {
                   </AlertDialogTrigger>
                   <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>{language === "en" ? "Leave this room?" : "Να φυγεις απο αυτο το room;"}</AlertDialogTitle>
-                      <AlertDialogDescription className="text-white/55">
-                        {language === "en"
-                          ? "The connection will end for both people."
-                          : "Η σύνδεση θα τερματιστεί και για τους δύο ανθρώπους."}
+                      <AlertDialogTitle>{copy.session.backLeaveTitle}</AlertDialogTitle>
+                      <AlertDialogDescription className="whitespace-pre-line text-white/55">
+                        {copy.session.backLeaveBody}
                       </AlertDialogDescription>
+
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                        {language === "en" ? "Cancel" : "Ακύρωση"}
+                        {copy.session.backStay}
                       </AlertDialogCancel>
                       <AlertDialogAction
                         className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
                         onClick={() => leaveRoom(copy.session.partnerDisconnected)}
                       >
-                        {language === "en" ? "Leave room" : "Εξοδος"}
+                        {copy.session.backLeave}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

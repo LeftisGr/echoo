@@ -2,9 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +19,9 @@ import { PresenceProvider, usePresence } from "@/components/presence/presence-pr
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
+import { NavigationGuardProvider, useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 import AboutPage from "@/pages/AboutPage";
+
 import AdminPage from "@/pages/AdminPage";
 import AuthPage from "@/pages/AuthPage";
 import CommunityGuidelinesPage from "@/pages/CommunityGuidelinesPage";
@@ -31,6 +40,16 @@ import SettingsPage from "@/pages/SettingsPage";
 import SupportPage from "@/pages/SupportPage";
 import TermsPage from "@/pages/TermsPage";
 import VoiceUnlockPage from "@/pages/VoiceUnlockPage";
+import {
+  Outlet,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+  useBlocker,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
 const queryClient = new QueryClient();
 const routeStorageKey = "presence-mvp-route";
@@ -51,67 +70,76 @@ function writeStoredRoute(route: string) {
   window.sessionStorage.setItem(routeStorageKey, route);
 }
 
+function isRouteBypassed(pathname: string) {
+  return ["/admin", "/profile", "/settings"].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 function BackNavigationGuard() {
-  const { queue, room, cancelQueue, leaveRoom, copy, language } = usePresence();
-  const navigate = useNavigate();
+  const { queue, room, matchTransition, cancelQueue, leaveRoom, copy } = usePresence();
+  const { navigationBypassActive, allowNavigationOnce } = useNavigationGuard();
   const location = useLocation();
+  const navigate = useNavigate();
+  const blocker = useBlocker(Boolean((queue.active || matchTransition || room?.status === "active") && !isRouteBypassed(location.pathname) && !navigationBypassActive));
+
   const [modalOpen, setModalOpen] = useState(false);
   const pendingActionRef = useRef<"queue" | "room" | null>(null);
-  const armedRef = useRef(false);
-  const currentUrl = `${location.pathname}${location.search}${location.hash}`;
-  const guardMode = room?.status === "active" ? "room" : queue.active ? "queue" : null;
+  const isLeavingRef = useRef(false);
 
-  const closeModal = useCallback(() => {
-    pendingActionRef.current = null;
-    setModalOpen(false);
-  }, []);
+  const guardMode = room?.status === "active" ? "room" : queue.active || matchTransition ? "queue" : null;
 
   useEffect(() => {
-    if (!guardMode) {
-      armedRef.current = false;
-      closeModal();
+    if (blocker.state === "blocked") {
+      pendingActionRef.current = guardMode;
+      isLeavingRef.current = false;
+      setModalOpen(true);
       return;
     }
 
-    if (modalOpen) {
-      pendingActionRef.current = guardMode;
-    }
-
-    if (!armedRef.current) {
-      armedRef.current = true;
-      window.history.pushState({ echooBackGuard: true, guardMode, currentUrl }, "", currentUrl);
-    }
-  }, [closeModal, currentUrl, guardMode, modalOpen]);
+    pendingActionRef.current = null;
+    isLeavingRef.current = false;
+    setModalOpen(false);
+  }, [blocker.state, guardMode]);
 
   useEffect(() => {
-    const handlePopState = () => {
-      if (!guardMode) {
-        return;
-      }
+    if (!(queue.active || matchTransition || room?.status === "active") || isRouteBypassed(location.pathname)) {
+      return;
+    }
 
-      pendingActionRef.current = guardMode;
-      setModalOpen(true);
-      window.history.pushState({ echooBackGuard: true, guardMode, currentUrl }, "", currentUrl);
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
     };
 
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [currentUrl, guardMode]);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [location.pathname, matchTransition, queue.active, room?.status]);
+
+  const closeModal = useCallback(() => {
+    isLeavingRef.current = false;
+    setModalOpen(false);
+    pendingActionRef.current = null;
+    blocker.reset();
+  }, [blocker]);
 
   const handleLeave = useCallback(async () => {
-    const action = pendingActionRef.current;
-    closeModal();
+    const action = pendingActionRef.current ?? guardMode;
+    isLeavingRef.current = true;
+    setModalOpen(false);
+    pendingActionRef.current = null;
 
     if (action === "queue") {
       await cancelQueue();
-      navigate("/dashboard", { replace: true });
-      return;
     }
 
     if (action === "room") {
       leaveRoom(copy.session.partnerDisconnected);
     }
-  }, [cancelQueue, closeModal, copy.session.partnerDisconnected, leaveRoom, navigate]);
+
+    blocker.reset();
+    allowNavigationOnce();
+    navigate("/dashboard", { replace: true });
+    isLeavingRef.current = false;
+  }, [allowNavigationOnce, blocker, cancelQueue, copy.session.partnerDisconnected, guardMode, leaveRoom, navigate]);
 
   const title = pendingActionRef.current === "room" ? copy.session.backLeaveTitle : copy.queue.backLeaveTitle;
   const body = pendingActionRef.current === "room" ? copy.session.backLeaveBody : copy.queue.backLeaveBody;
@@ -119,29 +147,52 @@ function BackNavigationGuard() {
   const leaveLabel = pendingActionRef.current === "room" ? copy.session.backLeave : copy.queue.backLeave;
 
   return (
-    <AlertDialog open={modalOpen} onOpenChange={(open) => (!open ? closeModal() : setModalOpen(true))}>
+    <AlertDialog
+      open={modalOpen}
+      onOpenChange={(open) => {
+        if (open) {
+          setModalOpen(true);
+          return;
+        }
+
+        if (isLeavingRef.current) {
+          setModalOpen(false);
+          return;
+        }
+
+        closeModal();
+      }}
+    >
+
       <AlertDialogContent className="border-white/10 bg-[#0f1424] text-white">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-white/55">{body}</AlertDialogDescription>
+          <AlertDialogDescription className="whitespace-pre-line text-white/55">{body}</AlertDialogDescription>
+
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={closeModal}>
+          <Button variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={closeModal}>
             {stayLabel}
-          </AlertDialogCancel>
-          <AlertDialogAction className="rounded-full bg-rose-500 text-white hover:bg-rose-400" onClick={() => void handleLeave()}>
+          </Button>
+          <Button className="rounded-full bg-rose-500 text-white hover:bg-rose-400" onClick={() => void handleLeave()}>
             {leaveLabel}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
+
       </AlertDialogContent>
     </AlertDialog>
   );
 }
 
-function AppRoutes() {
+function AppLayoutContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { appReady, initializing, copy } = usePresence();
+  const { allowNavigationOnce } = useNavigationGuard();
+  const { isStandalone } = usePwaInstall();
+
+  const initialRouteHandledRef = useRef(false);
+  const storedRoute = readStoredRoute();
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
@@ -165,10 +216,6 @@ function AppRoutes() {
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
   }, []);
-
-  const { isStandalone } = usePwaInstall();
-  const initialRouteHandledRef = useRef(false);
-  const storedRoute = readStoredRoute();
 
   useEffect(() => {
     const updateViewportVars = () => {
@@ -216,8 +263,10 @@ function AppRoutes() {
     initialRouteHandledRef.current = true;
 
     if (location.pathname === "/" && storedRoute && storedRoute !== "/") {
+      allowNavigationOnce();
       navigate(storedRoute, { replace: true });
     }
+
   }, [appReady, location.pathname, navigate, storedRoute]);
 
   if (initializing || !appReady) {
@@ -234,38 +283,51 @@ function AppRoutes() {
   }
 
   return (
-    <>
+    <NavigationGuardProvider>
       <BackNavigationGuard />
       <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Routes location={location}>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/queue" element={<QueuePage />} />
-        <Route path="/session" element={<SessionPage />} />
-        <Route path="/session/:roomId" element={<SessionPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/faq" element={<FAQPage />} />
-        <Route path="/support" element={<SupportPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
-        <Route path="/retention" element={<RetentionPage />} />
-        <Route path="/voice-unlock" element={<VoiceUnlockPage />} />
-        <Route path="/safety" element={<SafetyPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/admin/presence" element={<AdminPage />} />
-        <Route path="*" element={<NotFound />} />
-
-      </Routes>
+        <Outlet />
       </div>
-    </>
+    </NavigationGuardProvider>
   );
 }
+
+function AppLayout() {
+  return (
+    <NavigationGuardProvider>
+      <AppLayoutContent />
+    </NavigationGuardProvider>
+  );
+}
+
+const router = createBrowserRouter(
+
+  createRoutesFromElements(
+    <Route element={<AppLayout />}>
+      <Route path="/" element={<Index />} />
+      <Route path="/auth" element={<AuthPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/queue" element={<QueuePage />} />
+      <Route path="/session" element={<SessionPage />} />
+      <Route path="/session/:roomId" element={<SessionPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/support" element={<SupportPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
+      <Route path="/retention" element={<RetentionPage />} />
+      <Route path="/voice-unlock" element={<VoiceUnlockPage />} />
+      <Route path="/safety" element={<SafetyPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/admin/presence" element={<AdminPage />} />
+      <Route path="*" element={<NotFound />} />
+    </Route>,
+  ),
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -276,9 +338,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner position="top-center" richColors />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <RouterProvider router={router} />
           </TooltipProvider>
         </PresenceProvider>
       </PwaProvider>

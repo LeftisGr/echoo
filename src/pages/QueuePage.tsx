@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+import { useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
+
 import { cn, upperWithoutAccents } from "@/lib/utils";
 
 const loadingWindowSeconds = 20;
@@ -18,6 +20,7 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
+  const { allowNavigationOnce } = useNavigationGuard();
   const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction, roomFlowError } = usePresence();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -355,8 +358,10 @@ const QueuePage = () => {
               className="h-12 flex-1 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={async () => {
                 await cancelQueue();
+                allowNavigationOnce();
                 navigate("/dashboard", { replace: true });
               }}
+
             >
               <X className="mr-2 h-4 w-4" />
               {copy.queue.cancel}

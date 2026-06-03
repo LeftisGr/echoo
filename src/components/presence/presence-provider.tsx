@@ -1790,10 +1790,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     queueChannelRef.current = null;
   }
 
+  function clearMatchmakingTimers() {
+    if (matchingStartTimeoutRef.current) {
+      window.clearTimeout(matchingStartTimeoutRef.current);
+      matchingStartTimeoutRef.current = null;
+    }
+
+    if (matchingIntervalRef.current) {
+      window.clearInterval(matchingIntervalRef.current);
+      matchingIntervalRef.current = null;
+    }
+  }
+
   function subscribeToQueueChanges(currentUserId: string) {
     stopQueueSubscriptions();
 
     const channel = supabase
+
       .channel(`presence-queue-${currentUserId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "queue" }, () => {
         if (!matchingEnabledRef.current) {
@@ -2580,17 +2593,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const cancelQueue = useCallback(async () => {
     stopQueueSubscriptions();
+    stopRoomSubscriptions();
     matchingEnabledRef.current = false;
     matchedRoomIdsRef.current.clear();
     setMatchTransition(null);
-    if (matchingStartTimeoutRef.current) {
-      window.clearTimeout(matchingStartTimeoutRef.current);
-      matchingStartTimeoutRef.current = null;
-    }
-    if (matchingIntervalRef.current) {
-      window.clearInterval(matchingIntervalRef.current);
-      matchingIntervalRef.current = null;
-    }
+    clearMatchmakingTimers();
     if (profile) {
       await leaveQueue(profile.id);
     }
@@ -2598,6 +2605,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setQueue(nextQueue);
     setRoomFlowError(null);
     writeStoredQueueState(nextQueue);
+    writeStoredMatchTransition(null);
   }, [profile]);
 
   useEffect(() => {
@@ -3177,6 +3185,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const leaveRoom = useCallback(
     (reason?: string) => {
       stopVoiceChat();
+      stopQueueSubscriptions();
+      stopRoomSubscriptions();
+      matchingEnabledRef.current = false;
+      matchedRoomIdsRef.current.clear();
+      setMatchTransition(null);
+      clearMatchmakingTimers();
       clearTypingIndicator("room-leave");
       if (typingIsActiveRef.current) {
         void sendTypingState(false, new Date().toISOString());
@@ -3199,12 +3213,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       if (profile) {
         void leaveQueue(profile.id);
       }
-      matchedRoomIdsRef.current.clear();
-      setMatchTransition(null);
       setRoom(nextRoom);
-      setQueue(createInitialQueue(profile));
+      const nextQueue = createInitialQueue(profile);
+      setQueue(nextQueue);
       writeStoredRoomState(profile?.id ?? null, nextRoom);
+      writeStoredQueueState(nextQueue);
       writeStoredMatchTransition(null);
+      setRoomFlowError(null);
     },
     [clearTypingIndicator, profile, room, sendTypingState, stopVoiceChat],
   );
