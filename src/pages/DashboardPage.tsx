@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+import { useNavigationGuard } from "@/components/navigation/navigation-guard-context";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const { allowNavigationOnce } = useNavigationGuard();
   const { authenticated, profile, copy, language, adminMetrics, startQueue, online, accountRestriction } = usePresence();
 
   const roleLabel = profile?.role === "admin" ? (language === "en" ? "Admin" : "Admin") : language === "en" ? "Member" : "Μέλος";
@@ -136,8 +138,10 @@ const DashboardPage = () => {
           className="h-16 w-full rounded-[28px] bg-violet-500 text-base font-medium text-white hover:bg-violet-400"
           onClick={async () => {
             await startQueue();
+            allowNavigationOnce();
             navigate("/queue");
           }}
+
         >
           {copy.dashboard.startSession}
           <ArrowRight className="ml-2 h-5 w-5" />
