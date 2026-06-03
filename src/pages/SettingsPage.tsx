@@ -123,7 +123,7 @@ const SettingsPage = () => {
             <SwitchRow label={copy.settings.haptics} checked={hapticsEnabled} onCheckedChange={setHapticsEnabled} />
             <SwitchRow
               label={copy.settings.matchSound}
-              description={language === "en" ? "Soft tones for matching, push-to-talk, and unlock moments." : "Απαλοί ήχοι για matching, push-to-talk και ξεκλειδώματα."}
+              description={language === "en" ? "Soft tones for room opening, push-to-talk, and unlock moments." : "Απαλοί ήχοι για άνοιγμα room, push-to-talk και ξεκλειδώματα."}
               checked={matchSoundEnabled}
               onCheckedChange={setMatchSoundEnabled}
             />

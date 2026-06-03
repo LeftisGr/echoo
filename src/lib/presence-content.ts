@@ -56,15 +56,15 @@ export const ratingOptions: RatingScore[] = ["good", "neutral", "bad"];
 
 export const queueMessages = {
   en: [
-    "Listening for a quiet match...",
-    "Finding someone with a similar pace...",
-    "Matching by language and mood...",
+    "Listening for a quiet room...",
+    "Finding a calmer conversation pace...",
+    "Setting the room by language and tone...",
     "Your room is taking shape...",
   ],
   el: [
-    "Ακούμε για ένα ήσυχο match...",
-    "Βρίσκουμε κάποιον με παρόμοιο ρυθμό...",
-    "Κάνουμε match με βάση γλώσσα και διάθεση...",
+    "Ακούμε για ένα ήσυχο room...",
+    "Βρίσκουμε έναν πιο ήρεμο ρυθμό κουβέντας...",
+    "Ρυθμίζουμε το room με βάση γλώσσα και ύφος...",
     "Το room σου παίρνει μορφή...",
   ],
 } as const;
@@ -125,7 +125,7 @@ export const copy = {
     },
     landing: {
       heroEyebrow: "Anonymous live conversation",
-      heroTitle: "Meet someone nearby or online, without giving away who you are.",
+      heroTitle: "Open a conversation nearby or online, without giving away who you are.",
       heroBody:
         "Echoo is a privacy-first space for live one-to-one conversation. Start with text, hold to talk when the room opens, and share temporary media that fades with the room.",
 
@@ -176,7 +176,7 @@ export const copy = {
       profileTitle: "Your anonymous profile",
       ageRange: "Age range",
       gender: "Gender",
-      lookingFor: "Looking for",
+      lookingFor: "Conversation preference",
       language: "Language",
       interests: "Interests",
       helper: "No real name needed. You can change your filters any time.",
@@ -193,31 +193,31 @@ export const copy = {
       profile: "Profile",
       safety: "Safety",
       settings: "Settings",
-      online: "People online now",
+      online: "Active users online now",
       wait: "Average wait",
       filters: "Current filters",
       identity: "Your name tonight",
       note: "Text first. Voice later. No pressure.",
       empty: "No active room yet.",
-      emptyBody: "Open a room to enter the queue and meet someone live.",
+      emptyBody: "Open a room to enter the queue and start a live conversation.",
 
     },
     queue: {
-      title: "Waiting quietly for your next match",
-      body: "We’re looking for someone nearby or online who matches your language and pace.",
+      title: "Waiting quietly for your next conversation",
+      body: "We’re finding another active user who fits your language and pace.",
       cancel: "Leave queue",
       changeFilters: "Adjust preferences",
       found: "A room is opening...",
       backLeaveTitle: "Leave queue?",
-      backLeaveBody: "You will stop searching for a conversation.",
+      backLeaveBody: "You will pause the search for a conversation.",
       backStay: "Stay",
       backLeave: "Leave",
 
       relaxed: "No one feels ready yet. Stay softly in the queue?",
       offline: "You’re offline. We’ll keep listening when the connection returns.",
       loading: "Getting the room ready...",
-      searching: "Listening for a calmer fit...",
-      matchFound: "A room is opening.",
+      searching: "Listening for a calmer room...",
+      matchFound: "Room ready.",
 
     },
     session: {
@@ -268,7 +268,7 @@ export const copy = {
       whisper: "The room is quiet. Say hello when you’re ready.",
     },
     safety: {
-      title: "Safety comes before chemistry",
+      title: "Safety stays first",
       body: "Echoo keeps every room anonymous, temporary, and easy to leave. Respect is the default.",
       rules: [
         "No harassment, hate speech, sexual coercion, or threats.",
@@ -282,11 +282,11 @@ export const copy = {
       title: "Settings",
       body: "Adjust language, filters, and your live experience.",
       appLanguage: "App language",
-      queueLanguage: "Matching language",
-      lookingFor: "Looking for",
+      queueLanguage: "Conversation language",
+      lookingFor: "Conversation preference",
       haptics: "Haptic feedback",
       reconnect: "Reconnect when possible",
-      matchSound: "Sound feedback",
+      matchSound: "Sound cues",
       supporterNote: "Supporter status is granted manually after support is verified.",
 
       save: "Saved",
@@ -384,7 +384,7 @@ export const copy = {
     faq: [
       {
         question: "Is Echoo anonymous?",
-        answer: "Yes. Echoo is designed so you can meet without revealing your identity.",
+        answer: "Yes. Echoo is designed so you can talk without revealing your identity.",
       },
       {
         question: "Are conversations stored?",
@@ -413,7 +413,7 @@ export const copy = {
       },
       {
         question: "Is Echoo location tracking me?",
-        answer: "Echoo uses privacy-first matching and does not need to expose your exact location.",
+        answer: "Echoo uses privacy-first room pairing and does not need to expose your exact location.",
       },
       {
         question: "What happens to uploaded media?",
@@ -453,7 +453,7 @@ export const copy = {
     },
     landing: {
       heroEyebrow: "Ανώνυμες live συνομιλίες",
-      heroTitle: "Γνώρισε κάποιον κοντά σου ή online, χωρίς να αποκαλύψεις ποιος είσαι.",
+      heroTitle: "Άνοιξε μια κουβέντα κοντά σου ή online, χωρίς να αποκαλύψεις ποιος είσαι.",
       heroBody:
         "Το Echoo είναι ένας privacy-first χωρος για live one-to-one κουβεντες. Ξεκινα με text, κρατα για να μιλησεις οταν ανοιγει το room και μοιρασου προσωρινο media που σβηνει μαζι με το room.",
 
@@ -521,7 +521,7 @@ export const copy = {
       profile: "Προφίλ",
       safety: "Ασφάλεια",
       settings: "Ρυθμίσεις",
-      online: "Άτομα online τώρα",
+      online: "Ενεργοί χρήστες online τώρα",
       wait: "Μέση αναμονή",
       filters: "Τρέχοντα φίλτρα",
       identity: "Το όνομά σου απόψε",
@@ -531,21 +531,21 @@ export const copy = {
 
     },
     queue: {
-      title: "Περιμένουμε ήσυχα το επόμενο match σου",
-      body: "Βρίσκουμε κάποιον κοντά σου ή online που ταιριάζει με τη γλώσσα και τον ρυθμό σου.",
+      title: "Περιμένουμε ήσυχα την επόμενη κουβέντα",
+      body: "Βρίσκουμε έναν άλλο ενεργό χρήστη που ταιριάζει με τη γλώσσα και τον ρυθμό σου.",
       cancel: "Έξοδος από την ουρά",
       changeFilters: "Ρύθμισε προτιμήσεις",
       found: "Ένα room ανοίγει...",
       backLeaveTitle: "Να φύγεις από την ουρά;",
-      backLeaveBody: "Θα σταματήσεις να αναζητάς μια συνομιλία.",
+      backLeaveBody: "Θα σταματήσεις να ψάχνεις για κουβέντα.",
       backStay: "Μείνε",
       backLeave: "Έξοδος",
 
       relaxed: "Δεν νιώθει έτοιμος κανείς ακόμη. Να μείνεις απαλά στην ουρά;",
       offline: "Είσαι offline. Θα συνεχίσουμε όταν επιστρέψει η σύνδεση.",
       loading: "Ετοιμάζουμε το room...",
-      searching: "Ακούμε για πιο ήρεμο ταίριασμα...",
-      matchFound: "Ένα room ανοίγει.",
+      searching: "Ακούμε για πιο ήρεμο room...",
+      matchFound: "Το room είναι έτοιμο.",
 
     },
     session: {
@@ -596,7 +596,7 @@ export const copy = {
       whisper: "Το room είναι ήσυχο. Πες ένα γεια όταν είσαι έτοιμος/η.",
     },
     safety: {
-      title: "Η ασφάλεια προηγείται της χημείας",
+      title: "Η ασφάλεια παραμένει πρώτη",
       body: "Το Echoo κρατά κάθε room ανώνυμο, προσωρινό και εύκολο να το αφήσεις. Ο σεβασμός είναι ο κανόνας.",
       rules: [
         "Όχι παρενόχληση, hate speech, σεξουαλική πίεση ή απειλές.",
@@ -610,11 +610,11 @@ export const copy = {
       title: "Ρυθμίσεις",
       body: "Ρύθμισε γλώσσα, φίλτρα και την live εμπειρία σου.",
       appLanguage: "Γλώσσα εφαρμογής",
-      queueLanguage: "Γλώσσα matching",
-      lookingFor: "Αναζητώ",
+      queueLanguage: "Γλώσσα κουβέντας",
+      lookingFor: "Προτίμηση κουβέντας",
       haptics: "Δόνηση",
       reconnect: "Επανασύνδεση όταν γίνεται",
-      matchSound: "Ήχοι feedback",
+      matchSound: "Ήχοι",
       supporterNote: "Η κατάσταση supporter αποδίδεται χειροκίνητα αφού επαληθευτεί η υποστήριξη.",
 
       save: "Αποθηκεύτηκε",
@@ -713,7 +713,7 @@ export const copy = {
     faq: [
       {
         question: "Είναι το Echoo ανώνυμο;",
-        answer: "Ναι. Το Echoo έχει σχεδιαστεί για να γνωρίζεσαι με άλλους χωρίς να αποκαλύπτεις την ταυτότητά σου.",
+        answer: "Ναι. Το Echoo έχει σχεδιαστεί για να μιλάς χωρίς να αποκαλύπτεις την ταυτότητά σου.",
       },
       {
         question: "Αποθηκεύονται οι κουβέντες;",
@@ -742,7 +742,7 @@ export const copy = {
       },
       {
         question: "Το Echoo με παρακολουθεί τοποθεσιακά;",
-        answer: "Το Echoo χρησιμοποιεί privacy-first matching και δεν χρειάζεται να αποκαλύπτει την ακριβή τοποθεσία σου.",
+        answer: "Το Echoo χρησιμοποιεί privacy-first room pairing και δεν χρειάζεται να αποκαλύπτει την ακριβή τοποθεσία σου.",
       },
       {
         question: "Τι γίνεται με τα media που ανεβάζω;",

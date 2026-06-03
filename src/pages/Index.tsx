@@ -13,11 +13,11 @@ const Index = () => {
     {
       icon: Users,
       number: "01",
-      title: language === "en" ? "Match quietly" : "Συνδέσου ήσυχα",
+      title: language === "en" ? "Open quietly" : "Συνδέσου ήσυχα",
       body:
         language === "en"
-          ? "Echoo finds a calm, live match based on your language and pace."
-          : "Το Echoo βρίσκει μια ήρεμη live σύνδεση με βάση τη γλώσσα και τον ρυθμό σου.",
+          ? "Echoo opens a calm, live conversation based on your language and pace."
+          : "Το Echoo ανοίγει μια ήρεμη live κουβέντα με βάση τη γλώσσα και τον ρυθμό σου.",
     },
     {
       icon: MessageCircle,
@@ -31,11 +31,11 @@ const Index = () => {
     {
       icon: Mic,
       number: "03",
-      title: language === "en" ? "Unlock voice naturally" : "Ξεκλείδωσε τη φωνή φυσικά",
+      title: language === "en" ? "Voice becomes available later" : "Η φωνή ανοίγει αργότερα",
       body:
         language === "en"
-          ? "Voice opens inside the room when the moment feels settled."
-          : "Η φωνή ανοίγει μέσα στο room όταν η στιγμή νιώσει αρκετά ήρεμη.",
+          ? "Voice becomes available later, once the room feels settled."
+          : "Η φωνή γίνεται διαθέσιμη αργότερα, όταν το room νιώσει αρκετά ήρεμο.",
     },
     {
       icon: Clock3,
@@ -105,8 +105,8 @@ const Index = () => {
             <div className="space-y-4">
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
                 {language === "en"
-                  ? "Echoo helps people meet slowly, privately, and with less pressure."
-                  : "Το Echoo βοηθά ανθρώπους να γνωριστούν αργά, ιδιωτικά και με λιγότερη πίεση."}
+                  ? "Echoo helps people talk slowly, privately, and with less pressure."
+                  : "Το Echoo βοηθά ανθρώπους να μιλούν αργά, ιδιωτικά και με λιγότερη πίεση."}
               </h1>
               <p className="max-w-xl text-sm leading-7 text-white/65 sm:text-base">
 
@@ -135,7 +135,7 @@ const Index = () => {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <MetricCard value={String(adminMetrics.usersOnlineNow)} label={language === "en" ? "people online now" : "άτομα online τώρα"} />
+              <MetricCard value={String(adminMetrics.usersOnlineNow)} label={language === "en" ? "active users online now" : "ενεργοί χρήστες online τώρα"} />
               <MetricCard value={`${adminMetrics.avgWaitTimeSeconds}s`} label={language === "en" ? "average wait" : "μέση αναμονή"} />
               <MetricCard value="4" label={language === "en" ? "safety layers" : "στρώματα ασφάλειας"} />
             </div>

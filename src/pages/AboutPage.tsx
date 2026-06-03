@@ -18,7 +18,7 @@ const AboutPage = () => {
             "Anonymity matters because it lowers the pressure to be polished.",
             "Slower interaction matters because trust usually appears in small steps, not in a rush.",
             "Temporary rooms matter because not every conversation should become a permanent record.",
-            "Privacy matters because people should be able to meet without turning themselves inside out.",
+            "Privacy matters because people should be able to talk without turning themselves inside out.",
           ],
         }
       : {
@@ -30,7 +30,7 @@ const AboutPage = () => {
             "Η ανωνυμία έχει σημασία γιατί μειώνει την πίεση να είσαι «τέλειος/α».",
             "Ο πιο αργός ρυθμός έχει σημασία γιατί η εμπιστοσύνη συνήθως εμφανίζεται σε μικρά βήματα, όχι βιαστικά.",
             "Τα προσωρινά rooms έχουν σημασία γιατί δεν αξίζει κάθε κουβέντα να γίνει μόνιμο αρχείο.",
-            "Το απόρρητο έχει σημασία γιατί οι άνθρωποι πρέπει να μπορούν να συναντιούνται χωρίς να εκτίθενται υπερβολικά.",
+            "Το απόρρητο έχει σημασία γιατί οι άνθρωποι πρέπει να μπορούν να μιλούν χωρίς να εκτίθενται υπερβολικά.",
           ],
         };
 

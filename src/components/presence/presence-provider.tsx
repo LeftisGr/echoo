@@ -2465,8 +2465,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       toast.error(
         accountRestriction.reason ??
           (language === "en"
-            ? "Your account can’t enter matchmaking."
-            : "Ο λογαριασμός σου δεν μπορεί να μπει στο matchmaking."),
+            ? "Your account can’t enter rooms."
+            : "Ο λογαριασμός σου δεν μπορεί να μπει σε rooms."),
       );
       return;
     }
@@ -3214,7 +3214,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     toast.success(copy.misc.blocked);
-    leaveRoom(language === "en" ? "Connection closed and partner blocked." : "Η σύνδεση έκλεισε και ο χρήστης μπλοκαρίστηκε.");
+    leaveRoom(language === "en" ? "Room closed and the other user was blocked." : "Το room έκλεισε και ο άλλος χρήστης μπλοκαρίστηκε.");
   }, [blockedUserIds, copy.misc.blocked, language, leaveRoom, refreshBlockedUsers, room, userId]);
 
   const startNewSessionFromEndedRoom = useCallback(async () => {

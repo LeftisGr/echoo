@@ -185,7 +185,7 @@ const QueuePage = () => {
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow={language === "en" ? "Account restricted" : "Ο λογαριασμός περιορίστηκε"}
-            title={accountRestriction.status === "banned" ? (language === "en" ? "Matchmaking blocked" : "Το matchmaking μπλοκαρίστηκε") : (language === "en" ? "Suspension active" : "Ενεργή αναστολή")}
+            title={accountRestriction.status === "banned" ? (language === "en" ? "Room access blocked" : "Η πρόσβαση στα rooms μπλοκαρίστηκε") : (language === "en" ? "Suspension active" : "Ενεργή αναστολή")}
             body={
               accountRestriction.reason ??
               (accountRestriction.status === "banned"
@@ -337,7 +337,7 @@ const QueuePage = () => {
               <div className="rounded-[24px] border border-white/10 bg-[#0b1020] p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-white/40">{language === "en" ? "Live now" : "Live τώρα"}</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
-                <p className="mt-1 text-sm text-white/50">{language === "en" ? "people online now" : "άτομα online τώρα"}</p>
+                <p className="mt-1 text-sm text-white/50">{language === "en" ? "active users online now" : "ενεργοί χρήστες online τώρα"}</p>
               </div>
               <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-[#0b1020]") }>
                 <p className={cn("text-xs uppercase tracking-[0.24em]", queueUrgent ? "text-rose-100/70" : "text-white/40")}>{language === "en" ? "Status" : "Κατάσταση"}</p>
@@ -389,14 +389,14 @@ const QueuePage = () => {
                 {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
               </h2>
               <p className="mt-3 text-sm leading-6 text-white/65">
-                {language === "en" ? "A quiet match is opening for you." : "Ένα ήσυχο match ανοίγει για εσένα."}
+                {language === "en" ? "A quiet room is opening for you." : "Ένα ήσυχο room ανοίγει για εσένα."}
               </p>
               <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
                 <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
                   {language === "en" ? "Listening" : "Ακούμε"}
                 </div>
                 <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
-                  {language === "en" ? "Matching" : "Matching"}
+                  {language === "en" ? "Connecting" : "Σύνδεση"}
                 </div>
                 <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
                   {language === "en" ? "Opening" : "Άνοιγμα"}

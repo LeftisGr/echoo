@@ -1449,8 +1449,8 @@ const SessionPage = () => {
                       <AlertDialogTitle>{language === "en" ? "Block this user?" : "Να γίνει αποκλεισμός αυτού του χρήστη;"}</AlertDialogTitle>
                       <AlertDialogDescription className="text-white/55">
                         {language === "en"
-                          ? "You will not be matched with this person again."
-                          : "Δεν θα ξαναταιριάξετε με αυτό το άτομο."}
+                          ? "You will not be placed in a room with this person again."
+                          : "Δεν θα μπείτε ξανά στο ίδιο room με αυτό το άτομο."}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

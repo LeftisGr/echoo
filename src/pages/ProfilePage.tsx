@@ -337,8 +337,8 @@ const ProfilePage = () => {
                   <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Privacy" : "Απόρρητο"}</p>
                   <p className="mt-1 text-sm text-white/60">
                     {language === "en"
-                      ? "Blocked users stay private and are automatically excluded from future matches."
-                      : "Οι μπλοκαρισμένοι χρήστες μένουν ιδιωτικοί και αποκλείονται αυτόματα από μελλοντικά matches."}
+                      ? "Blocked users stay private and are automatically excluded from future rooms."
+                      : "Οι μπλοκαρισμένοι χρήστες μένουν ιδιωτικοί και αποκλείονται αυτόματα από μελλοντικά rooms."}
                   </p>
                 </div>
                 <Badge className="rounded-full border border-rose-300/15 bg-rose-500/10 px-3 py-1 text-[11px] font-medium text-rose-50 hover:bg-rose-500/10">
@@ -381,8 +381,8 @@ const ProfilePage = () => {
             <p className="mt-1 text-lg font-medium text-white">
               {isRegistered
                 ? language === "en"
-                  ? "Your profile is ready for calmer matching."
-                  : "Το προφίλ σου είναι έτοιμο για πιο ήρεμο matching."
+                  ? "Your profile is ready for calmer rooms."
+                  : "Το προφίλ σου είναι έτοιμο για πιο ήρεμα rooms."
                 : language === "en"
                   ? "Upgrade whenever you want a permanent Echoo identity."
                   : "Κάνε upgrade όποτε θέλεις μια μόνιμη Echoo ταυτότητα."}

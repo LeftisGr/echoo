@@ -39,7 +39,7 @@ const DashboardPage = () => {
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow={language === "en" ? "Account restricted" : "Ο λογαριασμός περιορίστηκε"}
-            title={accountRestriction.status === "banned" ? (language === "en" ? "Matchmaking paused" : "Το matchmaking σταμάτησε") : (language === "en" ? "Temporary suspension" : "Προσωρινή αναστολή")}
+            title={accountRestriction.status === "banned" ? (language === "en" ? "Room access paused" : "Η πρόσβαση στα rooms σταμάτησε") : (language === "en" ? "Temporary suspension" : "Προσωρινή αναστολή")}
             body={
               accountRestriction.reason ??
               (accountRestriction.status === "banned"

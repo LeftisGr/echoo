@@ -9,8 +9,8 @@ const VoiceUnlockPage = () => {
   const copy =
     language === "en"
       ? {
-          title: "Voice Unlock",
-          body: "Voice opens gradually so the room can build trust before it asks for more presence.",
+          title: "Voice becomes available later",
+          body: "Voice becomes available later so the room can build trust before it asks for more presence.",
           intro:
             "Echoo does not rush people into talking. The text phase gives the room time to settle, and the voice phase arrives only when the pace feels natural.",
           sections: [
@@ -21,8 +21,8 @@ const VoiceUnlockPage = () => {
           ],
         }
       : {
-          title: "Ξεκλείδωμα φωνής",
-          body: "Η φωνή ανοίγει σταδιακά ώστε το room να χτίζει εμπιστοσύνη πριν ζητήσει περισσότερη παρουσία.",
+          title: "Η φωνή ανοίγει αργότερα",
+          body: "Η φωνή ανοίγει αργότερα ώστε το room να χτίζει εμπιστοσύνη πριν ζητήσει περισσότερη παρουσία.",
           intro:
             "Το Echoo δεν σπρώχνει τους ανθρώπους να μιλήσουν γρήγορα. Η text φάση δίνει χρόνο στο room να ηρεμήσει και η φωνητική φάση έρχεται μόνο όταν ο ρυθμός νιώθει φυσικός.",
           sections: [

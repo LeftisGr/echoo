@@ -14,7 +14,7 @@ const SafetyPage = () => {
           intro:
             "The goal is not to police feelings. The goal is to give people clear exits, quiet boundaries, and enough protection to speak honestly.",
           sections: [
-            { title: "Blocking", body: "Blocking stops future rematching between two people. It is immediate and private." },
+            { title: "Blocking", body: "Blocking keeps you out of future rooms with that account. It is immediate and private." },
             { title: "Reporting", body: "Reports go to moderation. Repeated abuse can lead to review, suspension, or bans." },
             { title: "Nearby / Away", body: "Nearby / Away only uses a coarse location signal so people understand whether they are roughly close or farther apart. No exact location is exposed to other users." },
             { title: "Temporary rooms", body: "Rooms end automatically, and content is built to fade with them." },
@@ -28,7 +28,7 @@ const SafetyPage = () => {
           intro:
             "Ο στόχος δεν είναι να ελέγξουμε τα συναισθήματα. Ο στόχος είναι να δίνουμε καθαρές εξόδους, ήσυχα όρια και αρκετή προστασία ώστε να μιλάς αληθινά.",
           sections: [
-            { title: "Αποκλεισμός", body: "Ο αποκλεισμός σταματά τα μελλοντικά rematches μεταξύ δύο ανθρώπων. Γίνεται αμέσως και ιδιωτικά." },
+            { title: "Αποκλεισμός", body: "Ο αποκλεισμός σε κρατά έξω από μελλοντικά rooms με αυτόν τον λογαριασμό. Γίνεται αμέσως και ιδιωτικά." },
             { title: "Αναφορά", body: "Τα reports πηγαίνουν στη moderation. Η επαναλαμβανόμενη κατάχρηση μπορεί να οδηγήσει σε έλεγχο, αναστολή ή bans." },
             { title: "Προσωρινά rooms", body: "Τα rooms τελειώνουν αυτόματα και το περιεχόμενο είναι φτιαγμένο να σβήνει μαζί τους." },
             { title: "Συναισθηματική ασφάλεια", body: "Αν μια κουβέντα νιώθει βαριά, περίεργη ή χειριστική, η έξοδος είναι πάντα επιτρεπτή." },
