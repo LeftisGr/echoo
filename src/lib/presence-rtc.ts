@@ -551,7 +551,7 @@ export async function createPeerToPeerVoiceSession({
   };
 
   const requestReconnect = async (reason: string) => {
-    if (stopped || !canContinue()) {
+    if (stopped || !canContinue() || restarting) {
       return;
     }
 
@@ -922,15 +922,6 @@ export async function createPeerToPeerVoiceSession({
       if (peer.connectionState === "connected") {
         clearReconnectTimersForConnected();
         void setRoomState("connected").catch(() => undefined);
-        return;
-      }
-
-      if (peer.connectionState === "disconnected") {
-        void requestReconnect("connectionstate-disconnected");
-      }
-
-      if (peer.connectionState === "failed") {
-        void requestReconnect("connectionstate-failed");
       }
 
     };
@@ -949,8 +940,8 @@ export async function createPeerToPeerVoiceSession({
         return;
       }
 
-      if (peer.iceConnectionState === "disconnected" || peer.iceConnectionState === "failed") {
-        void requestReconnect(`ice-${peer.iceConnectionState}`);
+      if (peer.iceConnectionState === "failed") {
+        void requestReconnect("ice-failed");
       }
 
     };
@@ -1400,17 +1391,13 @@ export async function createPeerToPeerVoiceSession({
     const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
 
     if (!isVisible) {
-      void requestReconnect("visibilitychange-hidden");
       return;
     }
 
     if (isConnected) {
       clearReconnectTimersForConnected();
       void setRoomState("connected", currentConnectionId).catch(() => undefined);
-      return;
     }
-
-    void requestReconnect("visibilitychange-visible");
   };
 
   const handlePageShow = () => {
@@ -1418,10 +1405,7 @@ export async function createPeerToPeerVoiceSession({
     if (isConnected) {
       clearReconnectTimersForConnected();
       void setRoomState("connected", currentConnectionId).catch(() => undefined);
-      return;
     }
-
-    void requestReconnect("pageshow");
   };
 
   const handleOnline = () => {
@@ -1429,10 +1413,7 @@ export async function createPeerToPeerVoiceSession({
     if (isConnected) {
       clearReconnectTimersForConnected();
       void setRoomState("connected", currentConnectionId).catch(() => undefined);
-      return;
     }
-
-    void requestReconnect("online");
   };
 
   document.addEventListener("visibilitychange", handleVisibilityChange);

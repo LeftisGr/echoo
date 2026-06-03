@@ -17,12 +17,17 @@ interface CleanupContentResponse {
 
 async function getSessionToken() {
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  const session = data.session;
+
+  if (!session?.user?.id || !session.access_token) {
+    return null;
+  }
+
+  return session.access_token;
 }
 
 export async function requestEphemeralContentAccess(messageId: string): Promise<SignedContentResponse | null> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token ?? null;
+  const accessToken = await getSessionToken();
   if (!accessToken) {
     return null;
   }

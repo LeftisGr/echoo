@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
+
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider, usePwaInstall } from "@/hooks/use-pwa-install";
@@ -299,9 +299,9 @@ const App = () => (
         <PwaBootstrap />
         <PresenceProvider>
           <Toaster />
-          <Sonner position="top-center" richColors />
           <RouterProvider router={router} />
         </PresenceProvider>
+
       </PwaProvider>
     </ThemeProvider>
   </QueryClientProvider>

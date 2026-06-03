@@ -10,7 +10,7 @@ import { requestEphemeralContentAccess } from "@/lib/content-api";
 import type { ChatMessage } from "@/lib/presence-types";
 
 export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage; isSelf: boolean }) {
-  const { language } = usePresence();
+  const { language, authenticated } = usePresence();
   const [openedUrl, setOpenedUrl] = useState<string | null>(message.type === "media" && message.media.url?.startsWith("blob:") ? message.media.url : null);
 
   const [opening, setOpening] = useState(false);
@@ -56,7 +56,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
   const serverExpired = Boolean(message.expiresAt && new Date(message.expiresAt).getTime() <= Date.now());
   const isExpired = viewerExpired || serverExpired;
   const isOpened = Boolean(openedUrl) && !isExpired;
-  const canOpen = !isExpired && !message.mediaConsumedAt && !isSelf;
+  const canOpen = !isExpired && !message.mediaConsumedAt && !isSelf && authenticated;
 
   const startViewerExpiryTimer = () => {
     if (expiryTimerRef.current) {
@@ -70,7 +70,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
   };
 
   const openContent = async () => {
-    if (!canOpen || opening) {
+    if (!canOpen || opening || !authenticated) {
       return;
     }
 
@@ -86,7 +86,6 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
       const response = await requestEphemeralContentAccess(message.id);
 
       if (!response) {
-        setError("Content will unlock when connection restores.");
         return;
       }
 

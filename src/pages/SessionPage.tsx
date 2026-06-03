@@ -176,8 +176,11 @@ const SessionPage = () => {
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
+  const [restoreTimeoutElapsed, setRestoreTimeoutElapsed] = useState(false);
 
   const presenceRefreshRunIdRef = useRef(0);
+  const restoreTimeoutRef = useRef<number | null>(null);
+
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
@@ -701,6 +704,33 @@ const SessionPage = () => {
   useEffect(() => () => stopTyping("unmount"), [stopTyping]);
 
   useEffect(() => {
+    if (restoreTimeoutRef.current !== null) {
+      window.clearTimeout(restoreTimeoutRef.current);
+      restoreTimeoutRef.current = null;
+    }
+
+    if (!appReady || initializing || room || roomFlowError || !routeRoomId || restoreTimeoutElapsed) {
+      if (room || roomFlowError || !routeRoomId) {
+        setRestoreTimeoutElapsed(false);
+      }
+
+      return;
+    }
+
+    restoreTimeoutRef.current = window.setTimeout(() => {
+      setRestoreTimeoutElapsed(true);
+      restoreTimeoutRef.current = null;
+    }, 5000);
+
+    return () => {
+      if (restoreTimeoutRef.current !== null) {
+        window.clearTimeout(restoreTimeoutRef.current);
+        restoreTimeoutRef.current = null;
+      }
+    };
+  }, [appReady, initializing, room, roomFlowError, routeRoomId, restoreTimeoutElapsed]);
+
+  useEffect(() => {
     if (!room || room.status !== "active") {
       stopTyping("room-closed");
       return;
@@ -982,7 +1012,6 @@ const SessionPage = () => {
 
 
   if ((initializing || !appReady || !roomLoaded || (queue.active && !room) || (routeRoomId && !room)) && !roomFlowError) {
-
     const loadingTitle = queue.active
       ? language === "en"
         ? "Finding your room..."
@@ -998,6 +1027,27 @@ const SessionPage = () => {
       : language === "en"
         ? "Hold for a second while Echoo settles the room."
         : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room.";
+
+    if (routeRoomId && !room && restoreTimeoutElapsed) {
+      return (
+        <PageShell className="flex items-center" showStickyBottomBar={false}>
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+            <CalmStateCard
+              eyebrow="Echoo"
+              title={language === "en" ? "We couldn't restore this room." : "Δεν μπορέσαμε να επαναφέρουμε αυτό το room."}
+              body={language === "en" ? "Start a new one." : "Ξεκίνα ένα νέο."}
+              status={language === "en" ? "Back home" : "Πίσω στην αρχική"}
+              tone="rose"
+              action={
+                <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                  <Link to="/">{language === "en" ? "Back home" : "Πίσω στην αρχική"}</Link>
+                </Button>
+              }
+            />
+          </div>
+        </PageShell>
+      );
+    }
 
     return (
       <PageShell className="flex items-center" showStickyBottomBar={false}>
@@ -1046,6 +1096,7 @@ const SessionPage = () => {
   }
 
   if (!room) {
+
     return (
       <PageShell className="flex items-center" showStickyBottomBar={false}>
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
@@ -1055,6 +1106,23 @@ const SessionPage = () => {
             body={language === "en" ? "Hold for a second while Echoo settles the room." : "Περίμενε μια στιγμή όσο το Echoo ηρεμεί το room."}
             status={language === "en" ? "Trying to reconnect the room gently..." : "Προσπαθούμε να επανασυνδέσουμε το room απαλά..."}
             tone="sky"
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (!profile) {
+
+    return (
+      <PageShell className="flex items-center" showStickyBottomBar={false}>
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
+          <CalmStateCard
+            eyebrow="Echoo"
+            title={copy.misc.loadingProfile}
+            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
+            status={copy.misc.restoring}
+            tone="amber"
           />
         </div>
       </PageShell>
@@ -1384,23 +1452,6 @@ const SessionPage = () => {
       {timestamp}
     </div>
   );
-
-  if (!profile) {
-
-    return (
-      <PageShell className="flex items-center" showStickyBottomBar={false}>
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
-          <CalmStateCard
-            eyebrow="Echoo"
-            title={copy.misc.loadingProfile}
-            body={language === "en" ? "Your anonymous profile is warming up in the background." : "Το ανώνυμο προφίλ σου ζεσταίνεται στο παρασκήνιο."}
-            status={copy.misc.restoring}
-            tone="amber"
-          />
-        </div>
-      </PageShell>
-    );
-  }
 
   if (isEnded) {
 
