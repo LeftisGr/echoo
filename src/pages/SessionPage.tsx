@@ -635,13 +635,19 @@ const SessionPage = () => {
     canUseVoice &&
     voiceState === "connected";
 
-  const pttButtonLabel = pttLatched
+  const reconnectingAudio = room?.status === "active" && (room.rtcState === "reconnecting" || voiceState === "reconnecting");
+
+  const pttButtonLabel = reconnectingAudio
     ? language === "en"
-      ? "Mic on"
-      : "Μικρόφωνο ανοιχτό"
-    : voiceDiagnostics?.transmitting
-      ? copy.session.pttActive
-      : copy.session.pttIdle;
+      ? "Reconnecting audio…"
+      : "Επανασύνδεση ήχου…"
+    : pttLatched
+      ? language === "en"
+        ? "Mic on"
+        : "Μικρόφωνο ανοιχτό"
+      : voiceDiagnostics?.transmitting
+        ? copy.session.pttActive
+        : copy.session.pttIdle;
 
   const clearTypingTimers = useCallback(() => {
     if (typingStopTimeoutRef.current !== null) {
@@ -1798,7 +1804,15 @@ const SessionPage = () => {
         <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/94 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 backdrop-blur-xl sm:px-6 sm:pt-4">
           <div className={cn("mx-auto w-full max-w-3xl rounded-[28px] border px-3 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4", composerShellClass)}>
 
+            {reconnectingAudio && (
+              <div className="mb-3 flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-50">
+                <span className="h-2 w-2 rounded-full bg-amber-300" />
+                <span>{language === "en" ? "Reconnecting audio…" : "Επανασύνδεση ήχου…"}</span>
+              </div>
+            )}
+
             {isActive ? (
+
               <form
                 onSubmit={async (event) => {
                   event.preventDefault();

@@ -835,6 +835,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const voiceReconnectAttemptedRoomIdRef = useRef<string | null>(null);
   const loggedRoomCreatedIdsRef = useRef<Set<string>>(new Set());
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const leaveRoomRef = useRef<(reason?: string) => void>(() => undefined);
 
   const queueTimersRef = useRef<number[]>([]);
   const typingStopTimeoutRef = useRef<number | null>(null);
@@ -3093,6 +3094,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
             setVoicePlaybackBlocked(true);
           },
+          onReconnectTimeout: () => {
+            if (voiceSessionTokenRef.current !== sessionToken) {
+              return;
+            }
+
+            leaveRoomRef.current(language === "en" ? "The room closed after audio could not reconnect in time." : "Το room έκλεισε επειδή ο ήχος δεν μπόρεσε να επανασυνδεθεί έγκαιρα.");
+          },
+
           onDiagnosticsChange: (diagnostics) => {
             if (voiceSessionTokenRef.current !== sessionToken) {
               return;
@@ -3223,6 +3232,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     },
     [clearTypingIndicator, profile, room, sendTypingState, stopVoiceChat],
   );
+
+  useEffect(() => {
+    leaveRoomRef.current = leaveRoom;
+  }, [leaveRoom]);
 
   const rateRoom = useCallback(
     async (score: RatingScore) => {

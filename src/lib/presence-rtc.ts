@@ -44,6 +44,9 @@ export interface VoiceTransmissionDiagnostics {
   lastStatsAt: string | null;
 }
 
+const RTC_RECONNECT_INTERVAL_MS = 2000;
+const RTC_RECONNECT_TIMEOUT_MS = 90 * 1000;
+
 function rtcLog(_message: string, _data?: unknown) {}
 
 function pttLog(_message: string, _data?: unknown) {}
@@ -75,23 +78,8 @@ function createPeerConnection() {
   });
 }
 
-function describeRtcState(state: RTCPeerConnectionState | RTCIceConnectionState) {
-  if (state === "connected") {
-    return "connected" as const;
-  }
-
-  if (state === "connecting" || state === "checking" || state === "new") {
-    return "connecting" as const;
-  }
-
-  if (state === "disconnected") {
-    return "reconnecting" as const;
-  }
-
-  return "failed" as const;
-}
-
 async function updateRoomRtcState(
+
   roomId: string,
   rtcState: "idle" | "connecting" | "connected" | "reconnecting" | "failed",
   rtcConnectionId: string | null,
@@ -145,7 +133,9 @@ export async function createPeerToPeerVoiceSession({
   onPlaybackFailure,
   isCurrentSession,
   onDiagnosticsChange,
+  onReconnectTimeout,
 }: {
+
   audioElement: HTMLAudioElement;
   roomId: string;
   currentUserId: string;
@@ -156,6 +146,7 @@ export async function createPeerToPeerVoiceSession({
   onStateChange?: (state: VoiceSessionState) => void;
   onPlaybackFailure?: () => void;
   onDiagnosticsChange?: (diagnostics: VoiceTransmissionDiagnostics) => void;
+  onReconnectTimeout?: () => void;
   isCurrentSession?: () => boolean;
 }): Promise<VoiceSessionController> {
 
@@ -277,8 +268,8 @@ export async function createPeerToPeerVoiceSession({
   });
 
   let stopped = false;
-  let reconnectAttempts = 0;
   let currentConnectionId = isInitiator ? crypto.randomUUID() : initialConnectionId ?? null;
+
   let activePeer: RTCPeerConnection | null = null;
   let transmissionDesiredEnabled = false;
   let transmissionSyncChain: Promise<void> = Promise.resolve();
@@ -295,6 +286,8 @@ export async function createPeerToPeerVoiceSession({
   let signalChannel: ReturnType<typeof supabase.channel> | null = null;
   let pollTimer: number | null = null;
   let reconnectTimer: number | null = null;
+  let reconnectDeadlineTimer: number | null = null;
+  let reconnectStartedAt: number | null = null;
   let remoteDescriptionReady = false;
   let restarting = false;
   const processedSignalIds = new Set<string>();
@@ -312,6 +305,20 @@ export async function createPeerToPeerVoiceSession({
       window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+  };
+
+  const stopReconnectDeadline = () => {
+    if (reconnectDeadlineTimer !== null) {
+      window.clearTimeout(reconnectDeadlineTimer);
+      reconnectDeadlineTimer = null;
+    }
+
+    reconnectStartedAt = null;
+  };
+
+  const stopReconnectLoop = () => {
+    stopReconnectTimer();
+    stopReconnectDeadline();
   };
 
   const stopChannel = () => {
@@ -511,7 +518,84 @@ export async function createPeerToPeerVoiceSession({
     await updateRoomRtcState(roomId, rtcState, connectionId);
   };
 
+  const startReconnectDeadline = () => {
+    if (reconnectStartedAt !== null) {
+      return;
+    }
+
+    reconnectStartedAt = Date.now();
+    stopReconnectDeadline();
+    reconnectDeadlineTimer = window.setTimeout(() => {
+      if (stopped || !canContinue()) {
+        return;
+      }
+
+      rtcLog("reconnect timeout reached", {
+        roomId,
+        sessionId,
+        connectionId: currentConnectionId,
+        startedAt: reconnectStartedAt,
+        timeoutMs: RTC_RECONNECT_TIMEOUT_MS,
+      });
+      stopReconnectLoop();
+      emitState("failed");
+      void setRoomState("failed", currentConnectionId).catch(() => undefined);
+      onReconnectTimeout?.();
+      void teardown(false).catch(() => undefined);
+    }, RTC_RECONNECT_TIMEOUT_MS);
+  };
+
+  const clearReconnectTimersForConnected = () => {
+    stopReconnectLoop();
+    restarting = false;
+  };
+
+  const requestReconnect = async (reason: string) => {
+    if (stopped || !canContinue()) {
+      return;
+    }
+
+    const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
+    if (isInitiator && !isConnected) {
+      currentConnectionId = crypto.randomUUID();
+    }
+
+    startReconnectDeadline();
+    restarting = true;
+    emitState("reconnecting");
+    await setRoomState("reconnecting", currentConnectionId).catch(() => undefined);
+
+    if (!isInitiator) {
+
+      await fetchPendingSignals().catch(() => undefined);
+      return;
+    }
+
+    stopReconnectTimer();
+    reconnectTimer = window.setTimeout(() => {
+      if (stopped || !canContinue() || !reconnectStartedAt) {
+        return;
+      }
+
+      if (activePeer && activePeer.connectionState === "connected") {
+        return;
+      }
+
+      currentConnectionId = crypto.randomUUID();
+      restarting = false;
+      void startPeer("offer").catch(() => undefined);
+    }, RTC_RECONNECT_INTERVAL_MS);
+
+    if (activePeer?.connectionState !== "connected") {
+      currentConnectionId = crypto.randomUUID();
+      restarting = false;
+      await startPeer("offer").catch(() => undefined);
+    }
+
+  };
+
   const cleanupPeer = () => {
+
     if (!activePeer) {
       return;
     }
@@ -734,11 +818,15 @@ export async function createPeerToPeerVoiceSession({
     stopped = true;
     rtcLog("teardown requested", { roomId, sessionId, markIdle, connectionId: currentConnectionId });
     stopPolling();
-    stopReconnectTimer();
+    stopReconnectLoop();
     clearTransmissionWatchdog();
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("pageshow", handlePageShow);
+    window.removeEventListener("online", handleOnline);
     stopChannel();
     cleanupPeer();
     transmissionDesiredEnabled = false;
+
     transmissionSyncChain = Promise.resolve();
 
     localAudioSenders = [];
@@ -832,19 +920,19 @@ export async function createPeerToPeerVoiceSession({
       });
 
       if (peer.connectionState === "connected") {
-        reconnectAttempts = 0;
-        stopReconnectTimer();
+        clearReconnectTimersForConnected();
         void setRoomState("connected").catch(() => undefined);
         return;
       }
 
       if (peer.connectionState === "disconnected") {
-        void handleReconnect(peer.connectionState);
+        void requestReconnect("connectionstate-disconnected");
       }
 
       if (peer.connectionState === "failed") {
-        void handleReconnect(peer.connectionState);
+        void requestReconnect("connectionstate-failed");
       }
+
     };
 
     peer.oniceconnectionstatechange = () => {
@@ -856,15 +944,15 @@ export async function createPeerToPeerVoiceSession({
       });
 
       if (peer.iceConnectionState === "connected") {
-        reconnectAttempts = 0;
-        stopReconnectTimer();
+        clearReconnectTimersForConnected();
         void setRoomState("connected").catch(() => undefined);
         return;
       }
 
       if (peer.iceConnectionState === "disconnected" || peer.iceConnectionState === "failed") {
-        void handleReconnect(peer.iceConnectionState);
+        void requestReconnect(`ice-${peer.iceConnectionState}`);
       }
+
     };
 
     peer.ontrack = (event) => {
@@ -1307,48 +1395,49 @@ export async function createPeerToPeerVoiceSession({
     }, 1200);
   };
 
-  const handleReconnect = async (state: RTCPeerConnectionState | RTCIceConnectionState) => {
-    if (stopped || restarting || !canContinue()) {
+  const handleVisibilityChange = () => {
+    const isVisible = document.visibilityState === "visible";
+    const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
+
+    if (!isVisible) {
+      void requestReconnect("visibilitychange-hidden");
       return;
     }
 
-    restarting = true;
-    const rtcState = describeRtcState(state);
-    rtcLog("reconnect requested", {
-      roomId,
-      sessionId,
-      connectionId: currentConnectionId,
-      state: rtcState,
-      reconnectAttempts,
-    });
-
-    await setRoomState(rtcState === "failed" ? "reconnecting" : rtcState, currentConnectionId).catch(() => undefined);
-
-    if (!isInitiator) {
-      restarting = false;
+    if (isConnected) {
+      clearReconnectTimersForConnected();
+      void setRoomState("connected", currentConnectionId).catch(() => undefined);
       return;
     }
 
-    if (reconnectAttempts >= 2) {
-      await setRoomState("failed", currentConnectionId).catch(() => undefined);
-      await teardown(false).catch(() => undefined);
-      return;
-    }
-
-    reconnectAttempts += 1;
-    const nextConnectionId = crypto.randomUUID();
-    currentConnectionId = nextConnectionId;
-    await setRoomState("reconnecting", nextConnectionId).catch(() => undefined);
-
-    stopReconnectTimer();
-    reconnectTimer = window.setTimeout(() => {
-      restarting = false;
-      if (stopped || !canContinue()) {
-        return;
-      }
-      void startPeer("offer");
-    }, 1000);
+    void requestReconnect("visibilitychange-visible");
   };
+
+  const handlePageShow = () => {
+    const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
+    if (isConnected) {
+      clearReconnectTimersForConnected();
+      void setRoomState("connected", currentConnectionId).catch(() => undefined);
+      return;
+    }
+
+    void requestReconnect("pageshow");
+  };
+
+  const handleOnline = () => {
+    const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
+    if (isConnected) {
+      clearReconnectTimersForConnected();
+      void setRoomState("connected", currentConnectionId).catch(() => undefined);
+      return;
+    }
+
+    void requestReconnect("online");
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pageshow", handlePageShow);
+  window.addEventListener("online", handleOnline);
 
   await ensureAudioPlayback("initial");
 
