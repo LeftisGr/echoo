@@ -21,7 +21,8 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { allowNavigationOnce } = useNavigationGuard();
+  const { allowNavigationOnce, navigationBypassActive } = useNavigationGuard();
+
   const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction, roomFlowError } = usePresence();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -39,14 +40,18 @@ const QueuePage = () => {
       return;
     }
 
-    if (roomRedirectRef.current === room.id) {
+    if (roomRedirectRef.current !== room.id) {
+      roomRedirectRef.current = room.id;
+      allowNavigationOnce();
       return;
     }
 
-    roomRedirectRef.current = room.id;
-    allowNavigationOnce();
+    if (!navigationBypassActive) {
+      return;
+    }
+
     navigate(`/session/${room.id}`, { replace: true });
-  }, [allowNavigationOnce, matchTransition, navigate, room]);
+  }, [allowNavigationOnce, matchTransition, navigate, navigationBypassActive, room]);
 
   useEffect(() => {
     if (!authenticated) {

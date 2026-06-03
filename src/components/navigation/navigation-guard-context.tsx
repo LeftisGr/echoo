@@ -1,12 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
-
-import { flushSync } from "react-dom";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
 interface NavigationGuardContextValue {
   allowNavigationOnce: () => void;
   navigationBypassActive: boolean;
-  navigationBypassRef: MutableRefObject<boolean>;
 }
 
 const NavigationGuardContext = createContext<NavigationGuardContextValue | null>(null);
@@ -14,25 +11,19 @@ const NavigationGuardContext = createContext<NavigationGuardContextValue | null>
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [navigationBypassActive, setNavigationBypassActive] = useState(false);
-  const navigationBypassRef = useRef(false);
   const bypassTimeoutRef = useRef<number | null>(null);
 
   const allowNavigationOnce = useCallback(() => {
-    navigationBypassRef.current = true;
-    flushSync(() => {
-      setNavigationBypassActive(true);
-    });
+    setNavigationBypassActive(true);
 
     if (bypassTimeoutRef.current) {
       window.clearTimeout(bypassTimeoutRef.current);
     }
 
     bypassTimeoutRef.current = window.setTimeout(() => {
-      navigationBypassRef.current = false;
       setNavigationBypassActive(false);
       bypassTimeoutRef.current = null;
-    }, 10000);
-
+    }, 1500);
   }, []);
 
   useEffect(() => {
@@ -40,21 +31,19 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    navigationBypassRef.current = false;
-    setNavigationBypassActive(false);
-    if (bypassTimeoutRef.current) {
-      window.clearTimeout(bypassTimeoutRef.current);
+    const timeout = window.setTimeout(() => {
+      setNavigationBypassActive(false);
       bypassTimeoutRef.current = null;
-    }
+    }, 0);
 
-  }, [location.pathname, location.search, location.hash]);
+    return () => window.clearTimeout(timeout);
+  }, [navigationBypassActive, location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     return () => {
       if (bypassTimeoutRef.current) {
         window.clearTimeout(bypassTimeoutRef.current);
       }
-      navigationBypassRef.current = false;
     };
   }, []);
 
@@ -62,7 +51,6 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     () => ({
       allowNavigationOnce,
       navigationBypassActive,
-      navigationBypassRef,
     }),
     [allowNavigationOnce, navigationBypassActive],
   );
