@@ -275,11 +275,46 @@ function randomFrom<T>(items: readonly T[]) {
 const guestAvatarEmojis = ["🌙", "✨", "☁️", "🫧", "🪩", "🌿"] as const;
 const vibeLabels = ["night owl", "deep talker", "soft listener", "curious mind"] as const;
 
+type AuthSessionUser = {
+  id: string;
+  email?: string | null;
+  is_anonymous?: boolean;
+  app_metadata?: { provider?: string | null };
+  user_metadata?: Record<string, unknown> | null;
+};
+
 function generateUsername() {
   return `${randomFrom(usernamePrefixes)}${randomFrom(usernameSuffixes)}`;
 }
 
+function isGuestAuthSession(sessionUser: AuthSessionUser | null | undefined) {
+  const provider = sessionUser?.app_metadata?.provider ?? null;
+  const userMetadata = sessionUser?.user_metadata ?? null;
+
+  return Boolean(
+    sessionUser?.is_anonymous ||
+      provider === "anonymous" ||
+      userMetadata?.guest === true ||
+      userMetadata?.is_guest === true ||
+      userMetadata?.type === "guest",
+  );
+}
+
+function getAuthProvider(sessionUser: AuthSessionUser | null | undefined) {
+  if (!sessionUser) {
+    return null;
+  }
+
+  const provider = sessionUser.app_metadata?.provider ?? null;
+  if (provider) {
+    return provider;
+  }
+
+  return isGuestAuthSession(sessionUser) ? "guest" : "email";
+}
+
 function createDefaultProfile(userId?: string, profileMode: PresenceProfile["profileMode"] = "guest", email: string | null = null): PresenceProfile {
+
   const createdAt = new Date().toISOString();
   return {
     id: userId ?? createId(),
@@ -1210,8 +1245,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: { id: string; email?: string | null; is_anonymous?: boolean } | null) => {
-      const isAnonymousSession = Boolean(sessionUser?.is_anonymous);
+    const initializeSession = async (sessionUser: AuthSessionUser | null) => {
+      const isGuestSession = isGuestAuthSession(sessionUser);
+      const authProvider = getAuthProvider(sessionUser);
+
+      console.log("[presence-provider] auth.provider", authProvider);
+      console.log("[presence-provider] profile.type", isGuestSession ? "guest" : "registered");
+      console.log("[presence-provider] session.user.is_anonymous", sessionUser?.is_anonymous ?? null);
 
       setInitializing(true);
       setAppReady(false);
@@ -1221,8 +1261,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setSessionReady(false);
 
       setAuthenticated(Boolean(sessionUser));
-      setGuestMode(isAnonymousSession);
+      setGuestMode(isGuestSession);
       setUserId(sessionUser?.id ?? null);
+      setProfile(null);
+      setRoom(null);
+      setQueue(createInitialQueue(null));
+      setMatchTransition(null);
+      setVoiceState("idle");
+      setVoiceDiagnostics(null);
+      setIsAdmin(false);
+      setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
 
       if (!sessionUser) {
         hydratedSessionUserIdRef.current = null;
@@ -1230,14 +1278,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         stopRoomSubscriptions();
         matchedRoomIdsRef.current.clear();
         setGuestMode(false);
-        setProfile(null);
-        setRoom(null);
-        setQueue(createInitialQueue(null));
-        setMatchTransition(null);
-        setVoiceState("idle");
-        setVoiceDiagnostics(null);
-        setIsAdmin(false);
-        setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
         writeStoredGuestSession(false);
 
         writeStoredGuestProfile(null);
@@ -1254,8 +1294,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id, isAnonymousSession, sessionUser.email ?? null);
+          await hydrateAuthenticatedUser(sessionUser.id, isGuestSession, sessionUser.email ?? null);
         }
+
       } catch {
         hydratedSessionUserIdRef.current = null;
         await supabase.auth.signOut();
@@ -1605,16 +1646,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string, isAnonymousSession: boolean, email: string | null) {
+  async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession: boolean, email: string | null) {
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =
       loadedProfile
-        ? !isAnonymousSession && (loadedProfile.profileMode !== "registered" || loadedProfile.email !== email)
-          ? promoteGuestProfile(loadedProfile, currentUserId, email ?? loadedProfile.email ?? null)
-          : { ...loadedProfile, email: email ?? loadedProfile.email }
+        ? isGuestSession
+          ? {
+              ...loadedProfile,
+              email: null,
+              profileMode: "guest",
+            }
+          : {
+              ...loadedProfile,
+              email,
+              profileMode: "registered",
+            }
         : storedGuestProfile
-          ? isAnonymousSession
+          ? isGuestSession
             ? {
                 ...storedGuestProfile,
                 id: currentUserId,
@@ -1622,7 +1671,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 profileMode: "guest",
               }
             : promoteGuestProfile(storedGuestProfile, currentUserId, email ?? storedGuestProfile.email ?? null)
-          : createDefaultProfile(currentUserId, isAnonymousSession ? "guest" : "registered", email);
+          : createDefaultProfile(currentUserId, isGuestSession ? "guest" : "registered", isGuestSession ? null : email);
     const profileWithAvatar = ensureProfileAvatar(profileToUse);
 
     setIsAdmin(profileWithAvatar.role === "admin");
@@ -1641,7 +1690,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       await syncProfile(profileWithAvatar);
     }
 
-    if (!isAnonymousSession) {
+    if (isGuestSession) {
+      writeStoredGuestSession(true);
+      writeStoredGuestProfile(profileWithAvatar);
+    } else {
       writeStoredGuestSession(false);
       writeStoredGuestProfile(null);
     }

@@ -118,7 +118,7 @@ type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "di
 const cleanupStorageKey = "echoo-admin-log-cleanup";
 
 const AdminPage = () => {
-  const { authenticated, adminMetrics, isAdmin, profile, copy, language, updateProfile } = usePresence();
+  const { authenticated, adminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode } = usePresence();
 
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
@@ -136,6 +136,7 @@ const AdminPage = () => {
   const [supporterBusyId, setSupporterBusyId] = useState<string | null>(null);
   const [supporterSearchError, setSupporterSearchError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
+  const isGuestAccount = guestMode || profile?.profileMode === "guest";
 
   useEffect(() => {
     return () => {
@@ -489,16 +490,25 @@ const AdminPage = () => {
                 ? "This profile is still a member. Change the role in public.profiles to admin when you want to grant access."
                 : "Αυτό το προφίλ είναι ακόμα μέλος. Άλλαξε το role στο public.profiles σε admin όταν θέλεις να δώσεις πρόσβαση."}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:ml-0 lg:w-full xl:max-w-[560px]">
-            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Signed-in email" : "Email σύνδεσης"}</p>
-              <p className="mt-2 break-all text-sm font-medium text-white">{profile.email ?? (language === "en" ? "No email available" : "Δεν υπάρχει διαθέσιμο email")}</p>
+          {isGuestAccount ? (
+            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 lg:ml-0 lg:w-full xl:max-w-[560px]">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Account type" : "Τύπος λογαριασμού"}</p>
+              <p className="mt-2 text-sm font-medium text-white">{language === "en" ? "Guest account" : "Guest λογαριασμός"}</p>
+              <p className="mt-2 text-sm text-white/55">{language === "en" ? "Anonymous user" : "Ανώνυμος χρήστης"}</p>
             </div>
-            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Profile ID" : "ID προφίλ"}</p>
-              <p className="mt-2 break-all text-sm font-medium text-white">{profile.id}</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:ml-0 lg:w-full xl:max-w-[560px]">
+              <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Signed-in email" : "Email σύνδεσης"}</p>
+                <p className="mt-2 break-all text-sm font-medium text-white">{profile.email ?? (language === "en" ? "No email available" : "Δεν υπάρχει διαθέσιμο email")}</p>
+              </div>
+              <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Profile ID" : "ID προφίλ"}</p>
+                <p className="mt-2 break-all text-sm font-medium text-white">{profile.id}</p>
+              </div>
             </div>
-          </div>
+          )}
+
           <div className="flex gap-2 sm:ml-auto">
             <Button
               type="button"

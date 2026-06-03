@@ -39,11 +39,15 @@ const ProfilePage = () => {
     login,
     blockedUserCount,
     blockedUserIds,
+    guestMode,
   } = usePresence();
 
   const supporter = profile?.supporterBadge ?? false;
+  const isGuestAccount = guestMode || profile?.profileMode === "guest";
+  const isRegistered = !isGuestAccount && profile?.profileMode === "registered";
 
   const [draftBio, setDraftBio] = useState("");
+
   const [draftInterests, setDraftInterests] = useState<string[]>([]);
   const [draftVibeLabel, setDraftVibeLabel] = useState<(typeof vibeChoices)[number]>(vibeChoices[0]);
 
@@ -59,7 +63,6 @@ const ProfilePage = () => {
     setDraftVibeLabel(profile.vibeLabel as (typeof vibeChoices)[number]);
   }, [profile]);
 
-  const isRegistered = profile?.profileMode === "registered";
   const avatarLabel = profile?.avatarEmoji ?? profile?.username?.slice(0, 1).toUpperCase() ?? "E";
 
   if (!authenticated) {
@@ -108,23 +111,24 @@ const ProfilePage = () => {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <SectionTitle
             eyebrow={copy.auth.profileTitle}
-            title={isRegistered ? (language === "en" ? "Registered profile" : "Εγγεγραμμένο προφίλ") : (language === "en" ? "Guest profile" : "Guest προφίλ")}
+            title={isRegistered ? (language === "en" ? "Registered profile" : "Εγγεγραμμένο προφίλ") : (language === "en" ? "Guest account" : "Guest λογαριασμός")}
             body={
               isRegistered
                 ? language === "en"
                   ? "A lightweight profile with just enough detail to help Echoo find the right conversation."
                   : "Ένα ελαφρύ προφίλ με όσα χρειάζεται το Echoo για να βρει τη σωστή κουβέντα."
                 : language === "en"
-                  ? "Keep it light. Your nickname stays private, and your tiny chat avatar only appears while you’re chatting."
-                  : "Κράτα το ελαφρύ. Το ψευδώνυμό σου μένει ιδιωτικό και το μικρό chat avatar εμφανίζεται μόνο όταν μιλάς."
+                  ? "Anonymous user. Your nickname stays private, and your tiny chat avatar only appears while you’re chatting."
+                  : "Ανώνυμος χρήστης. Το ψευδώνυμό σου μένει ιδιωτικό και το μικρό chat avatar εμφανίζεται μόνο όταν μιλάς."
 
             }
           />
 
           <div className="flex flex-wrap gap-2">
             <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/70 hover:bg-white/5">
-              {profile.profileMode === "registered" ? (language === "en" ? "Registered" : "Εγγεγραμμένο") : (language === "en" ? "Guest" : "Guest")}
+              {isRegistered ? (language === "en" ? "Registered" : "Εγγεγραμμένο") : (language === "en" ? "Guest account" : "Guest λογαριασμός")}
             </Badge>
+
             <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-100 hover:bg-violet-500/10">
               {profile.vibeLabel}
             </Badge>

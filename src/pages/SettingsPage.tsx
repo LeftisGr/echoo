@@ -26,9 +26,11 @@ const SettingsPage = () => {
 
     setMatchSoundEnabled,
     logout,
+    guestMode,
   } = usePresence();
 
   const supporter = profile?.supporterBadge ?? false;
+  const isGuestAccount = guestMode || profile?.profileMode === "guest";
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -56,25 +58,36 @@ const SettingsPage = () => {
         <SectionTitle title={copy.settings.title} body={copy.settings.body} />
       </Surface>
 
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <Surface className="space-y-4 p-5">
-          <p className="text-xs uppercase tracking-[0.24em] text-white/40">{copy.auth.profileTitle}</p>
-          <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-white/50">{language === "en" ? "Nickname" : "Ψευδώνυμο"}</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{profile.username}</p>
-            <div className="mt-4 inline-flex items-center rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-medium text-violet-50">
-              {language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο"}
-            </div>
-            {supporter && (
-              <div className="mt-3 space-y-2">
-                <div className="inline-flex items-center rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-50">
-                  ❤️ Supporter
-                </div>
-                <p className="text-xs leading-5 text-white/45">{copy.settings.supporterNote}</p>
-              </div>
-            )}
-
+    <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <Surface className="space-y-4 p-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-white/40">{copy.auth.profileTitle}</p>
+        <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <p className="text-sm text-white/50">{language === "en" ? "Nickname" : "Ψευδώνυμο"}</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{profile.username}</p>
+          <div className="mt-4 inline-flex items-center rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-medium text-violet-50">
+            {isGuestAccount ? (language === "en" ? "Guest account" : "Guest λογαριασμός") : (language === "en" ? "Nickname locked" : "Το ψευδώνυμο είναι κλειδωμένο")}
           </div>
+          {supporter && (
+            <div className="mt-3 space-y-2">
+              <div className="inline-flex items-center rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-50">
+                ❤️ Supporter
+              </div>
+              <p className="text-xs leading-5 text-white/45">{copy.settings.supporterNote}</p>
+            </div>
+          )}
+
+        </div>
+        {isGuestAccount ? (
+          <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Account type" : "Τύπος λογαριασμού"}</p>
+            <p className="mt-2 text-sm font-medium text-white">{language === "en" ? "Anonymous user" : "Ανώνυμος χρήστης"}</p>
+            <p className="mt-2 text-xs leading-5 text-white/40">
+              {language === "en"
+                ? "Guest accounts do not show email or profile IDs."
+                : "Οι guest λογαριασμοί δεν εμφανίζουν email ή profile IDs."}
+            </p>
+          </div>
+        ) : (
           <div className="grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-white/35">{language === "en" ? "Signed-in email" : "Email σύνδεσης"}</p>
@@ -91,8 +104,9 @@ const SettingsPage = () => {
               </Button>
             </div>
           </div>
-          <p className="text-sm leading-6 text-white/60">{copy.auth.helper}</p>
-        </Surface>
+        )}
+        <p className="text-sm leading-6 text-white/60">{copy.auth.helper}</p>
+      </Surface>
 
         <div className="space-y-4">
 
