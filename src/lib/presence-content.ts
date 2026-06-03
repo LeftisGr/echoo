@@ -109,6 +109,8 @@ export const copy = {
       startNow: "Open a room",
 
       dashboard: "Dashboard",
+      learn: "Learn",
+      trustSafety: "Trust & Safety",
       safety: "Safety",
       guidelines: "Guidelines",
       voiceUnlock: "Voice unlock",
@@ -122,6 +124,7 @@ export const copy = {
       retention: "Retention",
       menu: "Menu",
       admin: "Admin",
+
     },
     landing: {
       heroEyebrow: "Anonymous live conversation",
@@ -437,6 +440,8 @@ export const copy = {
       startNow: "Ανοιξε ενα room",
 
       dashboard: "Πίνακας",
+      learn: "Μάθε περισσότερα",
+      trustSafety: "Εμπιστοσύνη & ασφάλεια",
       safety: "Ασφάλεια",
       guidelines: "Οδηγίες",
       voiceUnlock: "Ξεκλείδωμα φωνής",
@@ -450,6 +455,7 @@ export const copy = {
       retention: "Διατήρηση",
       menu: "Μενού",
       admin: "Διαχείριση",
+
     },
     landing: {
       heroEyebrow: "Ανώνυμες live συνομιλίες",

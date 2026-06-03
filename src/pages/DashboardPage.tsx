@@ -54,7 +54,8 @@ const DashboardPage = () => {
             tone="rose"
             action={
               <Button asChild className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
-                <Link to="/safety">{language === "en" ? "Review safety" : "Δες την ασφάλεια"}</Link>
+                <Link to="/trust-safety#safety">{language === "en" ? "Review safety" : "Δες την ασφάλεια"}</Link>
+
               </Button>
             }
             secondaryAction={
@@ -146,7 +147,8 @@ const DashboardPage = () => {
       </Surface>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <QuickActionCard icon={Shield} title={copy.dashboard.safety} body={copy.landing.safetyBody} to="/safety" />
+        <QuickActionCard icon={Shield} title={copy.dashboard.safety} body={copy.landing.safetyBody} to="/trust-safety#safety" />
+
         <QuickActionCard icon={Settings} title={copy.dashboard.settings} body={copy.settings.body} to="/settings" />
         <QuickActionCard
           icon={Clock3}

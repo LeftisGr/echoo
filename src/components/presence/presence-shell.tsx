@@ -3,6 +3,7 @@ import { Globe, Home, Menu, Shield, Sparkles, UserCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -11,21 +12,30 @@ import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 function MenuSheet() {
   const { copy, isAdmin, language } = usePresence();
-  const { openHowEchooWorks } = useHowEchooWorks();
 
-  const links = [
+  const appLinks = [
     { to: "/", label: copy.nav.home, icon: Sparkles },
     { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
-    { to: "/about", label: copy.nav.about, icon: Globe },
-    { to: "/faq", label: copy.nav.faq, icon: Sparkles },
-    { to: "/support", label: copy.nav.support, icon: Shield },
-    { to: "/community-guidelines", label: copy.nav.guidelines, icon: Shield },
-    { to: "/voice-unlock", label: copy.nav.voiceUnlock, icon: Sparkles },
-    { to: "/safety", label: copy.nav.safety, icon: Shield },
     { to: "/settings", label: copy.nav.settings, icon: Globe },
-    { to: "/privacy", label: copy.nav.privacy, icon: Shield },
-    { to: "/terms", label: copy.nav.terms, icon: Shield },
+    { to: "/voice-unlock", label: copy.nav.voiceUnlock, icon: Sparkles },
+    { to: "/community-guidelines", label: copy.nav.guidelines, icon: Shield },
+  ];
 
+  const learnLinks = [
+    { to: "/learn#about", label: copy.nav.about, icon: Globe },
+    { to: "/learn#faq", label: copy.nav.faq, icon: Sparkles },
+    { to: "/learn#how-echoo-works", label: language === "el" ? "Πώς λειτουργεί το Echoo" : "How Echoo works", icon: Sparkles },
+  ];
+
+  const trustLinks = [
+    { to: "/trust-safety#safety", label: copy.nav.safety, icon: Shield },
+    { to: "/trust-safety#privacy", label: copy.nav.privacy, icon: Shield },
+    { to: "/trust-safety#terms", label: copy.nav.terms, icon: Shield },
+  ];
+
+  const linkGroups = [
+    { title: copy.nav.learn, links: learnLinks },
+    { title: copy.nav.trustSafety, links: trustLinks },
   ];
 
   return (
@@ -44,32 +54,81 @@ function MenuSheet() {
         <SheetHeader>
           <SheetTitle className="text-left text-white">{copy.nav.menu}</SheetTitle>
         </SheetHeader>
-        <div className="mt-8 space-y-3 pb-6 pr-1">
+        <div className="mt-8 space-y-4 pb-6 pr-1">
+          <div className="rounded-[24px] border border-white/10 bg-white/5 p-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {appLinks.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0f1526] px-3 py-3 text-sm text-white/80 transition hover:bg-white/10"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3">
             <SheetClose asChild>
               <Button
                 type="button"
                 variant="outline"
                 className="h-11 w-full rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-                onClick={openHowEchooWorks}
+                asChild
               >
-                {language === "el" ? "Πώς λειτουργεί το Echoo" : "How Echoo works"}
+                <Link to="/support">{copy.nav.support}</Link>
               </Button>
             </SheetClose>
           </div>
-          <div className="rounded-[24px] border border-white/10 bg-white/5 p-3">
-            <PwaInstallButton className="w-full justify-center" />
+
+          <div className="md:hidden">
+            <Accordion type="single" collapsible className="space-y-3">
+              {linkGroups.map((group) => (
+                <AccordionItem key={group.title} value={group.title} className="rounded-[24px] border border-white/10 bg-white/5 px-4">
+                  <AccordionTrigger className="text-left text-sm font-medium text-white hover:no-underline">
+                    {group.title}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-4 pt-1">
+                    <div className="grid gap-2">
+                      {group.links.map(({ to, label, icon: Icon }) => (
+                        <Link
+                          key={to}
+                          to={to}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0f1526] px-4 py-3 text-sm text-white/78 transition hover:bg-white/10"
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span>{label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
-          {links.map(({ to, label, icon: Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/10"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
+
+          <div className="hidden gap-3 md:grid md:grid-cols-2">
+            {linkGroups.map((group) => (
+              <div key={group.title} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.28em] text-white/35">{group.title}</p>
+                <div className="mt-3 grid gap-2">
+                  {group.links.map(({ to, label, icon: Icon }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0f1526] px-4 py-3 text-sm text-white/78 transition hover:bg-white/10"
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
           {isAdmin && (
             <Link
               to="/admin"
@@ -78,7 +137,6 @@ function MenuSheet() {
               {copy.nav.admin}
             </Link>
           )}
-
         </div>
       </SheetContent>
     </Sheet>

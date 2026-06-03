@@ -207,7 +207,8 @@ const QueuePage = () => {
             tone="rose"
             action={
               <Button asChild className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
-                <Link to="/safety">{language === "en" ? "Safety & rules" : "Ασφάλεια & κανόνες"}</Link>
+                <Link to="/trust-safety#safety">{language === "en" ? "Safety & rules" : "Ασφάλεια & κανόνες"}</Link>
+
               </Button>
             }
             secondaryAction={
