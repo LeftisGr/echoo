@@ -76,11 +76,11 @@ function isRouteBypassed(pathname: string) {
 
 function BackNavigationGuard() {
   const { queue, room, matchTransition, cancelQueue, leaveRoom, copy } = usePresence();
-  const { navigationBypassActive, allowNavigationOnce } = useNavigationGuard();
+  const { navigationBypassRef, allowNavigationOnce } = useNavigationGuard();
 
   const location = useLocation();
   const navigate = useNavigate();
-  const blocker = useBlocker(Boolean((queue.active || matchTransition || room?.status === "active") && !isRouteBypassed(location.pathname) && !navigationBypassActive));
+  const blocker = useBlocker(Boolean((queue.active || matchTransition || room?.status === "active") && !isRouteBypassed(location.pathname) && !navigationBypassRef.current));
 
   const [modalOpen, setModalOpen] = useState(false);
   const pendingActionRef = useRef<"queue" | "room" | null>(null);

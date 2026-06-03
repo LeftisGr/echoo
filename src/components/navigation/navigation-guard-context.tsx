@@ -1,43 +1,39 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type MutableRefObject, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
 interface NavigationGuardContextValue {
   allowNavigationOnce: () => void;
-  navigationBypassActive: boolean;
+  navigationBypassRef: MutableRefObject<boolean>;
 }
 
 const NavigationGuardContext = createContext<NavigationGuardContextValue | null>(null);
 
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const [navigationBypassActive, setNavigationBypassActive] = useState(false);
+  const navigationBypassRef = useRef(false);
   const bypassTimeoutRef = useRef<number | null>(null);
 
   const allowNavigationOnce = useCallback(() => {
-    setNavigationBypassActive(true);
+    navigationBypassRef.current = true;
 
     if (bypassTimeoutRef.current) {
       window.clearTimeout(bypassTimeoutRef.current);
     }
 
     bypassTimeoutRef.current = window.setTimeout(() => {
-      setNavigationBypassActive(false);
+      navigationBypassRef.current = false;
       bypassTimeoutRef.current = null;
-    }, 1500);
+    }, 2000);
   }, []);
 
   useEffect(() => {
-    if (!navigationBypassActive) {
-      return;
-    }
+    navigationBypassRef.current = false;
 
-    const timeout = window.setTimeout(() => {
-      setNavigationBypassActive(false);
+    if (bypassTimeoutRef.current) {
+      window.clearTimeout(bypassTimeoutRef.current);
       bypassTimeoutRef.current = null;
-    }, 0);
-
-    return () => window.clearTimeout(timeout);
-  }, [navigationBypassActive, location.pathname, location.search, location.hash]);
+    }
+  }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     return () => {
@@ -50,9 +46,9 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       allowNavigationOnce,
-      navigationBypassActive,
+      navigationBypassRef,
     }),
-    [allowNavigationOnce, navigationBypassActive],
+    [allowNavigationOnce],
   );
 
   return <NavigationGuardContext.Provider value={value}>{children}</NavigationGuardContext.Provider>;
