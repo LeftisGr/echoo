@@ -1080,7 +1080,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setVoiceState((current) => (current === room.rtcState ? current : room.rtcState));
+    setVoiceState((current) => (current === "idle" ? room.rtcState : current));
   }, [room?.rtcState]);
 
   useEffect(() => {

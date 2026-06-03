@@ -9,11 +9,13 @@ export function UnlockProgress({
   stage,
   timerLabel,
   timerProgress,
+  timerUrgent,
   language,
 }: {
   stage: UnlockStage;
   timerLabel: string;
   timerProgress: number;
+  timerUrgent: boolean;
   language: AppLanguage;
 }) {
   const [previousStage, setPreviousStage] = useState<UnlockStage | null>(null);
@@ -64,11 +66,13 @@ export function UnlockProgress({
   );
 
   const renderStage = (viewStage: UnlockStage, isActive: boolean) => {
+    const isChat = viewStage === "chat";
     const isVoice = viewStage === "voice";
     const isFinal = viewStage === "content";
     const title = isVoice ? copy.voiceOpen : copy.everythingOpen;
-    const nextLabel = isVoice ? copy.contentNext : null;
-    const timerTone = isVoice ? "text-emerald-50" : "text-white";
+    const nextLabel = isChat ? copy.voiceNext : isVoice ? copy.contentNext : null;
+    const timerTone = timerUrgent ? "text-rose-300" : isVoice ? "text-emerald-50" : "text-white";
+    const progressTone = timerUrgent ? "bg-rose-300" : isVoice ? "bg-emerald-300/70" : "bg-violet-300/70";
 
     return (
       <div
@@ -77,7 +81,7 @@ export function UnlockProgress({
           isActive ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.98] opacity-0",
         )}
       >
-        {isVoice ? (
+        {isChat ? null : isVoice ? (
           <div className="flex items-center gap-2 text-sm font-medium text-white/88 sm:text-base">
             <span aria-hidden="true" className="text-base leading-none">
               🎤
@@ -94,31 +98,21 @@ export function UnlockProgress({
         )}
 
         {isFinal ? (
-          <p className="max-w-[18rem] text-sm leading-6 text-white/60 sm:text-[0.95rem]">{copy.finalSubtitle}</p>
+          <p className="max-w-[16rem] text-sm leading-6 text-white/60 sm:text-[0.95rem]">{copy.finalSubtitle}</p>
         ) : (
-          <div className="w-full space-y-2.5 pt-1">
-            <div className={cn("w-full text-[clamp(2.4rem,10vw,3.6rem)] font-semibold leading-none tracking-[0.02em] tabular-nums", timerTone)}>
+          <div className="w-full space-y-2 pt-1">
+            <div className="text-[0.66rem] font-medium uppercase tracking-[0.28em] text-white/42">{nextLabel}</div>
+
+            <div className={cn("w-full text-[clamp(2.1rem,9vw,3.2rem)] font-semibold leading-none tracking-[0.02em] tabular-nums", timerTone)}>
               {timerLabel}
             </div>
 
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="mx-auto h-1.5 w-full max-w-[11rem] overflow-hidden rounded-full bg-white/10">
               <div
-                className={cn(
-                  "h-full rounded-full transition-[width,opacity] duration-500 ease-out",
-                  isVoice ? "bg-emerald-300/70" : "bg-violet-300/70",
-                )}
+                className={cn("h-full rounded-full transition-[width,opacity] duration-500 ease-out", progressTone)}
                 style={{ width: `${Math.max(0, Math.min(100, timerProgress))}%` }}
               />
             </div>
-
-            {nextLabel && (
-              <div className="flex items-center justify-center gap-2 text-xs font-medium text-white/62 sm:text-sm">
-                <span aria-hidden="true" className="text-sm leading-none">
-                  🖼
-                </span>
-                <span>{nextLabel}</span>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -127,8 +121,8 @@ export function UnlockProgress({
 
   return (
     <div className="flex w-full justify-center">
-      <div className="shrink-0" style={{ width: "min(20rem, calc(100vw - 1.5rem))" }}>
-        <div className="relative mx-auto min-h-[8.5rem] w-full overflow-visible px-2 py-2 text-center">
+      <div className="shrink-0" style={{ width: "min(17rem, calc(100vw - 1.5rem))" }}>
+        <div className="relative mx-auto min-h-[8.5rem] w-full overflow-visible px-1 py-1 text-center">
           {previousStage && renderStage(previousStage, !animateIn)}
           {renderStage(visibleStage, animateIn)}
         </div>
