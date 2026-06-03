@@ -25,7 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { SessionMediaMessage } from "@/components/session/session-media-message";
-import { SessionProgressHeader } from "@/components/session/session-progress-header";
+import { UnlockProgress } from "@/components/session/unlock-progress";
+
 import { SessionTypingIndicator } from "@/components/session/session-typing-indicator";
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -57,7 +58,7 @@ import {
   upsertRoomPresenceSignal,
 } from "@/lib/room-presence";
 
-import { getSessionPhaseCopy, SESSION_TEXT_PHASE_SECONDS, useSessionProgression } from "@/lib/session-progression";
+import { getSessionPhaseCopy, SESSION_AUDIO_PHASE_SECONDS, SESSION_TEXT_PHASE_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 function getRoomDisplayName(roomId: string) {
   const suffix = roomId
@@ -1050,21 +1051,26 @@ const SessionPage = () => {
 
   const isEnded = room.status === "ended";
 
+  const unlockStage = sessionProgression.mediaUnlocked ? "content" : sessionProgression.voiceUnlocked ? "voice" : "chat";
+
   const secondsRemaining =
-    phase === "TEXT_PHASE"
+    unlockStage === "chat"
       ? sessionProgression.secondsUntilVoiceUnlock
-      : phase === "AUDIO_PHASE"
+      : unlockStage === "voice"
         ? sessionProgression.secondsUntilMediaUnlock
         : 0;
 
   const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
-  const voiceUnlocked = sessionProgression.voiceUnlocked;
-  const timerProgress = voiceUnlocked
-    ? 100
-    : Math.min(((SESSION_TEXT_PHASE_SECONDS - secondsRemaining) / SESSION_TEXT_PHASE_SECONDS) * 100, 100);
+  const timerProgress =
+    unlockStage === "chat"
+      ? Math.min(((SESSION_TEXT_PHASE_SECONDS - sessionProgression.secondsUntilVoiceUnlock) / SESSION_TEXT_PHASE_SECONDS) * 100, 100)
+      : unlockStage === "voice"
+        ? Math.min(((SESSION_AUDIO_PHASE_SECONDS - sessionProgression.secondsUntilMediaUnlock) / SESSION_AUDIO_PHASE_SECONDS) * 100, 100)
+        : 100;
 
   const voiceStatusDotClass =
+
     voiceState === "connected"
       ? "bg-emerald-300 shadow-[0_0_0_4px_rgba(52,211,153,0.16)]"
       : voiceState === "connecting" || voiceState === "requesting-microphone"
@@ -1077,20 +1083,8 @@ const SessionPage = () => {
 
   const timerUrgent = secondsRemaining <= 10;
 
-  const timerToneClass =
-    phase === "TEXT_PHASE"
-      ? timerUrgent
-        ? "text-rose-200"
-        : "text-white"
-      : phase === "AUDIO_PHASE"
-        ? timerUrgent
-          ? "text-rose-200"
-          : "text-emerald-100"
-        : timerUrgent
-          ? "text-rose-100"
-          : "text-amber-50";
-
   const composerShellClass =
+
     phase === "TEXT_PHASE"
       ? timerUrgent
         ? "border-rose-400/18 bg-[#28161a]/92"
@@ -1569,13 +1563,7 @@ const SessionPage = () => {
             </div>
 
             <div className="flex justify-self-center text-center">
-              <SessionProgressHeader
-                timerLabel={timerLabel}
-                timerProgress={timerProgress}
-                toneClassName={timerToneClass}
-                language={language}
-                voiceUnlocked={voiceUnlocked}
-              />
+              <UnlockProgress stage={unlockStage} timerLabel={timerLabel} timerProgress={timerProgress} language={language} />
             </div>
 
             <div className="flex justify-end justify-self-end pl-2">
