@@ -57,7 +57,7 @@ import {
   upsertRoomPresenceSignal,
 } from "@/lib/room-presence";
 
-import { getSessionPhaseCopy, SESSION_TOTAL_PROGRESS_SECONDS, useSessionProgression } from "@/lib/session-progression";
+import { getSessionPhaseCopy, SESSION_TEXT_PHASE_SECONDS, useSessionProgression } from "@/lib/session-progression";
 
 function getRoomDisplayName(roomId: string) {
   const suffix = roomId
@@ -1059,8 +1059,10 @@ const SessionPage = () => {
 
   const timerLabel = `${String(Math.floor(secondsRemaining / 60)).padStart(2, "0")}:${String(secondsRemaining % 60).padStart(2, "0")}`;
 
-  const timerProgress = Math.min((sessionProgression.elapsedSeconds / SESSION_TOTAL_PROGRESS_SECONDS) * 100, 100);
-  const sessionComplete = phase === "MEDIA_PHASE";
+  const voiceUnlocked = sessionProgression.voiceUnlocked;
+  const timerProgress = voiceUnlocked
+    ? 100
+    : Math.min(((SESSION_TEXT_PHASE_SECONDS - secondsRemaining) / SESSION_TEXT_PHASE_SECONDS) * 100, 100);
 
   const voiceStatusDotClass =
     voiceState === "connected"
@@ -1566,14 +1568,13 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-start justify-self-start text-left">
+            <div className="flex justify-self-center text-center">
               <SessionProgressHeader
-                phase={phase}
                 timerLabel={timerLabel}
                 timerProgress={timerProgress}
                 toneClassName={timerToneClass}
                 language={language}
-                sessionComplete={sessionComplete}
+                voiceUnlocked={voiceUnlocked}
               />
             </div>
 
