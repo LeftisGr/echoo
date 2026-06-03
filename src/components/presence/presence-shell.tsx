@@ -3,13 +3,15 @@ import { Globe, Home, Menu, Shield, Sparkles, UserCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/components/presence/presence-provider";
+import { HowEchooWorksProvider, useHowEchooWorks } from "@/components/presence/how-echoo-works";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
 function MenuSheet() {
-  const { copy, isAdmin } = usePresence();
+  const { copy, isAdmin, language } = usePresence();
+  const { openHowEchooWorks } = useHowEchooWorks();
 
   const links = [
     { to: "/", label: copy.nav.home, icon: Sparkles },
@@ -44,6 +46,18 @@ function MenuSheet() {
         </SheetHeader>
         <div className="mt-8 space-y-3 pb-6 pr-1">
           <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3">
+            <SheetClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                onClick={openHowEchooWorks}
+              >
+                {language === "el" ? "Πώς λειτουργεί το Echoo" : "How Echoo works"}
+              </Button>
+            </SheetClose>
+          </div>
+          <div className="rounded-[24px] border border-white/10 bg-white/5 p-3">
             <PwaInstallButton className="w-full justify-center" />
           </div>
           {links.map(({ to, label, icon: Icon }) => (
@@ -130,22 +144,24 @@ export function PageShell({
   showStickyBottomBar?: boolean;
 }) {
   return (
-    <div className="min-h-[var(--app-height,100vh)] overflow-x-hidden bg-background text-foreground">
-      <div className="mx-auto flex min-h-[var(--app-height,100vh)] w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-6 lg:pb-28 lg:px-8">
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <Link to="/" className="shrink-0">
-            <PresenceLogo />
-          </Link>
-          <div className="flex items-center gap-2">
-            <LanguageToggle />
-            <ProfileButton />
-          </div>
-        </header>
+    <HowEchooWorksProvider>
+      <div className="min-h-[var(--app-height,100vh)] overflow-x-hidden bg-background text-foreground">
+        <div className="mx-auto flex min-h-[var(--app-height,100vh)] w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-6 lg:pb-28 lg:px-8">
+          <header className="mb-6 flex items-center justify-between gap-4">
+            <Link to="/" className="shrink-0">
+              <PresenceLogo />
+            </Link>
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <ProfileButton />
+            </div>
+          </header>
 
-        <main className={cn("flex-1", className)}>{children}</main>
+          <main className={cn("flex-1", className)}>{children}</main>
+        </div>
+        {showStickyBottomBar && <StickyBottomBar />}
       </div>
-      {showStickyBottomBar && <StickyBottomBar />}
-    </div>
+    </HowEchooWorksProvider>
   );
 }
 
