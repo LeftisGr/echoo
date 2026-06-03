@@ -15,8 +15,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { Input } from "@/components/ui/input";
@@ -78,11 +78,10 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getAvatarGlyph(profile?: { avatarEmoji?: string | null; username?: string } | null) {
-  return profile?.avatarEmoji ?? profile?.username?.slice(0, 1).toUpperCase() ?? "E";
-}
+const MESSAGE_GROUPING_WINDOW_MS = 3 * 60 * 1000;
 
 function requestApproximatePosition() {
+
   return new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation unavailable"));
@@ -1116,6 +1115,66 @@ const SessionPage = () => {
 
   const visibleMessages = room.messages;
 
+  const groupedVisibleMessages = useMemo(() => {
+    const groups: Array<
+      | { kind: "system"; message: (typeof room.messages)[number]; arrivedHot: boolean }
+      | {
+          kind: "chat";
+          key: string;
+          isSelf: boolean;
+          senderLabel: string;
+          showSenderLabel: boolean;
+          messages: Array<{ message: (typeof room.messages)[number]; timestamp: string; arrivedHot: boolean }>;
+        }
+    > = [];
+
+    room.messages.forEach((message, index) => {
+      const arrivedHot = message.id === recentMessageId;
+      const previousMessage = room.messages[index - 1];
+
+      if (message.type === "system") {
+        groups.push({ kind: "system", message, arrivedHot });
+        return;
+      }
+
+      const isSelf = message.senderId === profile.id;
+      const shouldStartNewGroup =
+        !previousMessage ||
+        previousMessage.type === "system" ||
+        previousMessage.senderId !== message.senderId ||
+        Date.parse(message.createdAt) - Date.parse(previousMessage.createdAt) > MESSAGE_GROUPING_WINDOW_MS;
+
+      const lastGroup = groups[groups.length - 1];
+      if (!lastGroup || lastGroup.kind !== "chat" || shouldStartNewGroup) {
+        groups.push({
+          kind: "chat",
+          key: message.id,
+          isSelf,
+          senderLabel: isSelf ? "YOU" : "STRANGER",
+          showSenderLabel: true,
+          messages: [],
+        });
+
+      }
+
+      const targetGroup = groups[groups.length - 1];
+      if (targetGroup.kind !== "chat") {
+        return;
+      }
+
+      targetGroup.messages.push({
+        message,
+        timestamp: new Date(message.createdAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        arrivedHot,
+      });
+    });
+
+    return groups;
+  }, [profile.id, recentMessageId, room.messages]);
+
   const roomDisplayName = getRoomDisplayName(room.id);
 
   const reportReasonOptions = useMemo(
@@ -1298,14 +1357,15 @@ const SessionPage = () => {
     );
   };
 
-  const renderMessageMeta = (isSelf: boolean, avatarProfile: { avatarEmoji: string | null; username: string } | null, timestamp: string) => (
-    <div className={cn("flex items-center gap-2 px-1 text-xs text-white/35", isSelf ? "justify-end" : "justify-start")}>
-      <Avatar className="h-6 w-6 border border-white/10 bg-white/5 shadow-sm">
-        <AvatarFallback className="bg-violet-500/15 text-[10px] font-semibold text-violet-50">{getAvatarGlyph(avatarProfile)}</AvatarFallback>
-      </Avatar>
-      <span className="font-medium uppercase tracking-[0.22em] text-white/45">{isSelf ? copy.session.you : copy.session.partner}</span>
-      <span>•</span>
-      <span>{timestamp}</span>
+  const renderSenderLabel = (label: string, isSelf: boolean) => (
+    <div className={cn("px-1 text-[10px] font-medium uppercase tracking-[0.28em] text-white/35", isSelf ? "text-right" : "text-left")}>
+      {label}
+    </div>
+  );
+
+  const renderTimestamp = (timestamp: string, isSelf: boolean) => (
+    <div className={cn("px-1 pt-1 text-[11px] uppercase tracking-[0.2em] text-white/28", isSelf ? "text-right" : "text-left")}>
+      {timestamp}
     </div>
   );
 
@@ -1627,18 +1687,9 @@ const SessionPage = () => {
               </div>
             )}
 
-            {visibleMessages.map((message) => {
-
-              const isSelf = message.senderId === profile.id;
-              const isSystem = message.type === "system";
-              const timestamp = new Date(message.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-              const arrivedHot = message.id === recentMessageId;
-
-              if (isSystem) {
-                const normalizedSystemMessage = message.content
+            {groupedVisibleMessages.map((item) => {
+              if (item.kind === "system") {
+                const normalizedSystemMessage = item.message.content
                   .normalize("NFD")
                   .toLowerCase()
                   .replace(/[\u0300-\u036f]/g, "")
@@ -1661,73 +1712,77 @@ const SessionPage = () => {
                   normalizedSystemMessage.includes("unlocked") ||
                   normalizedSystemMessage.includes("ανοιχτ");
 
-                  return (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                        isPositiveSystemMessage
-                          ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50"
-                          : "border-white/8 bg-white/5 text-white/45",
-                        arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
-                      )}
-  
-                    >
-                      {message.content}
-                    </div>
-                  );
-              }
-
-              if (message.type === "media") {
                 return (
-                  <div key={message.id} className={cn("relative flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
-                    <div
-                      data-reaction-message={message.id}
-                      className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}
-                      onPointerDown={() => handleReactionPressStart(message.id, isSelf)}
-                      onPointerUp={() => handleReactionPressEnd(message.id)}
-                      onPointerCancel={() => handleReactionPressEnd(message.id)}
-                      onPointerLeave={() => handleReactionPressEnd(message.id)}
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      {renderMessageMeta(isSelf, isSelf ? profile : room.partner, timestamp)}
-
-                      <SessionMediaMessage message={message} isSelf={isSelf} />
-                      {renderReactionBadge(message.id, isSelf)}
-                      {activeReactionMessageId === message.id && renderReactionPicker(message.id, isSelf)}
-                    </div>
+                  <div
+                    key={item.message.id}
+                    className={cn(
+                      "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                      isPositiveSystemMessage ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50" : "border-white/8 bg-white/5 text-white/45",
+                      item.arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
+                    )}
+                  >
+                    {item.message.content}
                   </div>
                 );
               }
 
               return (
-                <div key={message.id} className={cn("relative flex min-w-0", isSelf ? "justify-end" : "justify-start")}>
-                  <div
-                    data-reaction-message={message.id}
-                    className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", isSelf ? "items-end text-right" : "items-start text-left")}
-                    onPointerDown={() => handleReactionPressStart(message.id, isSelf)}
-                    onPointerUp={() => handleReactionPressEnd(message.id)}
-                    onPointerCancel={() => handleReactionPressEnd(message.id)}
-                    onPointerLeave={() => handleReactionPressEnd(message.id)}
-                    onContextMenu={(event) => event.preventDefault()}
-                  >
-                    {renderMessageMeta(isSelf, isSelf ? profile : room.partner, timestamp)}
+                <div key={item.key} className="space-y-2">
+                  {item.showSenderLabel && renderSenderLabel(item.senderLabel, item.isSelf)}
 
-                    <div
-                      className={cn(
-                        "min-w-0 rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm transition-all duration-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                        isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
-                        arrivedHot && "ring-1 ring-white/10 animate-[echo-message-in_220ms_ease-out]",
-                      )}
-                    >
-                      {message.content}
-                    </div>
-                    {renderReactionBadge(message.id, isSelf)}
-                    {activeReactionMessageId === message.id && renderReactionPicker(message.id, isSelf)}
+                  <div className="space-y-2">
+                    {item.messages.map(({ message, timestamp, arrivedHot }) => {
+                      if (message.type === "media") {
+                        return (
+                          <div key={message.id} className={cn("relative flex min-w-0", item.isSelf ? "justify-end" : "justify-start")}>
+                            <div
+                              data-reaction-message={message.id}
+                              className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", item.isSelf ? "items-end text-right" : "items-start text-left")}
+                              onPointerDown={() => handleReactionPressStart(message.id, item.isSelf)}
+                              onPointerUp={() => handleReactionPressEnd(message.id)}
+                              onPointerCancel={() => handleReactionPressEnd(message.id)}
+                              onPointerLeave={() => handleReactionPressEnd(message.id)}
+                              onContextMenu={(event) => event.preventDefault()}
+                            >
+                              <SessionMediaMessage message={message} isSelf={item.isSelf} />
+                              {renderTimestamp(timestamp, item.isSelf)}
+                              {renderReactionBadge(message.id, item.isSelf)}
+                              {activeReactionMessageId === message.id && renderReactionPicker(message.id, item.isSelf)}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={message.id} className={cn("relative flex min-w-0", item.isSelf ? "justify-end" : "justify-start")}>
+                          <div
+                            data-reaction-message={message.id}
+                            className={cn("relative min-w-0 max-w-[min(88%,42rem)] space-y-1", item.isSelf ? "items-end text-right" : "items-start text-left")}
+                            onPointerDown={() => handleReactionPressStart(message.id, item.isSelf)}
+                            onPointerUp={() => handleReactionPressEnd(message.id)}
+                            onPointerCancel={() => handleReactionPressEnd(message.id)}
+                            onPointerLeave={() => handleReactionPressEnd(message.id)}
+                            onContextMenu={(event) => event.preventDefault()}
+                          >
+                            <div
+                              className={cn(
+                                "min-w-0 rounded-[18px] px-4 py-3 text-[15px] leading-6 shadow-sm transition-all duration-200 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                                item.isSelf ? "bg-white text-slate-950" : "bg-white/7 text-white ring-1 ring-white/5",
+                                arrivedHot && "ring-1 ring-white/10 animate-[echo-message-in_220ms_ease-out]",
+                              )}
+                            >
+                              {message.content}
+                            </div>
+                            {renderTimestamp(timestamp, item.isSelf)}
+                            {renderReactionBadge(message.id, item.isSelf)}
+                            {activeReactionMessageId === message.id && renderReactionPicker(message.id, item.isSelf)}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
-
             })}
 
             {typingIndicator && (
