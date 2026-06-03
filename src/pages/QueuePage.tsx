@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
 import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
 
 import { Link, Navigate, useNavigate } from "react-router-dom";
@@ -26,10 +27,26 @@ const QueuePage = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
+  const roomRedirectRef = useRef<string | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    if (!room || matchTransition) {
+      roomRedirectRef.current = null;
+      return;
+    }
+
+    if (roomRedirectRef.current === room.id) {
+      return;
+    }
+
+    roomRedirectRef.current = room.id;
+    allowNavigationOnce();
+    navigate(`/session/${room.id}`, { replace: true });
+  }, [allowNavigationOnce, matchTransition, navigate, room]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -153,7 +170,7 @@ const QueuePage = () => {
   }
 
   if (room && !matchTransition) {
-    return <Navigate to={`/session/${room.id}`} replace />;
+    return null;
   }
 
   if (roomFlowError && !room && !matchTransition) {

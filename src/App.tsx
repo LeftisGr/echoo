@@ -283,12 +283,12 @@ function AppLayoutContent() {
   }
 
   return (
-    <NavigationGuardProvider>
+    <>
       <BackNavigationGuard />
       <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         <Outlet />
       </div>
-    </NavigationGuardProvider>
+    </>
   );
 }
 
