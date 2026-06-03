@@ -1,4 +1,4 @@
-import { Bell, Mail, MapPin, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
+import { Bell, Mail, MapPin, ShieldCheck, Sparkles, TimerReset, Users } from "lucide-react";
 
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -10,90 +10,80 @@ const PrivacyPage = () => {
     language === "en"
       ? {
           title: "Privacy Policy",
-          body: "Echoo is built to keep identity light, rooms private, and data limited to what the app truly needs.",
+          body: "Echoo keeps things simple: private rooms, minimal data, and no unnecessary tracking.",
           intro:
-            "This is the short version: we try to know as little about you as possible, and we do not turn your conversations into a permanent record.",
+            "Here’s the plain version. We only keep what we need to run the app, protect people, and keep the experience working well.",
           sections: [
             {
+              title: "Voice",
+              body: "Echoo does not record or store live voice conversations.",
+            },
+            {
+              title: "Rooms",
+              body: "Rooms are temporary and not publicly accessible.",
+            },
+            {
+              title: "Location",
+              body: "Nearby/Away uses approximate distance only and only when permission is granted.",
+            },
+            {
+              title: "Reports",
+              body: "Reports may store minimal moderation information.",
+            },
+            {
+              title: "Profiles",
+              body: "Echoo does not provide public profile browsing.",
+            },
+            {
               title: "What we collect",
-              body:
-                "We collect the basics needed to run the app: account information from email authentication or Google login, your anonymous profile settings, room activity, reports, and simple usage events that help Echoo stay stable.",
-            },
-            {
-              title: "Authentication",
-              body:
-                "If you sign in with email, we use that only to authenticate the account. If you sign in with Google, we use the Google account connection to sign you in. We do not expose your email to other users.",
-            },
-            {
-              title: "Temporary content",
-              body:
-                "Messages, voice moments, and uploaded media are temporary by design. Rooms end automatically, shared content expires, and media is removed after it has served its purpose.",
-            },
-            {
-              title: "Nearby / Away",
-              body:
-                "When a room uses location access, Echoo only reads a coarse approximate position so it can show whether the other person is Nearby or Away. We do not show exact addresses or live location pins to other users.",
-            },
-            {
-              title: "Moderation and safety",
-              body:
-                "Reports, blocks, suspensions, and bans are stored so we can protect people and stop repeat abuse. We may keep a small moderation trail for review, abuse prevention, and platform safety.",
-            },
-
-            {
-              title: "Analytics and local storage",
-              body:
-                "We use lightweight analytics and in-app events to understand reliability, queues, and safety signals. We also use local storage for simple app preferences like language, queue settings, and session state.",
+              body: "We keep the basics needed to run the app, like sign-in details, your profile settings, room activity, and simple usage data that helps us keep Echoo stable.",
             },
             {
               title: "Your rights",
-              body:
-                "If you are in the EU or UK, you can ask to access, correct, delete, or limit certain data. You can also ask questions about what we keep and why.",
+              body: "If you’re in the EU or UK, you can ask to access, correct, delete, or limit certain data, and you can ask us what we keep and why.",
             },
           ],
           contact: "For privacy requests, email privacy@echoo.app.",
         }
       : {
           title: "Πολιτική απορρήτου",
-          body: "Το Echoo χτίζεται για να κρατά την ταυτότητα ελαφριά, τα rooms ιδιωτικά και τα δεδομένα περιορισμένα σε ό,τι πραγματικά χρειάζεται η app.",
+          body: "Το Echoo κρατά τα πράγματα απλά: ιδιωτικά rooms, ελάχιστα δεδομένα και χωρίς περιττό tracking.",
           intro:
-            "Η σύντομη εκδοχή: προσπαθούμε να γνωρίζουμε όσο το δυνατόν λιγότερα για εσένα και δεν μετατρέπουμε τις κουβέντες σου σε μόνιμο αρχείο.",
+            "Η απλή εκδοχή είναι αυτή: κρατάμε μόνο ό,τι χρειαζόμαστε για να λειτουργεί η app, να προστατεύουμε τους ανθρώπους και να μένει η εμπειρία σταθερή.",
           sections: [
             {
+              title: "Φωνή",
+              body: "Το Echoo δεν καταγράφει ούτε αποθηκεύει ζωντανές φωνητικές συνομιλίες.",
+            },
+            {
+              title: "Rooms",
+              body: "Τα rooms είναι προσωρινά και δεν είναι δημόσια προσβάσιμα.",
+            },
+            {
+              title: "Τοποθεσία",
+              body: "Το Nearby/Away χρησιμοποιεί μόνο κατά προσέγγιση απόσταση και μόνο όταν δοθεί άδεια.",
+            },
+            {
+              title: "Reports",
+              body: "Τα reports μπορεί να αποθηκεύουν ελάχιστες πληροφορίες moderation.",
+            },
+            {
+              title: "Profiles",
+              body: "Το Echoo δεν προσφέρει δημόσια περιήγηση προφίλ.",
+            },
+            {
               title: "Τι συλλέγουμε",
-              body:
-                "Συλλέγουμε τα βασικά που χρειάζονται για να λειτουργεί η app: πληροφορίες λογαριασμού από email authentication ή Google login, τις ρυθμίσεις του ανώνυμου προφίλ σου, δραστηριότητα στα rooms, reports και απλά events χρήσης που βοηθούν το Echoo να παραμένει σταθερό.",
-            },
-            {
-              title: "Σύνδεση",
-              body:
-                "Αν συνδεθείς με email, το χρησιμοποιούμε μόνο για να γίνει authentication ο λογαριασμός. Αν συνδεθείς με Google, χρησιμοποιούμε τη σύνδεση του Google λογαριασμού μόνο για να σε βάλουμε μέσα. Δεν εμφανίζουμε το email σου σε άλλους ανθρώπους.",
-            },
-            {
-              title: "Προσωρινό περιεχόμενο",
-              body:
-                "Τα μηνύματα, οι φωνητικές στιγμές και τα uploaded media είναι προσωρινά by design. Τα rooms τελειώνουν αυτόματα, το shared content λήγει και τα media αφαιρούνται όταν ολοκληρώσουν τον σκοπό τους.",
-            },
-            {
-              title: "Moderation και ασφάλεια",
-              body:
-                "Τα reports, τα blocks, οι αναστολές και τα bans αποθηκεύονται για να προστατεύουμε τους ανθρώπους και να σταματάμε την επαναλαμβανόμενη κατάχρηση. Μπορεί να κρατάμε ένα μικρό moderation trail για έλεγχο και ασφάλεια.",
-            },
-            {
-              title: "Analytics και τοπική αποθήκευση",
-              body:
-                "Χρησιμοποιούμε ελαφριά analytics και in-app events για να καταλαβαίνουμε τη σταθερότητα, τις ουρές και τα σήματα ασφάλειας. Χρησιμοποιούμε επίσης local storage για απλές προτιμήσεις όπως γλώσσα, queue settings και κατάσταση session.",
+              body: "Κρατάμε τα βασικά που χρειάζονται για να λειτουργεί η app, όπως στοιχεία σύνδεσης, ρυθμίσεις προφίλ, δραστηριότητα στα rooms και απλά usage δεδομένα που βοηθούν το Echoo να παραμένει σταθερό.",
             },
             {
               title: "Τα δικαιώματά σου",
-              body:
-                "Αν βρίσκεσαι στην ΕΕ ή στο Ηνωμένο Βασίλειο, μπορείς να ζητήσεις πρόσβαση, διόρθωση, διαγραφή ή περιορισμό ορισμένων δεδομένων. Μπορείς επίσης να ρωτήσεις τι κρατάμε και γιατί.",
+              body: "Αν βρίσκεσαι στην ΕΕ ή στο Ηνωμένο Βασίλειο, μπορείς να ζητήσεις πρόσβαση, διόρθωση, διαγραφή ή περιορισμό ορισμένων δεδομένων, και μπορείς να μας ρωτήσεις τι κρατάμε και γιατί.",
             },
           ],
           contact: "Για privacy requests, στείλε email στο privacy@echoo.app.",
         };
 
-  const icons = [Sparkles, ShieldCheck, TimerReset, MapPin, Bell, Mail, ShieldCheck] as const;
+  const icons = [Sparkles, TimerReset, MapPin, Bell, Users, ShieldCheck, Mail] as const;
 
   return (
     <PageShell className="space-y-6">

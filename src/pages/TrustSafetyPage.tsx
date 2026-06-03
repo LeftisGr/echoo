@@ -27,41 +27,47 @@ const TrustSafetyPage = () => {
   const privacySections =
     language === "en"
       ? [
-          "We collect the basics needed to run the app: account information from email authentication or Google login, your anonymous profile settings, room activity, reports, and simple usage events that help Echoo stay stable.",
-          "If you sign in with email, we use that only to authenticate the account. If you sign in with Google, we use the Google account connection to sign you in. We do not expose your email to other users.",
-          "Messages, voice moments, and uploaded media are temporary by design. Rooms end automatically, shared content expires, and media is removed after it has served its purpose.",
-          "When a room uses location access, Echoo only reads a coarse approximate position so it can show whether the other person is Nearby or Away. We do not show exact addresses or live location pins to other users.",
-          "Reports, blocks, suspensions, and bans are stored so we can protect people and stop repeat abuse. We may keep a small moderation trail for review, abuse prevention, and platform safety.",
-          "We use lightweight analytics and in-app events to understand reliability, queues, and safety signals. We also use local storage for simple app preferences like language, queue settings, and session state.",
-          "If you are in the EU or UK, you can ask to access, correct, delete, or limit certain data. You can also ask questions about what we keep and why.",
+          "Voice: Echoo does not record or store live voice conversations.",
+          "Rooms: Rooms are temporary and not publicly accessible.",
+          "Location: Nearby/Away uses approximate distance only and only when permission is granted.",
+          "Reports: Reports may store minimal moderation information.",
+          "Profiles: Echoo does not provide public profile browsing.",
+          "What we collect: We keep the basics needed to run the app, like sign-in details, your profile settings, room activity, and simple usage data that helps us keep Echoo stable.",
+          "Your rights: If you’re in the EU or UK, you can ask to access, correct, delete, or limit certain data, and you can ask us what we keep and why.",
         ]
       : [
-          "Συλλέγουμε τα βασικά που χρειάζονται για να λειτουργεί η app: πληροφορίες λογαριασμού από email authentication ή Google login, τις ρυθμίσεις του ανώνυμου προφίλ σου, δραστηριότητα στα rooms, reports και απλά events χρήσης που βοηθούν το Echoo να παραμένει σταθερό.",
-          "Αν συνδεθείς με email, το χρησιμοποιούμε μόνο για να γίνει authentication ο λογαριασμός. Αν συνδεθείς με Google, χρησιμοποιούμε τη σύνδεση του Google λογαριασμού μόνο για να σε βάλουμε μέσα. Δεν εμφανίζουμε το email σου σε άλλους ανθρώπους.",
-          "Τα μηνύματα, οι φωνητικές στιγμές και τα uploaded media είναι προσωρινά by design. Τα rooms τελειώνουν αυτόματα, το shared content λήγει και τα media αφαιρούνται όταν ολοκληρώσουν τον σκοπό τους.",
-          "Όταν ένα room χρησιμοποιεί πρόσβαση τοποθεσίας, το Echoo διαβάζει μόνο μια χονδρική, κατά προσέγγιση θέση ώστε να δείχνει αν ο άλλος είναι Nearby ή Away. Δεν εμφανίζουμε ακριβείς διευθύνσεις ή live pins σε άλλους χρήστες.",
-          "Τα reports, τα blocks, οι αναστολές και τα bans αποθηκεύονται για να προστατεύουμε τους ανθρώπους και να σταματάμε την επαναλαμβανόμενη κατάχρηση. Μπορεί να κρατάμε ένα μικρό moderation trail για έλεγχο και ασφάλεια.",
-          "Χρησιμοποιούμε ελαφριά analytics και in-app events για να καταλαβαίνουμε τη σταθερότητα, τις ουρές και τα σήματα ασφάλειας. Χρησιμοποιούμε επίσης local storage για απλές προτιμήσεις όπως γλώσσα, queue settings και κατάσταση session.",
-          "Αν βρίσκεσαι στην ΕΕ ή στο Ηνωμένο Βασίλειο, μπορείς να ζητήσεις πρόσβαση, διόρθωση, διαγραφή ή περιορισμό ορισμένων δεδομένων. Μπορείς επίσης να ρωτήσεις τι κρατάμε και γιατί.",
+          "Φωνή: Το Echoo δεν καταγράφει ούτε αποθηκεύει ζωντανές φωνητικές συνομιλίες.",
+          "Rooms: Τα rooms είναι προσωρινά και δεν είναι δημόσια προσβάσιμα.",
+          "Τοποθεσία: Το Nearby/Away χρησιμοποιεί μόνο κατά προσέγγιση απόσταση και μόνο όταν δοθεί άδεια.",
+          "Reports: Τα reports μπορεί να αποθηκεύουν ελάχιστες πληροφορίες moderation.",
+          "Profiles: Το Echoo δεν προσφέρει δημόσια περιήγηση προφίλ.",
+          "Τι συλλέγουμε: Κρατάμε τα βασικά που χρειάζονται για να λειτουργεί η app, όπως στοιχεία σύνδεσης, ρυθμίσεις προφίλ, δραστηριότητα στα rooms και απλά usage δεδομένα που βοηθούν το Echoo να παραμένει σταθερό.",
+          "Τα δικαιώματά σου: Αν βρίσκεσαι στην ΕΕ ή στο Ηνωμένο Βασίλειο, μπορείς να ζητήσεις πρόσβαση, διόρθωση, διαγραφή ή περιορισμό ορισμένων δεδομένων, και μπορείς να μας ρωτήσεις τι κρατάμε και γιατί.",
         ];
 
   const termsSections =
     language === "en"
       ? [
+          { title: "Voice", body: "Echoo does not record or store live voice conversations." },
+          { title: "Rooms", body: "Rooms are temporary and not publicly accessible." },
+          { title: "Location", body: "Nearby/Away uses approximate distance only and only when permission is granted." },
+          { title: "Reports", body: "Reports may store minimal moderation information." },
+          { title: "Profiles", body: "Echoo does not provide public profile browsing." },
           { title: "Be respectful", body: "No harassment, intimidation, hate speech, coercion, stalking, or pressure of any kind." },
-          { title: "No illegal or harmful content", body: "Do not share illegal material, explicit sexual content that crosses boundaries, threats, or anything meant to harm another person." },
+          { title: "No illegal or harmful content", body: "Do not share illegal material, threats, or anything meant to hurt another person." },
           { title: "No impersonation or spam", body: "Do not pretend to be someone else, use bots to abuse the app, or flood rooms with repeated messages." },
-          { title: "Respect anonymity", body: "Echoo is anonymous, but you are still responsible for how you behave." },
-          { title: "Rooms are temporary", body: "Rooms can end automatically. Media, voice, and text are temporary and may disappear." },
-          { title: "Safety actions matter", body: "Reports, suspensions, and bans may be applied when behaviour crosses the line or repeats after warnings." },
+          { title: "Safety actions matter", body: "Reports, suspensions, and bans may be used when behaviour crosses the line or repeats after warnings." },
         ]
       : [
+          { title: "Φωνή", body: "Το Echoo δεν καταγράφει ούτε αποθηκεύει ζωντανές φωνητικές συνομιλίες." },
+          { title: "Rooms", body: "Τα rooms είναι προσωρινά και δεν είναι δημόσια προσβάσιμα." },
+          { title: "Τοποθεσία", body: "Το Nearby/Away χρησιμοποιεί μόνο κατά προσέγγιση απόσταση και μόνο όταν δοθεί άδεια." },
+          { title: "Reports", body: "Τα reports μπορεί να αποθηκεύουν ελάχιστες πληροφορίες moderation." },
+          { title: "Profiles", body: "Το Echoo δεν προσφέρει δημόσια περιήγηση προφίλ." },
           { title: "Μίλα με σεβασμό", body: "Όχι παρενόχληση, εκφοβισμός, hate speech, καταναγκασμός, stalking ή πίεση οποιασδήποτε μορφής." },
-          { title: "Όχι παράνομο ή επιβλαβές περιεχόμενο", body: "Μην μοιράζεσαι παράνομο υλικό, ακραίο σεξουαλικό περιεχόμενο που ξεπερνά τα όρια, απειλές ή οτιδήποτε έχει στόχο να βλάψει άλλον άνθρωπο." },
+          { title: "Όχι παράνομο ή επιβλαβές περιεχόμενο", body: "Μην μοιράζεσαι παράνομο υλικό, απειλές ή οτιδήποτε έχει στόχο να βλάψει άλλον άνθρωπο." },
           { title: "Όχι impersonation ή spam", body: "Μην προσποιείσαι ότι είσαι άλλος άνθρωπος, μην χρησιμοποιείς bots για κατάχρηση της app και μην γεμίζεις rooms με επαναλαμβανόμενα μηνύματα." },
-          { title: "Σεβάσου την ανωνυμία", body: "Το Echoo είναι ανώνυμο, αλλά εσύ παραμένεις υπεύθυνος/η για τη συμπεριφορά σου." },
-          { title: "Τα rooms είναι προσωρινά", body: "Τα rooms μπορούν να τελειώσουν αυτόματα. Media, φωνή και text είναι προσωρινά και μπορεί να εξαφανιστούν." },
-          { title: "Τα μέτρα ασφάλειας έχουν σημασία", body: "Reports, αναστολές και bans μπορεί να εφαρμοστούν όταν η συμπεριφορά ξεπερνά τα όρια ή επαναλαμβάνεται μετά από προειδοποιήσεις." },
+          { title: "Τα μέτρα ασφάλειας έχουν σημασία", body: "Reports, αναστολές και bans μπορεί να χρησιμοποιηθούν όταν η συμπεριφορά ξεπερνά τα όρια ή επαναλαμβάνεται μετά από προειδοποιήσεις." },
         ];
 
   const supportText =
