@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Activity,
@@ -28,6 +28,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
+
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { adminChartData } from "@/lib/presence-content";
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
@@ -113,6 +115,28 @@ interface SupporterRow {
   updated_at: string;
 }
 
+interface RoomFeedbackRow {
+  id: string;
+  created_at: string;
+  room_id: string;
+  rating: "good" | "neutral" | "bad";
+  message: string | null;
+  include_debug: boolean;
+  browser: string | null;
+  device: string | null;
+  user_type: string;
+  screenshot_url: string | null;
+}
+
+interface RoomFeedbackDetailsRow {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  voice_enabled: boolean;
+  rtc_state: string | null;
+  voice_unlocked_at: string | null;
+}
+
 type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
 
 const cleanupStorageKey = "echoo-admin-log-cleanup";
@@ -135,6 +159,11 @@ const AdminPage = () => {
   const [supporterLoading, setSupporterLoading] = useState(false);
   const [supporterBusyId, setSupporterBusyId] = useState<string | null>(null);
   const [supporterSearchError, setSupporterSearchError] = useState<string | null>(null);
+  const [roomFeedback, setRoomFeedback] = useState<RoomFeedbackRow[]>([]);
+  const [roomFeedbackFilter, setRoomFeedbackFilter] = useState<"all" | "good" | "neutral" | "bad">("all");
+  const [selectedRoomFeedback, setSelectedRoomFeedback] = useState<RoomFeedbackRow | null>(null);
+  const [feedbackRoomsById, setFeedbackRoomsById] = useState<Record<string, RoomFeedbackDetailsRow>>({});
+  const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(false);
   const isMountedRef = useRef(true);
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
 
@@ -204,6 +233,35 @@ const AdminPage = () => {
       if (suspensionsResult.error) throw suspensionsResult.error;
       if (bansResult.error) throw bansResult.error;
 
+      const feedbackResult = await supabase
+        .from("room_feedback")
+        .select("id, created_at, room_id, rating, message, include_debug, browser, device, user_type, screenshot_url")
+        .order("created_at", { ascending: false })
+        .limit(40);
+
+      if (feedbackResult.error) throw feedbackResult.error;
+
+      const feedbackRows = (feedbackResult.data ?? []) as RoomFeedbackRow[];
+      const feedbackRoomIds = Array.from(new Set(feedbackRows.map((row) => row.room_id)));
+      let feedbackRoomMap: Record<string, RoomFeedbackDetailsRow> = {};
+
+      if (feedbackRoomIds.length) {
+        const feedbackRoomsResult = await supabase
+          .from("rooms")
+          .select("id, started_at, ended_at, voice_enabled, rtc_state, voice_unlocked_at")
+          .in("id", feedbackRoomIds)
+          .limit(40);
+
+        if (feedbackRoomsResult.error) throw feedbackRoomsResult.error;
+
+        const feedbackRooms = (feedbackRoomsResult.data ?? []) as RoomFeedbackDetailsRow[];
+        feedbackRoomMap = feedbackRooms.reduce((acc, row) => {
+          acc[row.id] = row;
+          return acc;
+        }, {} as Record<string, RoomFeedbackDetailsRow>);
+
+      }
+
       if (!isMountedRef.current) {
         return;
       }
@@ -215,6 +273,8 @@ const AdminPage = () => {
       setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
+      setRoomFeedback(feedbackRows);
+      setFeedbackRoomsById(feedbackRoomMap);
 
     } finally {
       if (!silent) {
@@ -395,6 +455,7 @@ const AdminPage = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "moderation_logs" }, scheduleAdminRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_suspensions" }, scheduleAdminRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_bans" }, scheduleAdminRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_feedback" }, scheduleAdminRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, scheduleAdminRefresh)
       .subscribe();
 
@@ -463,8 +524,25 @@ const AdminPage = () => {
   const reconnectFailureRate = reconnectSuccessCount + reconnectFailureCount > 0 ? Math.round((reconnectFailureCount / (reconnectSuccessCount + reconnectFailureCount)) * 100) : 0;
   const moderationActivityCount = recentModeration.length;
   const activeRoomRows = activeRooms;
+  const visibleFeedback = useMemo(
+    () => roomFeedback.filter((item) => roomFeedbackFilter === "all" || item.rating === roomFeedbackFilter),
+    [roomFeedback, roomFeedbackFilter],
+  );
+  const feedbackCounts = useMemo(
+    () =>
+      roomFeedback.reduce<Record<"good" | "neutral" | "bad", number>>(
+        (acc, item) => {
+          acc[item.rating] += 1;
+          return acc;
+        },
+        { good: 0, neutral: 0, bad: 0 },
+      ),
+    [roomFeedback],
+  );
+  const selectedFeedbackRoom = selectedRoomFeedback ? feedbackRoomsById[selectedRoomFeedback.room_id] : null;
 
   return (
+
     <PageShell className="space-y-6">
       <Surface className="space-y-4 p-6 sm:p-8">
         <SectionTitle
@@ -697,8 +775,104 @@ const AdminPage = () => {
             </Surface>
           </div>
 
+          <Surface className="space-y-5 p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Room feedback" : "Room feedback"}</p>
+                <p className="mt-1 text-sm text-white/55">
+                  {language === "en"
+                    ? "Latest room feedback with optional technical details and screenshots."
+                    : "Τα πιο πρόσφατα feedback με προαιρετικά τεχνικά στοιχεία και screenshots."}
+                </p>
+              </div>
+              <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50 hover:bg-violet-500/10">
+                {roomFeedback.length}
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "all", label: language === "en" ? "All" : "Όλα", count: roomFeedback.length },
+                { key: "good", label: language === "en" ? "Good" : "Καλό", count: feedbackCounts.good },
+                { key: "neutral", label: language === "en" ? "Okay" : "Οκ", count: feedbackCounts.neutral },
+                { key: "bad", label: language === "en" ? "Bad" : "Κακό", count: feedbackCounts.bad },
+              ].map((option) => (
+                <Button
+                  key={option.key}
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "h-9 rounded-full border-white/10 bg-white/5 px-4 text-xs text-white hover:bg-white/10 hover:text-white",
+                    roomFeedbackFilter === option.key && "border-violet-300/20 bg-violet-500/15 text-violet-50",
+                  )}
+                  onClick={() => setRoomFeedbackFilter(option.key as typeof roomFeedbackFilter)}
+                >
+                  {option.label}
+                  <span className="ml-2 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] text-white/55">{option.count}</span>
+                </Button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {loadingData ? (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading room feedback..." : "Διαβάζουμε το room feedback..."}</div>
+              ) : visibleFeedback.length ? (
+                visibleFeedback.map((item) => {
+                  const roomDetails = feedbackRoomsById[item.room_id];
+                  return (
+                    <div key={item.id} className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{new Date(item.created_at).toLocaleString()}</span>
+                          <span>•</span>
+                          <span>{language === "en" ? "Room" : "Room"} {item.room_id.slice(0, 8)}</span>
+                        </div>
+                        <Badge className={cn("rounded-full border px-3 py-1 text-[10px] font-medium", item.rating === "good" ? "border-emerald-300/15 bg-emerald-500/10 text-emerald-50" : item.rating === "neutral" ? "border-amber-300/15 bg-amber-500/10 text-amber-50" : "border-rose-300/15 bg-rose-500/10 text-rose-50")}>{item.rating}</Badge>
+                      </div>
+
+                      <p className="mt-3 text-sm leading-6 text-white/75">{item.message?.trim() || (language === "en" ? "No message provided." : "Δεν δόθηκε μήνυμα.")}</p>
+
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "User type" : "Τύπος χρήστη"} {item.user_type}</span>
+                        {item.include_debug && <span className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50">{language === "en" ? "Technical details included" : "Συμπεριλήφθηκαν τεχνικά στοιχεία"}</span>}
+                        {item.screenshot_url && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Screenshot attached" : "Υπάρχει screenshot"}</span>}
+                        {item.include_debug && roomDetails?.rtc_state && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">rtc {roomDetails.rtc_state}</span>}
+                        {item.include_debug && roomDetails?.voice_enabled && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice on" : "φωνή on"}</span>}
+
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-white/45">
+                          {item.browser || item.device
+                            ? `${item.browser ?? (language === "en" ? "Browser hidden" : "Browser κρυφό")} · ${item.device ?? (language === "en" ? "Device hidden" : "Συσκευή κρυφή")}`
+                            : language === "en"
+                              ? "No technical details stored."
+                              : "Δεν αποθηκεύτηκαν τεχνικά στοιχεία."}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          onClick={() => {
+                            setSelectedRoomFeedback(item);
+                            setFeedbackDetailOpen(true);
+                          }}
+                        >
+                          {language === "en" ? "Open details" : "Άνοιγμα λεπτομερειών"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No room feedback yet." : "Δεν υπάρχει ακόμα room feedback."}</div>
+              )}
+            </div>
+          </Surface>
+
           <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <Surface className="space-y-5 p-5">
+
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Recent errors" : "Πρόσφατα errors"}</p>
@@ -999,8 +1173,89 @@ const AdminPage = () => {
               <div className="rounded-[20px] border border-white/10 bg-black/20 p-4 text-sm text-white/65">{language === "en" ? `Cleanup result: ${cleanupStatus ? `${cleanupStatus.analyticsDeleted}/${cleanupStatus.errorsDeleted}/${cleanupStatus.moderationDeleted}` : "not run yet"}` : `Αποτέλεσμα cleanup: ${cleanupStatus ? `${cleanupStatus.analyticsDeleted}/${cleanupStatus.errorsDeleted}/${cleanupStatus.moderationDeleted}` : "δεν έχει τρέξει ακόμη"}`}</div>
             </div>
           </Surface>
+
+          <Dialog
+            open={feedbackDetailOpen}
+            onOpenChange={(open) => {
+              setFeedbackDetailOpen(open);
+              if (!open) {
+                setSelectedRoomFeedback(null);
+              }
+            }}
+          >
+            <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-[#11192b] text-white sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{language === "en" ? "Room feedback details" : "Λεπτομέρειες room feedback"}</DialogTitle>
+                <DialogDescription className="text-white/55">
+                  {language === "en"
+                    ? "A closer look at the latest feedback entry."
+                    : "Μια πιο κοντινή ματιά στην πιο πρόσφατη εγγραφή feedback."}
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedRoomFeedback && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className={cn("rounded-full border px-3 py-1 text-[10px] font-medium", selectedRoomFeedback.rating === "good" ? "border-emerald-300/15 bg-emerald-500/10 text-emerald-50" : selectedRoomFeedback.rating === "neutral" ? "border-amber-300/15 bg-amber-500/10 text-amber-50" : "border-rose-300/15 bg-rose-500/10 text-rose-50")}>{selectedRoomFeedback.rating}</Badge>
+                    <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium text-white/70">room {selectedRoomFeedback.room_id.slice(0, 8)}</Badge>
+                    <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium text-white/70">{selectedRoomFeedback.user_type}</Badge>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Submitted" : "Υποβλήθηκε"}</p>
+                      <p className="mt-2 text-sm text-white/75">{new Date(selectedRoomFeedback.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Technical details" : "Τεχνικά στοιχεία"}</p>
+                      <p className="mt-2 text-sm text-white/75">{selectedRoomFeedback.include_debug ? (language === "en" ? "Included" : "Συμπεριλήφθηκαν") : (language === "en" ? "Not included" : "Δεν συμπεριλήφθηκαν")}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Message" : "Μήνυμα"}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/75">{selectedRoomFeedback.message?.trim() || (language === "en" ? "No message provided." : "Δεν δόθηκε μήνυμα.")}</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/40">Browser</p>
+                      <p className="mt-2 text-sm leading-6 text-white/75">{selectedRoomFeedback.browser ?? (language === "en" ? "Hidden" : "Κρυφό")}</p>
+                    </div>
+                    <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/40">Device</p>
+                      <p className="mt-2 text-sm leading-6 text-white/75">{selectedRoomFeedback.device ?? (language === "en" ? "Hidden" : "Κρυφή")}</p>
+                    </div>
+                  </div>
+
+                  {selectedFeedbackRoom && selectedRoomFeedback.include_debug && (
+                    <div className="rounded-[22px] border border-violet-300/15 bg-violet-500/10 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-violet-100/60">{language === "en" ? "Room state" : "Κατάσταση room"}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-violet-50">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "started" : "έναρξη"} {new Date(selectedFeedbackRoom.started_at).toLocaleString()}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.ended_at ? (language === "en" ? "ended" : "έληξε") : (language === "en" ? "active" : "ενεργό")}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.rtc_state ?? "idle"}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.voice_enabled ? (language === "en" ? "voice on" : "φωνή on") : (language === "en" ? "voice off" : "φωνή off")}</span>
+                        {selectedFeedbackRoom.voice_unlocked_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice unlocked" : "φωνή ξεκλείδωσε"}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedRoomFeedback.screenshot_url && (
+                    <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Screenshot" : "Screenshot"}</p>
+                      <a href={selectedRoomFeedback.screenshot_url} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-[18px] border border-white/10">
+                        <img src={selectedRoomFeedback.screenshot_url} alt={language === "en" ? "Submitted screenshot" : "Υποβληθέν screenshot"} className="max-h-[360px] w-full object-cover" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       ) : (
+
         <Surface className="space-y-3 p-6 text-white/75">
           <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Access restricted" : "Περιορισμένη πρόσβαση"}</p>
           <h2 className="text-2xl font-semibold text-white">{language === "en" ? "You do not have admin access yet." : "Δεν έχεις ακόμη πρόσβαση διαχείρισης."}</h2>

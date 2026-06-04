@@ -28,6 +28,7 @@ import { SessionMediaMessage } from "@/components/session/session-media-message"
 import { UnlockProgress } from "@/components/session/unlock-progress";
 
 import { SessionTypingIndicator } from "@/components/session/session-typing-indicator";
+import { RoomFeedbackCard } from "@/components/session/room-feedback-card";
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
@@ -1513,7 +1514,16 @@ const SessionPage = () => {
                   </div>
                 </div>
 
+                <RoomFeedbackCard
+                  roomId={room.id}
+                  roomState={room.status}
+                  rating={room.rating}
+                  language={language}
+                  userType={authenticated ? profile?.profileMode ?? "authenticated" : "anonymous"}
+                />
+
                 <div className="rounded-[24px] border border-violet-300/15 bg-violet-500/10 p-3 sm:p-4">
+
                   <p className="text-center text-[9px] uppercase tracking-[0.28em] text-violet-100/60">
                     {language === "en" ? "Next" : "Επόμενο"}
                   </p>
