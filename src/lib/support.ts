@@ -1,4 +1,1 @@
-const supportUrl = "https://revolut.me/echooapp";
-
-export const buyMeACoffeeUrl = supportUrl;
-export default supportUrl;
+export const buyMeACoffeeUrl = "https://revolut.me/echooapp";
