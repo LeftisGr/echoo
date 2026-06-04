@@ -1175,7 +1175,81 @@ const SessionPage = () => {
     }
   };
 
+  const closeReactionPicker = useCallback(() => {
+    setActiveReactionMessageId(null);
+    if (reactionHoldTimeoutRef.current !== null) {
+      window.clearTimeout(reactionHoldTimeoutRef.current);
+      reactionHoldTimeoutRef.current = null;
+    }
+    reactionHoldMessageIdRef.current = null;
+  }, []);
+
+  const handleReactionPressStart = useCallback(
+    (messageId: string, isSelf: boolean) => {
+      if (isSelf) {
+        return;
+      }
+
+      if (reactionHoldTimeoutRef.current !== null) {
+        window.clearTimeout(reactionHoldTimeoutRef.current);
+      }
+
+      reactionHoldMessageIdRef.current = messageId;
+      reactionHoldTimeoutRef.current = window.setTimeout(() => {
+        setActiveReactionMessageId(messageId);
+      }, 1000);
+    },
+    [],
+  );
+
+  const handleReactionPressEnd = useCallback(
+    (messageId: string) => {
+      if (reactionHoldTimeoutRef.current !== null) {
+        window.clearTimeout(reactionHoldTimeoutRef.current);
+        reactionHoldTimeoutRef.current = null;
+      }
+
+      if (reactionHoldMessageIdRef.current === messageId && activeReactionMessageId !== messageId) {
+        reactionHoldMessageIdRef.current = null;
+      }
+    },
+    [activeReactionMessageId],
+  );
+
+  const handleChatPointerDownCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!activeReactionMessageId) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        closeReactionPicker();
+        return;
+      }
+
+      if (target.closest(`[data-reaction-message="${activeReactionMessageId}"]`) || target.closest(`[data-reaction-picker="${activeReactionMessageId}"]`)) {
+        return;
+      }
+
+      closeReactionPicker();
+    },
+    [activeReactionMessageId, closeReactionPicker],
+  );
+
+  const handleReactionSelect = useCallback(
+    (messageId: string, emoji: string) => {
+      setMessageReactions((current) => ({
+        ...current,
+        [messageId]: current[messageId] === emoji ? "" : emoji,
+      }));
+      closeReactionPicker();
+    },
+    [closeReactionPicker],
+  );
+
   if (shouldShowInitialLoading) {
+
     const loadingTitle = queue.active
       ? language === "en"
         ? "Finding your room..."
@@ -1316,81 +1390,8 @@ const SessionPage = () => {
     queueTypingStop();
   };
 
-  const closeReactionPicker = useCallback(() => {
-    setActiveReactionMessageId(null);
-    if (reactionHoldTimeoutRef.current !== null) {
-      window.clearTimeout(reactionHoldTimeoutRef.current);
-      reactionHoldTimeoutRef.current = null;
-    }
-    reactionHoldMessageIdRef.current = null;
-  }, []);
-
-  const handleReactionPressStart = useCallback(
-    (messageId: string, isSelf: boolean) => {
-      if (isSelf) {
-        return;
-      }
-
-      if (reactionHoldTimeoutRef.current !== null) {
-        window.clearTimeout(reactionHoldTimeoutRef.current);
-      }
-
-      reactionHoldMessageIdRef.current = messageId;
-      reactionHoldTimeoutRef.current = window.setTimeout(() => {
-        setActiveReactionMessageId(messageId);
-      }, 1000);
-    },
-    [],
-  );
-
-  const handleReactionPressEnd = useCallback(
-    (messageId: string) => {
-      if (reactionHoldTimeoutRef.current !== null) {
-        window.clearTimeout(reactionHoldTimeoutRef.current);
-        reactionHoldTimeoutRef.current = null;
-      }
-
-      if (reactionHoldMessageIdRef.current === messageId && activeReactionMessageId !== messageId) {
-        reactionHoldMessageIdRef.current = null;
-      }
-    },
-    [activeReactionMessageId],
-  );
-
-  const handleChatPointerDownCapture = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-
-      if (!activeReactionMessageId) {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      if (!target) {
-        closeReactionPicker();
-        return;
-      }
-
-      if (target.closest(`[data-reaction-message="${activeReactionMessageId}"]`) || target.closest(`[data-reaction-picker="${activeReactionMessageId}"]`)) {
-        return;
-      }
-
-      closeReactionPicker();
-    },
-    [activeReactionMessageId, closeReactionPicker],
-  );
-
-  const handleReactionSelect = useCallback(
-    (messageId: string, emoji: string) => {
-      setMessageReactions((current) => ({
-        ...current,
-        [messageId]: current[messageId] === emoji ? "" : emoji,
-      }));
-      closeReactionPicker();
-    },
-    [closeReactionPicker],
-  );
-
   const renderReactionPicker = (messageId: string, isSelf: boolean) => (
+
     <div
       data-reaction-picker={messageId}
       className={cn(
