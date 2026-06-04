@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Globe, Home, Menu, Shield, Sparkles, UserCircle2 } from "lucide-react";
+import { AlertTriangle, Globe, Home, Menu, Shield, Sparkles, UserCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -192,7 +192,51 @@ function ProfileButton() {
   );
 }
 
+function ServiceStatusBanner() {
+  const { serviceStatuses } = usePresence();
+
+  const activeStatuses = Object.entries(serviceStatuses).filter(([, status]) => status !== "healthy") as Array<
+    [keyof typeof serviceStatuses, (typeof serviceStatuses)[keyof typeof serviceStatuses]]
+  >;
+
+  if (!activeStatuses.length) {
+    return null;
+  }
+
+  return (
+
+    <div
+      role="status"
+      aria-live="polite"
+      className="mb-4 rounded-[22px] border border-amber-300/15 bg-amber-400/10 px-4 py-3 text-sm text-white/80 shadow-[0_14px_40px_rgba(245,158,11,0.08)]"
+
+    >
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-200/15 bg-amber-200/10 text-amber-50">
+          <AlertTriangle className="h-4 w-4" />
+
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="font-medium text-white">Some rooms may take longer than usual.</p>
+          <div className="flex flex-wrap gap-2">
+            {activeStatuses.map(([service, status]) => (
+              <Badge
+                key={service}
+                className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70 hover:bg-white/10"
+              >
+                {service === "contentSharing" ? "Content sharing" : service === "voice" ? "Voice" : "Matching"} · {status === "maintenance" ? "Maintenance" : "Degraded"}
+              </Badge>
+            ))}
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PageShell({
+
   children,
   className,
   showStickyBottomBar = true,
@@ -215,7 +259,10 @@ export function PageShell({
             </div>
           </header>
 
+          <ServiceStatusBanner />
+
           <main className={cn("flex-1", className)}>{children}</main>
+
         </div>
         {showStickyBottomBar && <StickyBottomBar />}
       </div>

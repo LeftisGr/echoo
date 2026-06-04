@@ -1274,15 +1274,29 @@ const SessionPage = () => {
             <CalmStateCard
               eyebrow="Echoo"
               title={language === "en" ? "We couldn't restore this room." : "Δεν μπορέσαμε να επαναφέρουμε αυτό το room."}
-              body={language === "en" ? "Start a new one." : "Ξεκίνα ένα νέο."}
-              status={language === "en" ? "Back home" : "Πίσω στην αρχική"}
+              body={language === "en" ? "Start a new room or go back home." : "Ξεκίνα ένα νέο room ή γύρνα πίσω στην αρχική."}
+              status={language === "en" ? "Restore timed out" : "Ο χρόνος επαναφοράς έληξε"}
               tone="rose"
               action={
-                <Button asChild className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400">
+                <Button
+                  type="button"
+                  className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+                  onClick={async () => {
+                    await startNewSessionFromEndedRoom();
+                    navigate("/queue");
+                  }}
+                >
+
+                  {language === "en" ? "Start a new room" : "Ξεκίνα νέο room"}
+                </Button>
+              }
+              secondaryAction={
+                <Button asChild variant="outline" className="h-11 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
                   <Link to="/">{language === "en" ? "Back home" : "Πίσω στην αρχική"}</Link>
                 </Button>
               }
             />
+
           </div>
         </PageShell>
       );

@@ -65,15 +65,18 @@ import type {
   AppLanguage,
   AuthMethod,
   ChatMessage,
-
   PresenceProfile,
+  PresenceServiceName,
   PresenceStoredState,
   QueueFilters,
   QueueState,
   RatingScore,
   RoomSession,
+  ServiceStatusMode,
   VoiceState,
 } from "@/lib/presence-types";
+
+import { DEFAULT_SERVICE_STATUSES } from "@/lib/service-status";
 
 interface MatchTransitionState {
   roomId: string;
@@ -132,6 +135,7 @@ interface PresenceContextValue {
   voicePlaybackBlocked: boolean;
   voiceDiagnostics: VoiceTransmissionDiagnostics | null;
   typingIndicator: TypingIndicatorState | null;
+  serviceStatuses: Record<PresenceServiceName, ServiceStatusMode>;
 
   online: boolean;
   hapticsEnabled: boolean;
@@ -796,6 +800,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [voiceDiagnostics, setVoiceDiagnostics] = useState<VoiceTransmissionDiagnostics | null>(null);
 
   const [typingIndicator, setTypingIndicator] = useState<TypingIndicatorState | null>(null);
+  const [serviceStatuses, setServiceStatuses] = useState<Record<PresenceServiceName, ServiceStatusMode>>(DEFAULT_SERVICE_STATUSES);
+
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
 
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -866,6 +872,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const matchingIntervalRef = useRef<number | null>(null);
 
   const copy = useMemo(() => getCopy(language), [language]);
+
+  const updateServiceStatus = useCallback((service: PresenceServiceName, status: ServiceStatusMode) => {
+    setServiceStatuses((current) => (current[service] === status ? current : { ...current, [service]: status }));
+  }, []);
 
   const refreshBlockedUsers = useCallback(async () => {
     if (!userId) {
@@ -1270,6 +1280,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       setVoiceState("idle");
       setVoiceDiagnostics(null);
+      setServiceStatuses(DEFAULT_SERVICE_STATUSES);
       setIsAdmin(false);
       setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
 
@@ -1915,6 +1926,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
 
         playSoundFeedback("match", matchSoundEnabled);
+        updateServiceStatus("matching", "healthy");
 
         await openRoom(activeRoom.id, currentUserId, activeRoom);
 
@@ -1933,7 +1945,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           roomId: match.roomId,
           error,
         });
+        updateServiceStatus("matching", "degraded");
         setMatchTransition(null);
+
         setRoom(null);
         setRoomFlowError(friendlyMessage);
         toast.error(friendlyMessage);
@@ -2438,7 +2452,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setVoiceState("idle");
 
     setVoiceDiagnostics(null);
+    setServiceStatuses(DEFAULT_SERVICE_STATUSES);
     setIsAdmin(false);
+
     setGuestMode(false);
     writeStoredGuestSession(false);
     writeStoredGuestProfile(null);
@@ -2568,7 +2584,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         language: activeProfile.language,
       });
 
+      updateServiceStatus("matching", "healthy");
       matchingEnabledRef.current = true;
+
       void attemptRealtimeMatch(activeProfile.id, false, true).catch(() => undefined);
 
       if (hapticsEnabled) {
@@ -2579,8 +2597,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         ? "We couldn’t start your queue right now. Please try again."
         : "Δεν μπορέσαμε να ξεκινήσουμε την ουρά τώρα. Δοκίμασε ξανά.";
       console.error("[room-flow] Queue entry failed", { userId: activeProfile.id, error });
+      updateServiceStatus("matching", "degraded");
       setRoomFlowError(friendlyMessage);
       toast.error(friendlyMessage);
+
     }
   }, [accountRestriction.reason, accountRestriction.status, authenticated, attemptRealtimeMatch, guestMode, hapticsEnabled, language, profile, userId]);
 
@@ -2940,8 +2960,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         },
       });
       playSoundFeedback("content-reveal", matchSoundEnabled);
+      updateServiceStatus("contentSharing", "healthy");
 
     } catch (error) {
+      updateServiceStatus("contentSharing", "degraded");
       void logAnalyticsEvent("upload_failed", {
 
         userId: currentUser,
@@ -2967,9 +2989,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       mediaUploadInFlightRef.current = false;
     }
-  }, [userId]);
+  }, [matchSoundEnabled, updateServiceStatus, userId]);
 
   const appendSystemMessage = useCallback((content: string) => {
+
     const currentRoom = roomSnapshotRef.current;
     if (!currentRoom) {
       return;
@@ -3036,6 +3059,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             setVoiceState(nextState);
 
             if (nextState === "connected") {
+              updateServiceStatus("voice", "healthy");
               toast.success(copy.session.connected);
               void logAnalyticsEvent("reconnect_success", {
                 userId,
@@ -3048,7 +3072,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             }
 
             if (nextState === "failed") {
+              updateServiceStatus("voice", "degraded");
               void logAnalyticsEvent("reconnect_failed", {
+
                 userId,
                 roomId: room.id,
                 properties: { channel: "rtc", state: nextState },
@@ -3064,7 +3090,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             }
 
             if (nextState === "error") {
+              updateServiceStatus("voice", "degraded");
               void logAnalyticsEvent("reconnect_failed", {
+
                 userId,
                 roomId: room.id,
                 properties: { channel: "rtc", state: nextState },
@@ -3087,12 +3115,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             setVoicePlaybackBlocked(true);
           },
           onReconnectTimeout: () => {
-            if (voiceSessionTokenRef.current !== sessionToken) {
-              return;
-            }
+          if (voiceSessionTokenRef.current !== sessionToken) {
+            return;
+          }
 
-            leaveRoomRef.current(language === "en" ? "The room closed after audio could not reconnect in time." : "Το room έκλεισε επειδή ο ήχος δεν μπόρεσε να επανασυνδεθεί έγκαιρα.");
-          },
+          updateServiceStatus("voice", "degraded");
+          leaveRoomRef.current(language === "en" ? "The room closed after audio could not reconnect in time." : "Το room έκλεισε επειδή ο ήχος δεν μπόρεσε να επανασυνδεθεί έγκαιρα.");
+        },
 
           onDiagnosticsChange: (diagnostics) => {
             if (voiceSessionTokenRef.current !== sessionToken) {
@@ -3325,6 +3354,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       voicePlaybackBlocked,
       voiceDiagnostics,
       typingIndicator,
+      serviceStatuses,
 
       online,
 
@@ -3407,6 +3437,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       room,
       roomLoaded,
       roomFlowError,
+      serviceStatuses,
       userId,
 
       sendMessage,

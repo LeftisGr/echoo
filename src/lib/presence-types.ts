@@ -14,6 +14,10 @@ export type RatingScore = "good" | "neutral" | "bad";
 
 export type RoomStatus = "idle" | "active" | "ended";
 
+export type PresenceServiceName = "matching" | "voice" | "contentSharing";
+
+export type ServiceStatusMode = "healthy" | "degraded" | "maintenance";
+
 export type VoiceState = "idle" | "requesting-microphone" | "connecting" | "connected" | "reconnecting" | "failed" | "error";
 
 export type RtcConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "failed";
