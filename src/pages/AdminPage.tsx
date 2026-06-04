@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { adminChartData } from "@/lib/presence-content";
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
@@ -126,22 +127,50 @@ interface RoomFeedbackRow {
   device: string | null;
   user_type: string;
   screenshot_url: string | null;
-}
-
-interface RoomFeedbackDetailsRow {
-  id: string;
-  started_at: string;
-  ended_at: string | null;
-  voice_enabled: boolean;
-  rtc_state: string | null;
-  voice_unlocked_at: string | null;
+  room_started_at: string | null;
+  room_ended_at: string | null;
+  room_voice_enabled: boolean | null;
+  room_rtc_state: string | null;
+  room_voice_unlocked_at: string | null;
 }
 
 type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
 
 const cleanupStorageKey = "echoo-admin-log-cleanup";
+const paginationPageSizes = [25, 50, 100] as const;
+
+function parsePaginationValue(value: string | null, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function PaginationControls({
+  page,
+  pageCount,
+  onPrevious,
+  onNext,
+}: {
+  page: number;
+  pageCount: number;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs text-white/55">
+      <Button type="button" variant="outline" className="h-9 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white" onClick={onPrevious} disabled={page <= 1}>
+        ← {" "}
+        {"Previous"}
+      </Button>
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">Page {page} of {pageCount}</span>
+      <Button type="button" variant="outline" className="h-9 rounded-full border-white/10 bg-white/5 px-3 text-white hover:bg-white/10 hover:text-white" onClick={onNext} disabled={page >= pageCount}>
+        {"Next"} →
+      </Button>
+    </div>
+  );
+}
 
 const AdminPage = () => {
+
   const { authenticated, adminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode } = usePresence();
 
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
@@ -149,21 +178,55 @@ const AdminPage = () => {
   const [recentModeration, setRecentModeration] = useState<ModerationLogRow[]>([]);
   const [recentSuspensions, setRecentSuspensions] = useState<UserRestrictionRow[]>([]);
   const [recentBans, setRecentBans] = useState<UserRestrictionRow[]>([]);
-  const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
+
   const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
-  const [supporterQuery, setSupporterQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const supporterPage = parsePaginationValue(searchParams.get("usersPage"), 1);
+  const supporterPageSize = parsePaginationValue(searchParams.get("usersPageSize"), 25);
+  const supporterSearch = searchParams.get("usersSearch") ?? "";
+  const roomsPage = parsePaginationValue(searchParams.get("roomsPage"), 1);
+  const roomsPageSize = parsePaginationValue(searchParams.get("roomsPageSize"), 25);
+  const roomsSearch = searchParams.get("roomsSearch") ?? "";
+  const feedbackPage = parsePaginationValue(searchParams.get("feedbackPage"), 1);
+  const feedbackPageSize = parsePaginationValue(searchParams.get("feedbackPageSize"), 25);
+  const feedbackSearch = searchParams.get("feedbackSearch") ?? "";
+
+  const updatePaginationParams = useCallback(
+    (updates: Record<string, string | number | null | undefined>) => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        Object.entries(updates).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === "") {
+            next.delete(key);
+            return;
+          }
+
+          next.set(key, String(value));
+        });
+        return next;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
+
   const [supporterResults, setSupporterResults] = useState<SupporterRow[]>([]);
+  const [supporterTotalCount, setSupporterTotalCount] = useState(0);
   const [supporterLoading, setSupporterLoading] = useState(false);
   const [supporterBusyId, setSupporterBusyId] = useState<string | null>(null);
   const [supporterSearchError, setSupporterSearchError] = useState<string | null>(null);
+  const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
+  const [activeRoomsTotalCount, setActiveRoomsTotalCount] = useState(0);
+  const [activeRoomsLoading, setActiveRoomsLoading] = useState(false);
   const [roomFeedback, setRoomFeedback] = useState<RoomFeedbackRow[]>([]);
+  const [roomFeedbackTotalCount, setRoomFeedbackTotalCount] = useState(0);
+  const [roomFeedbackLoading, setRoomFeedbackLoading] = useState(false);
   const [roomFeedbackFilter, setRoomFeedbackFilter] = useState<"all" | "good" | "neutral" | "bad">("all");
   const [selectedRoomFeedback, setSelectedRoomFeedback] = useState<RoomFeedbackRow | null>(null);
-  const [feedbackRoomsById, setFeedbackRoomsById] = useState<Record<string, RoomFeedbackDetailsRow>>({});
   const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(false);
+
   const isMountedRef = useRef(true);
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
 
@@ -183,7 +246,7 @@ const AdminPage = () => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      const [reportsResult, errorsResult, moderationResult, roomsResult, analyticsResult, suspensionsResult, bansResult] = await Promise.all([
+      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult] = await Promise.all([
         supabase
           .from("reports")
           .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
@@ -201,12 +264,6 @@ const AdminPage = () => {
           .select("id, admin_id, target_user, action, reason, metadata, created_at")
           .order("created_at", { ascending: false })
           .limit(8),
-        supabase
-          .from("rooms")
-          .select("id, user_a, user_b, started_at, voice_enabled, rtc_state, voice_unlocked_at")
-          .is("ended_at", null)
-          .order("started_at", { ascending: false })
-          .limit(5),
         supabase
           .from("analytics_events")
           .select("id, event_type, room_id, anonymized_user_id, properties, created_at")
@@ -228,39 +285,9 @@ const AdminPage = () => {
       if (reportsResult.error) throw reportsResult.error;
       if (errorsResult.error) throw errorsResult.error;
       if (moderationResult.error) throw moderationResult.error;
-      if (roomsResult.error) throw roomsResult.error;
       if (analyticsResult.error) throw analyticsResult.error;
       if (suspensionsResult.error) throw suspensionsResult.error;
       if (bansResult.error) throw bansResult.error;
-
-      const feedbackResult = await supabase
-        .from("room_feedback")
-        .select("id, created_at, room_id, rating, message, include_debug, browser, device, user_type, screenshot_url")
-        .order("created_at", { ascending: false })
-        .limit(40);
-
-      if (feedbackResult.error) throw feedbackResult.error;
-
-      const feedbackRows = (feedbackResult.data ?? []) as RoomFeedbackRow[];
-      const feedbackRoomIds = Array.from(new Set(feedbackRows.map((row) => row.room_id)));
-      let feedbackRoomMap: Record<string, RoomFeedbackDetailsRow> = {};
-
-      if (feedbackRoomIds.length) {
-        const feedbackRoomsResult = await supabase
-          .from("rooms")
-          .select("id, started_at, ended_at, voice_enabled, rtc_state, voice_unlocked_at")
-          .in("id", feedbackRoomIds)
-          .limit(40);
-
-        if (feedbackRoomsResult.error) throw feedbackRoomsResult.error;
-
-        const feedbackRooms = (feedbackRoomsResult.data ?? []) as RoomFeedbackDetailsRow[];
-        feedbackRoomMap = feedbackRooms.reduce((acc, row) => {
-          acc[row.id] = row;
-          return acc;
-        }, {} as Record<string, RoomFeedbackDetailsRow>);
-
-      }
 
       if (!isMountedRef.current) {
         return;
@@ -269,12 +296,9 @@ const AdminPage = () => {
       setRecentReports((reportsResult.data ?? []) as ReportRow[]);
       setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
       setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
-      setActiveRooms((roomsResult.data ?? []) as ActiveRoomRow[]);
       setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
-      setRoomFeedback(feedbackRows);
-      setFeedbackRoomsById(feedbackRoomMap);
 
     } finally {
       if (!silent) {
@@ -337,42 +361,117 @@ const AdminPage = () => {
     }
   }, [language]);
 
-  const loadSupporters = useCallback(
-    async (query: string) => {
-      setSupporterLoading(true);
-      setSupporterSearchError(null);
-      try {
-        const { data, error } = await supabase.rpc("admin_search_supporters", {
-          p_query: query.trim(),
-        });
+  const loadSupporters = useCallback(async () => {
+    setSupporterLoading(true);
+    setSupporterSearchError(null);
 
-        if (error) {
-          throw error;
-        }
+    try {
+      const { data, error } = await supabase.rpc("admin_list_profiles", {
+        p_query: supporterSearch.trim(),
+        p_limit: supporterPageSize,
+        p_offset: (supporterPage - 1) * supporterPageSize,
+      });
 
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        setSupporterResults((Array.isArray(data) ? data : []) as SupporterRow[]);
-      } catch (error) {
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        const message = error instanceof Error ? error.message : language === "en" ? "Supporter search failed." : "Η αναζήτηση supporter απέτυχε.";
-        setSupporterSearchError(message);
-        toast.error(message);
-      } finally {
-        if (isMountedRef.current) {
-          setSupporterLoading(false);
-        }
+      if (error) {
+        throw error;
       }
-    },
-    [language],
-  );
+
+      const rows = (Array.isArray(data) ? data : []) as Array<SupporterRow & { total_count: number }>;
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setSupporterResults(rows.map(({ total_count, ...row }) => row));
+      setSupporterTotalCount(rows[0]?.total_count ?? 0);
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : language === "en" ? "Supporter search failed." : "Η αναζήτηση χρήστη απέτυχε.";
+      setSupporterSearchError(message);
+      toast.error(message);
+    } finally {
+      if (isMountedRef.current) {
+        setSupporterLoading(false);
+      }
+    }
+  }, [language, supporterPage, supporterPageSize, supporterSearch]);
+
+  const loadActiveRooms = useCallback(async () => {
+    setActiveRoomsLoading(true);
+
+    try {
+      const { data, error } = await supabase.rpc("admin_list_active_rooms", {
+        p_query: roomsSearch.trim(),
+        p_limit: roomsPageSize,
+        p_offset: (roomsPage - 1) * roomsPageSize,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const rows = (Array.isArray(data) ? data : []) as Array<ActiveRoomRow & { total_count: number }>;
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setActiveRooms(rows.map(({ total_count, ...row }) => row));
+      setActiveRoomsTotalCount(rows[0]?.total_count ?? 0);
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      toast.error(error instanceof Error ? error.message : language === "en" ? "Room search failed." : "Η αναζήτηση room απέτυχε.");
+    } finally {
+      if (isMountedRef.current) {
+        setActiveRoomsLoading(false);
+      }
+    }
+  }, [language, roomsPage, roomsPageSize, roomsSearch]);
+
+  const loadRoomFeedback = useCallback(async () => {
+    setRoomFeedbackLoading(true);
+
+    try {
+      const { data, error } = await supabase.rpc("admin_list_room_feedback", {
+        p_query: feedbackSearch.trim(),
+        p_rating: roomFeedbackFilter,
+        p_limit: feedbackPageSize,
+        p_offset: (feedbackPage - 1) * feedbackPageSize,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const rows = (Array.isArray(data) ? data : []) as Array<RoomFeedbackRow & { total_count: number }>;
+      const feedbackRows = rows.map(({ total_count, ...row }) => row);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setRoomFeedback(feedbackRows);
+      setRoomFeedbackTotalCount(rows[0]?.total_count ?? 0);
+
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      toast.error(error instanceof Error ? error.message : language === "en" ? "Feedback search failed." : "Η αναζήτηση feedback απέτυχε.");
+    } finally {
+      if (isMountedRef.current) {
+        setRoomFeedbackLoading(false);
+      }
+    }
+  }, [feedbackPage, feedbackPageSize, feedbackSearch, language, roomFeedbackFilter]);
 
   const toggleSupporterBadge = useCallback(
+
     async (userId: string, nextValue: boolean) => {
       setSupporterBusyId(userId);
       try {
@@ -419,14 +518,14 @@ const AdminPage = () => {
     [language, profile?.id, updateProfile],
   );
 
-  useEffect(() => {
-
-    if (isAdmin) {
-      void loadSupporters("");
-    }
-  }, [isAdmin, loadSupporters]);
-
   const adminRefreshTimeoutRef = useRef<number | null>(null);
+
+  const refreshAdminLists = useCallback(() => {
+    void loadAdminData();
+    void loadSupporters();
+    void loadActiveRooms();
+    void loadRoomFeedback();
+  }, [loadActiveRooms, loadAdminData, loadRoomFeedback, loadSupporters]);
 
   const scheduleAdminRefresh = useCallback(() => {
     if (adminRefreshTimeoutRef.current !== null) {
@@ -434,15 +533,33 @@ const AdminPage = () => {
     }
 
     adminRefreshTimeoutRef.current = window.setTimeout(() => {
-      void loadAdminData(true);
+      refreshAdminLists();
     }, 400);
-  }, [loadAdminData]);
+  }, [refreshAdminLists]);
 
   useEffect(() => {
     if (isAdmin) {
       void loadAdminData();
     }
   }, [isAdmin, loadAdminData]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      void loadSupporters();
+    }
+  }, [isAdmin, loadSupporters]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      void loadActiveRooms();
+    }
+  }, [isAdmin, loadActiveRooms]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      void loadRoomFeedback();
+    }
+  }, [isAdmin, loadRoomFeedback]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -523,12 +640,15 @@ const AdminPage = () => {
   const reconnectFailureCount = analyticsByType.reconnect_failed ?? 0;
   const reconnectFailureRate = reconnectSuccessCount + reconnectFailureCount > 0 ? Math.round((reconnectFailureCount / (reconnectSuccessCount + reconnectFailureCount)) * 100) : 0;
   const moderationActivityCount = recentModeration.length;
-  const activeRoomRows = activeRooms;
+  const supporterPageCount = Math.max(1, Math.ceil(supporterTotalCount / supporterPageSize));
+  const roomsPageCount = Math.max(1, Math.ceil(activeRoomsTotalCount / roomsPageSize));
+  const feedbackPageCount = Math.max(1, Math.ceil(roomFeedbackTotalCount / feedbackPageSize));
   const visibleFeedback = useMemo(
     () => roomFeedback.filter((item) => roomFeedbackFilter === "all" || item.rating === roomFeedbackFilter),
     [roomFeedback, roomFeedbackFilter],
   );
   const feedbackCounts = useMemo(
+
     () =>
       roomFeedback.reduce<Record<"good" | "neutral" | "bad", number>>(
         (acc, item) => {
@@ -539,7 +659,6 @@ const AdminPage = () => {
       ),
     [roomFeedback],
   );
-  const selectedFeedbackRoom = selectedRoomFeedback ? feedbackRoomsById[selectedRoomFeedback.room_id] : null;
 
   return (
 
@@ -592,8 +711,9 @@ const AdminPage = () => {
               type="button"
               variant="outline"
               className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              onClick={() => void loadAdminData()}
+              onClick={() => refreshAdminLists()}
             >
+
               <RefreshCcw className="mr-2 h-4 w-4" />
               {language === "en" ? "Refresh" : "Ανανέωση"}
             </Button>
@@ -625,29 +745,40 @@ const AdminPage = () => {
             </Badge>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
               <input
-                value={supporterQuery}
-                onChange={(event) => setSupporterQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void loadSupporters(supporterQuery);
-                  }
-                }}
+                value={supporterSearch}
+                onChange={(event) => updatePaginationParams({ usersSearch: event.target.value, usersPage: 1 })}
                 placeholder={language === "en" ? "Search by email or username" : "Αναζήτηση με email ή username"}
                 className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-rose-300/20 focus:bg-white/10"
               />
             </div>
-            <Button
-              type="button"
-              className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
-              onClick={() => void loadSupporters(supporterQuery)}
-            >
-              {language === "en" ? "Search" : "Αναζήτηση"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Select
+                value={String(supporterPageSize)}
+                onValueChange={(value) => updatePaginationParams({ usersPageSize: Number(value), usersPage: 1 })}
+              >
+                <SelectTrigger className="h-11 w-24 rounded-full border-white/10 bg-white/5 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paginationPageSizes.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+                onClick={() => updatePaginationParams({ usersPage: 1, usersSearch: supporterSearch })}
+              >
+                {language === "en" ? "Search" : "Αναζήτηση"}
+              </Button>
+            </div>
           </div>
 
           {supporterSearchError && (
@@ -662,6 +793,7 @@ const AdminPage = () => {
             ) : supporterResults.length ? (
               supporterResults.map((row) => (
                 <div key={row.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-1">
                       <p className="truncate text-base font-medium text-white">{row.username}</p>
@@ -706,8 +838,17 @@ const AdminPage = () => {
                 {language === "en" ? "Search by email or username to find a supporter." : "Αναζήτησε με email ή username για να βρεις έναν supporter."}
               </div>
             )}
+
+            <PaginationControls
+              page={supporterPage}
+              pageCount={supporterPageCount}
+              onPrevious={() => updatePaginationParams({ usersPage: Math.max(1, supporterPage - 1) })}
+              onNext={() => updatePaginationParams({ usersPage: Math.min(supporterPageCount, supporterPage + 1) })}
+            />
+
           </div>
         </Surface>
+
       )}
 
       {isAdmin ? (
@@ -786,13 +927,40 @@ const AdminPage = () => {
                 </p>
               </div>
               <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50 hover:bg-violet-500/10">
-                {roomFeedback.length}
+                {roomFeedbackTotalCount}
               </Badge>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <input
+                  value={feedbackSearch}
+                  onChange={(event) => updatePaginationParams({ feedbackSearch: event.target.value, feedbackPage: 1 })}
+                  placeholder={language === "en" ? "Search feedback" : "Αναζήτηση feedback"}
+                  className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-violet-300/20 focus:bg-white/10"
+                />
+              </div>
+              <Select
+                value={String(feedbackPageSize)}
+                onValueChange={(value) => updatePaginationParams({ feedbackPageSize: Number(value), feedbackPage: 1 })}
+              >
+                <SelectTrigger className="h-11 w-24 rounded-full border-white/10 bg-white/5 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paginationPageSizes.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {[
-                { key: "all", label: language === "en" ? "All" : "Όλα", count: roomFeedback.length },
+                { key: "all", label: language === "en" ? "All" : "Όλα", count: roomFeedbackTotalCount },
                 { key: "good", label: language === "en" ? "Good" : "Καλό", count: feedbackCounts.good },
                 { key: "neutral", label: language === "en" ? "Okay" : "Οκ", count: feedbackCounts.neutral },
                 { key: "bad", label: language === "en" ? "Bad" : "Κακό", count: feedbackCounts.bad },
@@ -805,7 +973,10 @@ const AdminPage = () => {
                     "h-9 rounded-full border-white/10 bg-white/5 px-4 text-xs text-white hover:bg-white/10 hover:text-white",
                     roomFeedbackFilter === option.key && "border-violet-300/20 bg-violet-500/15 text-violet-50",
                   )}
-                  onClick={() => setRoomFeedbackFilter(option.key as typeof roomFeedbackFilter)}
+                  onClick={() => {
+                    setRoomFeedbackFilter(option.key as typeof roomFeedbackFilter);
+                    updatePaginationParams({ feedbackPage: 1 });
+                  }}
                 >
                   {option.label}
                   <span className="ml-2 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] text-white/55">{option.count}</span>
@@ -814,13 +985,13 @@ const AdminPage = () => {
             </div>
 
             <div className="space-y-3">
-              {loadingData ? (
+              {roomFeedbackLoading ? (
                 <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading room feedback..." : "Διαβάζουμε το room feedback..."}</div>
               ) : visibleFeedback.length ? (
                 visibleFeedback.map((item) => {
-                  const roomDetails = feedbackRoomsById[item.room_id];
                   return (
                     <div key={item.id} className="rounded-[22px] border border-white/10 bg-white/5 p-4">
+
                       <div className="flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
                         <div className="flex flex-wrap items-center gap-2">
                           <span>{new Date(item.created_at).toLocaleString()}</span>
@@ -836,8 +1007,8 @@ const AdminPage = () => {
                         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "User type" : "Τύπος χρήστη"} {item.user_type}</span>
                         {item.include_debug && <span className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-violet-50">{language === "en" ? "Technical details included" : "Συμπεριλήφθηκαν τεχνικά στοιχεία"}</span>}
                         {item.screenshot_url && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Screenshot attached" : "Υπάρχει screenshot"}</span>}
-                        {item.include_debug && roomDetails?.rtc_state && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">rtc {roomDetails.rtc_state}</span>}
-                        {item.include_debug && roomDetails?.voice_enabled && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice on" : "φωνή on"}</span>}
+                        {item.include_debug && item.room_rtc_state && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">rtc {item.room_rtc_state}</span>}
+                        {item.include_debug && item.room_voice_enabled && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice on" : "φωνή on"}</span>}
 
                       </div>
 
@@ -867,6 +1038,14 @@ const AdminPage = () => {
               ) : (
                 <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No room feedback yet." : "Δεν υπάρχει ακόμα room feedback."}</div>
               )}
+
+              <PaginationControls
+                page={feedbackPage}
+                pageCount={feedbackPageCount}
+                onPrevious={() => updatePaginationParams({ feedbackPage: Math.max(1, feedbackPage - 1) })}
+                onNext={() => updatePaginationParams({ feedbackPage: Math.min(feedbackPageCount, feedbackPage + 1) })}
+              />
+
             </div>
           </Surface>
 
@@ -1116,15 +1295,42 @@ const AdminPage = () => {
                 </div>
                 <Badge className="rounded-full border border-cyan-300/15 bg-cyan-500/10 px-3 py-1 text-cyan-50 hover:bg-cyan-500/10">
                   <Clock3 className="mr-1 h-3.5 w-3.5" />
-                  {activeRoomRows.length}
+                  {activeRoomsTotalCount}
                 </Badge>
               </div>
 
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                  <input
+                    value={roomsSearch}
+                    onChange={(event) => updatePaginationParams({ roomsSearch: event.target.value, roomsPage: 1 })}
+                    placeholder={language === "en" ? "Search by room or user ID" : "Αναζήτηση με room ή user ID"}
+                    className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-cyan-300/20 focus:bg-white/10"
+                  />
+                </div>
+                <Select
+                  value={String(roomsPageSize)}
+                  onValueChange={(value) => updatePaginationParams({ roomsPageSize: Number(value), roomsPage: 1 })}
+                >
+                  <SelectTrigger className="h-11 w-24 rounded-full border-white/10 bg-white/5 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paginationPageSizes.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-3">
-                {loadingData ? (
+                {activeRoomsLoading ? (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading active rooms..." : "Διαβάζουμε τα ενεργά rooms..."}</div>
-                ) : activeRoomRows.length ? (
-                  activeRoomRows.map((room) => (
+                ) : activeRooms.length ? (
+                  activeRooms.map((room) => (
                     <div key={room.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
                         <span>room {room.id.slice(0, 8)}</span>
@@ -1143,7 +1349,16 @@ const AdminPage = () => {
                 ) : (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No active rooms right now." : "Δεν υπάρχουν ενεργά rooms αυτή τη στιγμή."}</div>
                 )}
+
+                <PaginationControls
+                  page={roomsPage}
+                  pageCount={roomsPageCount}
+                  onPrevious={() => updatePaginationParams({ roomsPage: Math.max(1, roomsPage - 1) })}
+                  onNext={() => updatePaginationParams({ roomsPage: Math.min(roomsPageCount, roomsPage + 1) })}
+                />
+
               </div>
+
             </Surface>
           </div>
 
@@ -1228,15 +1443,15 @@ const AdminPage = () => {
                     </div>
                   </div>
 
-                  {selectedFeedbackRoom && selectedRoomFeedback.include_debug && (
+                  {selectedRoomFeedback.include_debug && (
                     <div className="rounded-[22px] border border-violet-300/15 bg-violet-500/10 p-4">
                       <p className="text-xs uppercase tracking-[0.22em] text-violet-100/60">{language === "en" ? "Room state" : "Κατάσταση room"}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-violet-50">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "started" : "έναρξη"} {new Date(selectedFeedbackRoom.started_at).toLocaleString()}</span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.ended_at ? (language === "en" ? "ended" : "έληξε") : (language === "en" ? "active" : "ενεργό")}</span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.rtc_state ?? "idle"}</span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedFeedbackRoom.voice_enabled ? (language === "en" ? "voice on" : "φωνή on") : (language === "en" ? "voice off" : "φωνή off")}</span>
-                        {selectedFeedbackRoom.voice_unlocked_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice unlocked" : "φωνή ξεκλείδωσε"}</span>}
+                        {selectedRoomFeedback.room_started_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "started" : "έναρξη"} {new Date(selectedRoomFeedback.room_started_at).toLocaleString()}</span>}
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedRoomFeedback.room_ended_at ? (language === "en" ? "ended" : "έληξε") : (language === "en" ? "active" : "ενεργό")}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedRoomFeedback.room_rtc_state ?? "idle"}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{selectedRoomFeedback.room_voice_enabled ? (language === "en" ? "voice on" : "φωνή on") : (language === "en" ? "voice off" : "φωνή off")}</span>
+                        {selectedRoomFeedback.room_voice_unlocked_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice unlocked" : "φωνή ξεκλείδωσε"}</span>}
                       </div>
                     </div>
                   )}
