@@ -34,6 +34,8 @@ import SettingsPage from "@/pages/SettingsPage";
 import SupportPage from "@/pages/SupportPage";
 import TrustSafetyPage from "@/pages/TrustSafetyPage";
 import VoiceUnlockPage from "@/pages/VoiceUnlockPage";
+import WhatsNextPage from "@/pages/WhatsNextPage";
+
 import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useBlocker, useLocation, useNavigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
@@ -288,6 +290,8 @@ const router = createBrowserRouter(
       <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
       <Route path="/retention" element={<RetentionPage />} />
       <Route path="/voice-unlock" element={<VoiceUnlockPage />} />
+      <Route path="/whats-next" element={<WhatsNextPage />} />
+
       <Route path="/safety" element={<Navigate to="/trust-safety#safety" replace />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/privacy" element={<Navigate to="/trust-safety#privacy" replace />} />

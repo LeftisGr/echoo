@@ -16,6 +16,8 @@ function MenuSheet() {
   const appLinks = [
     { to: "/", label: copy.nav.home, icon: Sparkles },
     { to: "/dashboard", label: copy.nav.dashboard, icon: Sparkles },
+    { to: "/whats-next", label: language === "en" ? "What’s Next" : "Τι ακολουθεί", icon: Sparkles },
+
     { to: "/settings", label: copy.nav.settings, icon: Globe },
     { to: "/voice-unlock", label: copy.nav.voiceUnlock, icon: Sparkles },
     { to: "/community-guidelines", label: copy.nav.guidelines, icon: Shield },
