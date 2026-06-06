@@ -165,13 +165,13 @@ export function LanguageToggle() {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 shadow-sm">
+      <div className="inline-flex max-w-full rounded-full border border-white/10 bg-white/5 p-0.5 shadow-sm">
         <button
           type="button"
           onClick={() => setLanguage("en")}
           aria-pressed={language === "en"}
           className={cn(
-            "min-w-[4.9rem] rounded-full px-3 py-2 text-xs font-medium tracking-[0.14em] transition",
+            "rounded-full px-2.5 py-1.5 text-[11px] font-medium leading-none tracking-[0.12em] transition sm:px-3",
             language === "en" ? "bg-white text-[#0f1424]" : "text-white/70 hover:bg-white/10 hover:text-white",
           )}
         >
@@ -182,14 +182,16 @@ export function LanguageToggle() {
           onClick={() => setLanguage("el")}
           aria-pressed={language === "el"}
           className={cn(
-            "min-w-[6.6rem] rounded-full px-3 py-2 text-xs font-medium tracking-[0.14em] transition",
+            "rounded-full px-2.5 py-1.5 text-[11px] font-medium leading-none tracking-[0.12em] transition sm:px-3",
             language === "el" ? "bg-white text-[#0f1424]" : "text-white/70 hover:bg-white/10 hover:text-white",
           )}
         >
           Ελληνικά (Beta)
         </button>
       </div>
-      <p className="text-[10px] leading-none text-white/38">Some translations may still evolve.</p>
+      <p className="max-w-[11rem] text-right text-[10px] leading-tight text-white/38">
+        Some translations may still evolve.
+      </p>
     </div>
   );
 }
