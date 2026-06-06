@@ -345,6 +345,14 @@ const Index = () => {
             ? "Anonymous rooms. Slower interaction. Temporary moments."
             : "Ανώνυμα rooms. Πιο αργή αλληλεπίδραση. Προσωρινές στιγμές."}
         </p>
+        <div className="flex items-center justify-center">
+          <Link
+            to="/whats-next"
+            className="text-[11px] font-medium tracking-[0.18em] text-white/30 transition hover:text-white/55"
+          >
+            Echoo v0.9 Beta
+          </Link>
+        </div>
         <div className="mx-auto w-full max-w-md px-1 sm:px-0">
           <SocialLinks compact />
         </div>
