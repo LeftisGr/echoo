@@ -152,7 +152,17 @@ export interface AdminMetrics {
   avgWaitTimeSeconds: number;
 }
 
+export interface AdminOperationalMetrics {
+  realOnlineUsers: number | null;
+  authenticatedUsers: number | null;
+  guestUsers: number | null;
+  activeRooms: number | null;
+  usersSearching: number | null;
+  activeVoiceSessions: number | null;
+}
+
 export interface PresenceStoredState {
+
   language: AppLanguage;
   authenticated: boolean;
   reportsCount: number;

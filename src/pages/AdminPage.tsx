@@ -5,8 +5,6 @@ import {
   AlertTriangle,
   BadgeCheck,
   Clock3,
-  Flag,
-  Gauge,
   Heart,
   Home,
   MessagesSquare,
@@ -144,7 +142,12 @@ function parsePaginationValue(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
+function formatMetricValue(value: number | null) {
+  return value === null ? "Unavailable" : String(value);
+}
+
 function PaginationControls({
+
   page,
   pageCount,
   onPrevious,
@@ -171,7 +174,7 @@ function PaginationControls({
 
 const AdminPage = () => {
 
-  const { authenticated, adminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode } = usePresence();
+  const { authenticated, realAdminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode } = usePresence();
 
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
@@ -855,12 +858,12 @@ const AdminPage = () => {
 
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard icon={Users} label={language === "en" ? "Total users" : "Σύνολο χρηστών"} value={adminMetrics.totalUsers.toString()} />
-            <MetricCard icon={Activity} label={language === "en" ? "Active users" : "Ενεργοί χρήστες"} value={adminMetrics.activeUsers.toString()} />
-            <MetricCard icon={Gauge} label={language === "en" ? "Queue size" : "Μέγεθος ουράς"} value={adminMetrics.queueCount.toString()} />
-            <MetricCard icon={MessagesSquare} label={language === "en" ? "Active rooms" : "Ενεργά rooms"} value={adminMetrics.activeRooms.toString()} />
-            <MetricCard icon={Flag} label={language === "en" ? "Reports" : "Αναφορές"} value={adminMetrics.reportsCount.toString()} />
-            <MetricCard icon={UserPlus} label={language === "en" ? "Daily signups" : "Ημερήσιες εγγραφές"} value={adminMetrics.dailySignups.toString()} />
+            <MetricCard icon={Users} label="Online Users (Real)" value={formatMetricValue(realAdminMetrics.realOnlineUsers)} />
+            <MetricCard icon={UserMinus} label="Guests" value={formatMetricValue(realAdminMetrics.guestUsers)} />
+            <MetricCard icon={UserPlus} label="Registered" value={formatMetricValue(realAdminMetrics.authenticatedUsers)} />
+            <MetricCard icon={MessagesSquare} label="Active Rooms" value={formatMetricValue(realAdminMetrics.activeRooms)} />
+            <MetricCard icon={Search} label="Searching" value={formatMetricValue(realAdminMetrics.usersSearching)} />
+            <MetricCard icon={Activity} label="Active Voice Sessions" value={formatMetricValue(realAdminMetrics.activeVoiceSessions)} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">

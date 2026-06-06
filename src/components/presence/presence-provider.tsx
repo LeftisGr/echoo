@@ -62,6 +62,7 @@ import {
 import type {
   AccountRestriction,
   AdminMetrics,
+  AdminOperationalMetrics,
   AppLanguage,
   AuthMethod,
   ChatMessage,
@@ -95,6 +96,10 @@ interface RealtimePresenceStats {
   onlineCount: number;
   searchingCount: number;
   roomCount: number;
+}
+
+interface RealtimePresenceSnapshot extends RealtimePresenceStats {
+  onlineUserIds: string[];
 }
 
 interface RoomRecord {
@@ -152,7 +157,9 @@ interface PresenceContextValue {
   sessionReady: boolean;
   presenceStats: RealtimePresenceStats;
   adminMetrics: AdminMetrics;
+  realAdminMetrics: AdminOperationalMetrics;
   userId: string | null;
+
   isAdmin: boolean;
   blockedUserCount: number;
   blockedUserIds: string[];
@@ -369,7 +376,19 @@ function createInitialQueue(profile: PresenceProfile | null): QueueState {
   };
 }
 
+function createUnavailableAdminOperationalMetrics(): AdminOperationalMetrics {
+  return {
+    realOnlineUsers: null,
+    authenticatedUsers: null,
+    guestUsers: null,
+    activeRooms: null,
+    usersSearching: null,
+    activeVoiceSessions: null,
+  };
+}
+
 function createSystemMessage(roomId: string, content: string): ChatMessage {
+
   return {
     id: createId(),
     roomId,
@@ -426,7 +445,7 @@ function getPresenceStatus(queue: QueueState, room: RoomSession | null): Realtim
   return "online";
 }
 
-function derivePresenceStats(state: Record<string, RealtimePresenceEntry[]>, now = Date.now()): RealtimePresenceStats {
+function derivePresenceSnapshot(state: Record<string, RealtimePresenceEntry[]>, now = Date.now()): RealtimePresenceSnapshot {
   const uniqueEntries = Object.entries(state)
     .map(([userId, metas]) => {
       const freshEntries = (metas ?? []).filter((entry) => now - entry.updatedAt <= 45000);
@@ -446,6 +465,7 @@ function derivePresenceStats(state: Record<string, RealtimePresenceEntry[]>, now
     onlineCount: uniqueEntries.length,
     searchingCount: uniqueEntries.filter((entry) => entry.status === "searching").length,
     roomCount: uniqueEntries.filter((entry) => entry.status === "room").length,
+    onlineUserIds: uniqueEntries.map((entry) => entry.userId),
   };
 }
 
@@ -821,6 +841,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     searchingCount: 0,
     roomCount: 0,
   });
+  const [presenceOnlineUserIds, setPresenceOnlineUserIds] = useState<string[]>([]);
+  const [presenceMetricsReady, setPresenceMetricsReady] = useState(false);
 
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
 
@@ -834,8 +856,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     usersOnlineNow: 0,
     avgWaitTimeSeconds: 18,
   });
+  const [realAdminMetrics, setRealAdminMetrics] = useState<AdminOperationalMetrics>(createUnavailableAdminOperationalMetrics());
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
+
   const voiceSessionTokenRef = useRef<string | null>(null);
   const voiceStartInFlightRef = useRef(false);
   const voiceReconnectAttemptedRoomIdRef = useRef<string | null>(null);
@@ -1281,6 +1305,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setVoiceState("idle");
       setVoiceDiagnostics(null);
       setServiceStatuses(DEFAULT_SERVICE_STATUSES);
+      setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
+
       setIsAdmin(false);
       setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
 
@@ -1295,7 +1321,17 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredGuestProfile(null);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
+        setRealAdminMetrics({
+          realOnlineUsers: null,
+          authenticatedUsers: null,
+          guestUsers: null,
+          activeRooms: null,
+          usersSearching: null,
+          activeVoiceSessions: null,
+        });
+        setPresenceMetricsReady(false);
         setAuthLoaded(true);
+
         setRoomLoaded(true);
         setSessionReady(true);
         setAppReady(true);
@@ -1324,8 +1360,19 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setMatchTransition(null);
         setVoiceState("idle");
         setVoiceDiagnostics(null);
+        setRealAdminMetrics({
+          realOnlineUsers: null,
+          authenticatedUsers: null,
+          guestUsers: null,
+          activeRooms: null,
+          usersSearching: null,
+          activeVoiceSessions: null,
+        });
+        setPresenceMetricsReady(false);
         setIsAdmin(false);
+
         setAccountRestriction({ status: "ok", reason: null, expiresAt: null });
+
         writeStoredRoomState(null, null);
 
         writeStoredMatchTransition(null);
@@ -1368,6 +1415,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       presenceChannelRef.current?.unsubscribe?.();
       presenceChannelRef.current = null;
       setPresenceStats({ onlineCount: 0, searchingCount: 0, roomCount: 0 });
+      setPresenceOnlineUserIds([]);
+      setPresenceMetricsReady(false);
       return;
     }
 
@@ -1383,7 +1432,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const syncPresence = () => {
       const snapshot = typeof channel.presenceState === "function" ? channel.presenceState() : {};
-      setPresenceStats(derivePresenceStats(snapshot as Record<string, RealtimePresenceEntry[]>));
+      const nextSnapshot = derivePresenceSnapshot(snapshot as Record<string, RealtimePresenceEntry[]>);
+      setPresenceStats({
+        onlineCount: nextSnapshot.onlineCount,
+        searchingCount: nextSnapshot.searchingCount,
+        roomCount: nextSnapshot.roomCount,
+      });
+      setPresenceOnlineUserIds(nextSnapshot.onlineUserIds);
+      setPresenceMetricsReady(true);
+
     };
 
     channel.on("presence", { event: "sync" }, syncPresence);
@@ -1599,6 +1656,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     return () => window.clearInterval(interval);
   }, [authenticated, queue.active, reportsCount, queue.estimatedWaitSeconds, smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
+
+  useEffect(() => {
+    void refreshRealAdminMetrics().catch(() => undefined);
+
+    const interval = window.setInterval(() => {
+      void refreshRealAdminMetrics().catch(() => undefined);
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [authenticated, initializing, presenceMetricsReady, presenceOnlineUserIds, queue.active, queue.joinedAt, room?.id, room?.rtcState, room?.status, room?.voiceEnabled, sessionReady, userId]);
 
   useEffect(() => {
     if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
@@ -2403,6 +2470,46 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  async function refreshRealAdminMetrics() {
+    try {
+      if (!hasSupabaseConfig) {
+        setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
+        return;
+      }
+
+      const onlineIds = presenceOnlineUserIds;
+      const onlineProfilesResult = onlineIds.length
+        ? await supabase.from("profiles").select("id, profile_mode").in("id", onlineIds)
+        : { data: [], error: null };
+
+      const [activeRoomsResult, searchingResult, activeVoiceResult] = await Promise.all([
+        supabase.from("rooms").select("id", { count: "exact", head: true }).is("ended_at", null),
+        supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
+        supabase
+          .from("rooms")
+          .select("id", { count: "exact", head: true })
+          .is("ended_at", null)
+          .eq("voice_enabled", true)
+          .in("rtc_state", ["connecting", "connected", "reconnecting"]),
+      ]);
+
+      const onlineProfiles = Array.isArray(onlineProfilesResult.data) ? (onlineProfilesResult.data as Array<{ id: string; profile_mode: string | null }>) : [];
+      const profilesReliable = onlineIds.length === onlineProfiles.length && !onlineProfilesResult.error;
+
+      setRealAdminMetrics({
+        realOnlineUsers: presenceMetricsReady ? onlineIds.length : null,
+        authenticatedUsers: presenceMetricsReady && profilesReliable ? onlineProfiles.filter((profile) => profile.profile_mode === "registered").length : null,
+        guestUsers: presenceMetricsReady && profilesReliable ? onlineProfiles.filter((profile) => profile.profile_mode !== "registered").length : null,
+        activeRooms: activeRoomsResult.error ? null : activeRoomsResult.count ?? 0,
+        usersSearching: searchingResult.error ? null : searchingResult.count ?? 0,
+        activeVoiceSessions: activeVoiceResult.error ? null : activeVoiceResult.count ?? 0,
+      });
+
+    } catch {
+      setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
+    }
+  }
+
   const setLanguage = useCallback((nextLanguage: AppLanguage) => {
     setLanguageState(nextLanguage);
   }, []);
@@ -2453,9 +2560,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     setVoiceDiagnostics(null);
     setServiceStatuses(DEFAULT_SERVICE_STATUSES);
+    setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
+    setPresenceMetricsReady(false);
     setIsAdmin(false);
 
     setGuestMode(false);
+
     writeStoredGuestSession(false);
     writeStoredGuestProfile(null);
 
@@ -3372,7 +3482,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       sessionReady,
       presenceStats,
       adminMetrics,
+      realAdminMetrics,
       userId,
+
       isAdmin,
       blockedUserCount: blockedUserIds.length,
       blockedUserIds,
@@ -3437,6 +3549,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       room,
       roomLoaded,
       roomFlowError,
+      realAdminMetrics,
       serviceStatuses,
       userId,
 
