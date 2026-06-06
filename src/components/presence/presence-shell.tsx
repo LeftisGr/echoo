@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/components/presence/presence-provider";
+import { SocialLinks } from "@/components/presence/social-links";
 import { HowEchooWorksProvider, useHowEchooWorks } from "@/components/presence/how-echoo-works";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 
@@ -131,6 +132,10 @@ function MenuSheet() {
             ))}
           </div>
 
+          <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+            <SocialLinks compact />
+          </div>
+
           {isAdmin && (
             <Link
               to="/admin"
@@ -139,6 +144,7 @@ function MenuSheet() {
               {copy.nav.admin}
             </Link>
           )}
+
         </div>
       </SheetContent>
     </Sheet>

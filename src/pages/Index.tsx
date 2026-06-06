@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
+import { SocialLinks } from "@/components/presence/social-links";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const Index = () => {
@@ -338,11 +339,17 @@ const Index = () => {
         </Surface>
       </section>
 
-      <footer className="pb-6 text-center text-xs text-white/40">
-        {language === "en"
-          ? "Anonymous rooms. Slower interaction. Temporary moments."
-          : "Ανώνυμα rooms. Πιο αργή αλληλεπίδραση. Προσωρινές στιγμές."}
+      <footer className="space-y-4 pb-6">
+        <p className="text-center text-xs text-white/40">
+          {language === "en"
+            ? "Anonymous rooms. Slower interaction. Temporary moments."
+            : "Ανώνυμα rooms. Πιο αργή αλληλεπίδραση. Προσωρινές στιγμές."}
+        </p>
+        <div className="mx-auto w-full max-w-md px-1 sm:px-0">
+          <SocialLinks compact />
+        </div>
       </footer>
+
     </PageShell>
   );
 };
