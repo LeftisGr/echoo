@@ -162,18 +162,35 @@ export function PresenceLogo({ compact = false }: { compact?: boolean }) {
 
 export function LanguageToggle() {
   const { language, setLanguage } = usePresence();
-  const nextLabel = language === "en" ? "EL" : "EN";
 
   return (
-    <button
-      className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-xs font-medium tracking-[0.18em] text-white transition hover:bg-white/10"
-      onClick={() => setLanguage(language === "en" ? "el" : "en")}
-      type="button"
-      aria-label={nextLabel}
-      title={nextLabel}
-    >
-      {nextLabel}
-    </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setLanguage("en")}
+          aria-pressed={language === "en"}
+          className={cn(
+            "min-w-[4.9rem] rounded-full px-3 py-2 text-xs font-medium tracking-[0.14em] transition",
+            language === "en" ? "bg-white text-[#0f1424]" : "text-white/70 hover:bg-white/10 hover:text-white",
+          )}
+        >
+          English
+        </button>
+        <button
+          type="button"
+          onClick={() => setLanguage("el")}
+          aria-pressed={language === "el"}
+          className={cn(
+            "min-w-[6.6rem] rounded-full px-3 py-2 text-xs font-medium tracking-[0.14em] transition",
+            language === "el" ? "bg-white text-[#0f1424]" : "text-white/70 hover:bg-white/10 hover:text-white",
+          )}
+        >
+          Ελληνικά (Beta)
+        </button>
+      </div>
+      <p className="text-[10px] leading-none text-white/38">Some translations may still evolve.</p>
+    </div>
   );
 }
 
