@@ -300,7 +300,7 @@ export const copy = {
     },
     contact: {
       title: "Contact",
-      email: "hello@echoo.app",
+      email: "hello@echoo.gr",
       body: "For help, partnerships, trust and safety, or press questions.",
     },
     support: {
@@ -631,7 +631,7 @@ export const copy = {
     },
     contact: {
       title: "Επικοινωνία",
-      email: "hello@echoo.app",
+      email: "hello@echoo.gr",
       body: "Για βοήθεια, συνεργασίες, trust & safety ή ερωτήσεις από τον Τύπο.",
     },
     support: {
