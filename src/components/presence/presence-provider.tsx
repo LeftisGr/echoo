@@ -156,6 +156,9 @@ interface PresenceContextValue {
 
   sessionReady: boolean;
   presenceStats: RealtimePresenceStats;
+  presenceMetricsUpdatedAt: string | null;
+  presenceHeartbeatUpdatedAt: string | null;
+  presenceChannelState: "connecting" | "live" | "unavailable";
   adminMetrics: AdminMetrics;
   realAdminMetrics: AdminOperationalMetrics;
   userId: string | null;
@@ -378,12 +381,14 @@ function createInitialQueue(profile: PresenceProfile | null): QueueState {
 
 function createUnavailableAdminOperationalMetrics(): AdminOperationalMetrics {
   return {
-    realOnlineUsers: null,
-    authenticatedUsers: null,
-    guestUsers: null,
+    connectedNow: null,
+    guestsOnline: null,
+    registeredOnline: null,
     activeRooms: null,
     usersSearching: null,
     activeVoiceSessions: null,
+    lastUpdatedAt: null,
+    sourceState: "unavailable",
   };
 }
 
@@ -843,6 +848,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   });
   const [presenceOnlineUserIds, setPresenceOnlineUserIds] = useState<string[]>([]);
   const [presenceMetricsReady, setPresenceMetricsReady] = useState(false);
+  const [presenceMetricsUpdatedAt, setPresenceMetricsUpdatedAt] = useState<string | null>(null);
+  const [presenceHeartbeatUpdatedAt, setPresenceHeartbeatUpdatedAt] = useState<string | null>(null);
+  const [presenceChannelState, setPresenceChannelState] = useState<"connecting" | "live" | "unavailable">("connecting");
 
   const [adminMetrics, setAdminMetrics] = useState<AdminMetrics>({
 
@@ -1321,14 +1329,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         writeStoredGuestProfile(null);
         writeStoredRoomState(null, null);
         writeStoredMatchTransition(null);
-        setRealAdminMetrics({
-          realOnlineUsers: null,
-          authenticatedUsers: null,
-          guestUsers: null,
-          activeRooms: null,
-          usersSearching: null,
-          activeVoiceSessions: null,
-        });
+        setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
         setPresenceMetricsReady(false);
         setAuthLoaded(true);
 
@@ -1360,14 +1361,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         setMatchTransition(null);
         setVoiceState("idle");
         setVoiceDiagnostics(null);
-        setRealAdminMetrics({
-          realOnlineUsers: null,
-          authenticatedUsers: null,
-          guestUsers: null,
-          activeRooms: null,
-          usersSearching: null,
-          activeVoiceSessions: null,
-        });
+        setRealAdminMetrics(createUnavailableAdminOperationalMetrics());
         setPresenceMetricsReady(false);
         setIsAdmin(false);
 
@@ -1417,10 +1411,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       setPresenceStats({ onlineCount: 0, searchingCount: 0, roomCount: 0 });
       setPresenceOnlineUserIds([]);
       setPresenceMetricsReady(false);
+      setPresenceMetricsUpdatedAt(null);
+      setPresenceHeartbeatUpdatedAt(null);
+      setPresenceChannelState("connecting");
       return;
     }
 
+    setPresenceChannelState("connecting");
     const channel = supabase.channel("echoo-presence", {
+
       config: {
         presence: {
           key: userId,
@@ -1433,6 +1432,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const syncPresence = () => {
       const snapshot = typeof channel.presenceState === "function" ? channel.presenceState() : {};
       const nextSnapshot = derivePresenceSnapshot(snapshot as Record<string, RealtimePresenceEntry[]>);
+      const updatedAt = new Date().toISOString();
       setPresenceStats({
         onlineCount: nextSnapshot.onlineCount,
         searchingCount: nextSnapshot.searchingCount,
@@ -1440,7 +1440,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       });
       setPresenceOnlineUserIds(nextSnapshot.onlineUserIds);
       setPresenceMetricsReady(true);
-
+      setPresenceMetricsUpdatedAt(updatedAt);
     };
 
     channel.on("presence", { event: "sync" }, syncPresence);
@@ -1449,6 +1449,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     channel.subscribe((status: string) => {
       if (status !== "SUBSCRIBED") {
+        setPresenceChannelState("unavailable");
         void logAnalyticsEvent("reconnect_failed", {
           userId,
           properties: { channel: "presence", status },
@@ -1462,6 +1463,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      setPresenceChannelState("live");
       void logAnalyticsEvent("reconnect_success", {
         userId,
         properties: { channel: "presence" },
@@ -1475,6 +1477,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           presenceTabIdRef.current,
         ),
       );
+      setPresenceHeartbeatUpdatedAt(new Date().toISOString());
 
       syncPresence();
 
@@ -1483,6 +1486,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
 
       presenceHeartbeatRef.current = window.setInterval(() => {
+        setPresenceHeartbeatUpdatedAt(new Date().toISOString());
         void channel.track(
           createPresenceEntry(
             userId,
@@ -1512,6 +1516,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
       void channel.untrack?.();
       presenceChannelRef.current = null;
+      setPresenceChannelState("connecting");
     };
   }, [authenticated, initializing, sessionReady, userId]);
 
@@ -1652,7 +1657,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const interval = window.setInterval(() => {
       void refreshAdminMetrics().catch(() => undefined);
-    }, 30000);
+    }, 12000);
 
     return () => window.clearInterval(interval);
   }, [authenticated, queue.active, reportsCount, queue.estimatedWaitSeconds, smoothedOnlineCount, smoothedRoomCount, smoothedSearchingCount]);
@@ -1662,10 +1667,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     const interval = window.setInterval(() => {
       void refreshRealAdminMetrics().catch(() => undefined);
-    }, 30000);
+    }, 12000);
 
     return () => window.clearInterval(interval);
-  }, [authenticated, initializing, presenceMetricsReady, presenceOnlineUserIds, queue.active, queue.joinedAt, room?.id, room?.rtcState, room?.status, room?.voiceEnabled, sessionReady, userId]);
+  }, [authenticated, initializing, presenceChannelState, presenceHeartbeatUpdatedAt, presenceMetricsReady, presenceMetricsUpdatedAt, presenceOnlineUserIds, presenceStats.onlineCount, queue.active, queue.joinedAt, room?.id, room?.rtcState, room?.status, room?.voiceEnabled, sessionReady, userId]);
 
   useEffect(() => {
     if (!room?.id || !reconnectEnabled || !hasSupabaseConfig) {
@@ -2495,14 +2500,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       const onlineProfiles = Array.isArray(onlineProfilesResult.data) ? (onlineProfilesResult.data as Array<{ id: string; profile_mode: string | null }>) : [];
       const profilesReliable = onlineIds.length === onlineProfiles.length && !onlineProfilesResult.error;
+      const sourceState = presenceChannelState === "unavailable" ? "unavailable" : presenceMetricsReady ? "live" : "connecting";
+      const lastUpdatedAt = presenceMetricsUpdatedAt ?? presenceHeartbeatUpdatedAt;
 
       setRealAdminMetrics({
-        realOnlineUsers: presenceMetricsReady ? onlineIds.length : null,
-        authenticatedUsers: presenceMetricsReady && profilesReliable ? onlineProfiles.filter((profile) => profile.profile_mode === "registered").length : null,
-        guestUsers: presenceMetricsReady && profilesReliable ? onlineProfiles.filter((profile) => profile.profile_mode !== "registered").length : null,
+        connectedNow: sourceState === "unavailable" ? null : presenceStats.onlineCount,
+        guestsOnline: sourceState === "unavailable" || !profilesReliable ? null : onlineProfiles.filter((profile) => profile.profile_mode !== "registered").length,
+        registeredOnline: sourceState === "unavailable" || !profilesReliable ? null : onlineProfiles.filter((profile) => profile.profile_mode === "registered").length,
         activeRooms: activeRoomsResult.error ? null : activeRoomsResult.count ?? 0,
         usersSearching: searchingResult.error ? null : searchingResult.count ?? 0,
         activeVoiceSessions: activeVoiceResult.error ? null : activeVoiceResult.count ?? 0,
+        lastUpdatedAt,
+        sourceState,
       });
 
     } catch {
@@ -3481,6 +3490,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       sessionReady,
       presenceStats,
+      presenceMetricsUpdatedAt,
+      presenceHeartbeatUpdatedAt,
+      presenceChannelState,
       adminMetrics,
       realAdminMetrics,
       userId,
@@ -3541,9 +3553,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       matchTransition,
       online,
       presenceStats,
+      presenceMetricsUpdatedAt,
+      presenceHeartbeatUpdatedAt,
+      presenceChannelState,
       profile,
       queue,
       rateRoom,
+
       reconnectEnabled,
       reportCurrentRoom,
       room,

@@ -153,12 +153,14 @@ export interface AdminMetrics {
 }
 
 export interface AdminOperationalMetrics {
-  realOnlineUsers: number | null;
-  authenticatedUsers: number | null;
-  guestUsers: number | null;
+  connectedNow: number | null;
+  guestsOnline: number | null;
+  registeredOnline: number | null;
   activeRooms: number | null;
   usersSearching: number | null;
   activeVoiceSessions: number | null;
+  lastUpdatedAt: string | null;
+  sourceState: "live" | "connecting" | "unavailable";
 }
 
 export interface PresenceStoredState {

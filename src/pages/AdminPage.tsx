@@ -101,6 +101,9 @@ interface ActiveRoomRow {
   user_a: string;
   user_b: string;
   started_at: string;
+  closed_at: string | null;
+  room_status: string;
+  last_activity_at: string;
   voice_enabled: boolean;
   rtc_state: string | null;
   voice_unlocked_at: string | null;
@@ -146,6 +149,14 @@ function formatMetricValue(value: number | null) {
   return value === null ? "Unavailable" : String(value);
 }
 
+function formatLiveMetricValue(value: number | null, live: boolean) {
+  return live ? formatMetricValue(value) : "No live data available";
+}
+
+function formatTimestampLabel(value: string | null) {
+  return value ? new Date(value).toLocaleString() : "—";
+}
+
 function PaginationControls({
 
   page,
@@ -174,7 +185,7 @@ function PaginationControls({
 
 const AdminPage = () => {
 
-  const { authenticated, realAdminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode } = usePresence();
+  const { authenticated, realAdminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode, presenceChannelState, presenceHeartbeatUpdatedAt } = usePresence();
 
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
@@ -186,6 +197,8 @@ const AdminPage = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
+  const [analyticsLiveData, setAnalyticsLiveData] = useState(true);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const supporterPage = parsePaginationValue(searchParams.get("usersPage"), 1);
   const supporterPageSize = parsePaginationValue(searchParams.get("usersPageSize"), 25);
@@ -240,12 +253,11 @@ const AdminPage = () => {
   }, []);
 
   const loadAdminData = useCallback(async (silent = false) => {
-
     if (!silent) {
       setLoadingData(true);
     }
-    try {
 
+    try {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -261,7 +273,7 @@ const AdminPage = () => {
           .select("id, event_type, severity, error_message, error_code, room_id, anonymized_user_id, created_at, properties")
           .gte("created_at", sevenDaysAgo)
           .order("created_at", { ascending: false })
-          .limit(8),
+          .limit(50),
         supabase
           .from("moderation_logs")
           .select("id, admin_id, target_user, action, reason, metadata, created_at")
@@ -288,7 +300,6 @@ const AdminPage = () => {
       if (reportsResult.error) throw reportsResult.error;
       if (errorsResult.error) throw errorsResult.error;
       if (moderationResult.error) throw moderationResult.error;
-      if (analyticsResult.error) throw analyticsResult.error;
       if (suspensionsResult.error) throw suspensionsResult.error;
       if (bansResult.error) throw bansResult.error;
 
@@ -299,16 +310,24 @@ const AdminPage = () => {
       setRecentReports((reportsResult.data ?? []) as ReportRow[]);
       setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
       setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
-      setAnalyticsEvents((analyticsResult.data ?? []) as AnalyticsEventRow[]);
+      setAnalyticsLiveData(!analyticsResult.error);
+      setAnalyticsEvents(analyticsResult.error ? [] : ((analyticsResult.data ?? []) as AnalyticsEventRow[]));
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
+    } catch (error) {
 
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setAnalyticsLiveData(false);
+      toast.error(error instanceof Error ? error.message : language === "en" ? "Admin data failed to load." : "Τα admin δεδομένα δεν φορτώθηκαν.");
     } finally {
       if (!silent) {
         setLoadingData(false);
       }
     }
-  }, []);
+  }, [language]);
 
   const applyActionLocally = useCallback((reportId: string, next: Partial<ReportRow>) => {
     setRecentReports((current) => current.map((report) => (report.id === reportId ? { ...report, ...next } : report)));
@@ -405,6 +424,7 @@ const AdminPage = () => {
     setActiveRoomsLoading(true);
 
     try {
+      await supabase.rpc("admin_cleanup_stale_rooms").catch(() => undefined);
       const { data, error } = await supabase.rpc("admin_list_active_rooms", {
         p_query: roomsSearch.trim(),
         p_limit: roomsPageSize,
@@ -569,6 +589,20 @@ const AdminPage = () => {
       return;
     }
 
+    refreshAdminLists();
+    const interval = window.setInterval(() => {
+      refreshAdminLists();
+    }, 12000);
+
+    return () => window.clearInterval(interval);
+  }, [isAdmin, refreshAdminLists]);
+
+  useEffect(() => {
+
+    if (!isAdmin) {
+      return;
+    }
+
     const channel = supabase
       .channel(`admin-dashboard-${profile?.id ?? "anon"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "reports" }, scheduleAdminRefresh)
@@ -627,7 +661,13 @@ const AdminPage = () => {
     return acc;
   }, {});
 
+  const errorCountsByType = recentErrors.reduce<Record<string, number>>((acc, event) => {
+    acc[event.event_type] = (acc[event.event_type] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const reportCountsByUser = recentReports.reduce<Record<string, number>>((acc, report) => {
+
     acc[report.reported_user] = (acc[report.reported_user] ?? 0) + 1;
     return acc;
   }, {});
@@ -642,6 +682,9 @@ const AdminPage = () => {
   const reconnectSuccessCount = analyticsByType.reconnect_success ?? 0;
   const reconnectFailureCount = analyticsByType.reconnect_failed ?? 0;
   const reconnectFailureRate = reconnectSuccessCount + reconnectFailureCount > 0 ? Math.round((reconnectFailureCount / (reconnectSuccessCount + reconnectFailureCount)) * 100) : 0;
+  const failedUploadsDisplay = formatLiveMetricValue(failedUploadsCount, analyticsLiveData);
+  const reconnectFailureRateDisplay = analyticsLiveData ? `${reconnectFailureRate}%` : "No live data available";
+
   const moderationActivityCount = recentModeration.length;
   const supporterPageCount = Math.max(1, Math.ceil(supporterTotalCount / supporterPageSize));
   const roomsPageCount = Math.max(1, Math.ceil(activeRoomsTotalCount / roomsPageSize));
@@ -858,29 +901,60 @@ const AdminPage = () => {
 
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard icon={Users} label="Online Users (Real)" value={formatMetricValue(realAdminMetrics.realOnlineUsers)} />
-            <MetricCard icon={UserMinus} label="Guests" value={formatMetricValue(realAdminMetrics.guestUsers)} />
-            <MetricCard icon={UserPlus} label="Registered" value={formatMetricValue(realAdminMetrics.authenticatedUsers)} />
+            <MetricCard icon={Users} label="Connected now" value={formatMetricValue(realAdminMetrics.connectedNow)} />
+            <MetricCard icon={UserMinus} label="Guests online" value={formatMetricValue(realAdminMetrics.guestsOnline)} />
+            <MetricCard icon={UserPlus} label="Registered online" value={formatMetricValue(realAdminMetrics.registeredOnline)} />
             <MetricCard icon={MessagesSquare} label="Active Rooms" value={formatMetricValue(realAdminMetrics.activeRooms)} />
             <MetricCard icon={Search} label="Searching" value={formatMetricValue(realAdminMetrics.usersSearching)} />
             <MetricCard icon={Activity} label="Active Voice Sessions" value={formatMetricValue(realAdminMetrics.activeVoiceSessions)} />
           </div>
+          <p className="mt-2 text-right text-xs text-white/40">
+            {language === "en" ? "Last updated" : "Τελευταία ενημέρωση"}: {formatTimestampLabel(realAdminMetrics.lastUpdatedAt)}
+          </p>
+
+          <details className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+            <summary className="cursor-pointer list-none text-sm font-medium text-white/75 outline-none">
+              {language === "en" ? "Admin debug" : "Admin debug"}
+            </summary>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Realtime connected" : "Realtime connected"}</p>
+                <p className="mt-2 text-lg font-semibold text-white">{presenceChannelState}</p>
+              </div>
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Presence heartbeat age" : "Presence heartbeat age"}</p>
+                <p className="mt-2 text-lg font-semibold text-white">
+                  {presenceHeartbeatUpdatedAt ? `${Math.max(0, Math.round((Date.now() - new Date(presenceHeartbeatUpdatedAt).getTime()) / 1000))}s` : "—"}
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Rooms loaded" : "Rooms loaded"}</p>
+                <p className="mt-2 text-lg font-semibold text-white">{activeRooms.length}</p>
+              </div>
+              <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Metrics source state" : "Metrics source state"}</p>
+                <p className="mt-2 text-lg font-semibold text-white">{realAdminMetrics.sourceState}</p>
+              </div>
+            </div>
+          </details>
 
           <div className="grid gap-4 lg:grid-cols-3">
+
             <Surface className="p-5">
               <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Failed uploads" : "Αποτυχημένα uploads"}</p>
-              <p className="mt-3 text-3xl font-semibold text-white">{failedUploadsCount}</p>
+              <p className="mt-3 text-3xl font-semibold text-white">{failedUploadsDisplay}</p>
               <p className="mt-2 text-sm leading-6 text-white/55">
                 {language === "en" ? "Uploads that did not complete in the last 24 hours." : "Uploads που δεν ολοκληρώθηκαν τις τελευταίες 24 ώρες."}
               </p>
             </Surface>
             <Surface className="p-5">
               <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Reconnect failure rate" : "Ποσοστό αποτυχημένων reconnect"}</p>
-              <p className="mt-3 text-3xl font-semibold text-white">{reconnectFailureRate}%</p>
+              <p className="mt-3 text-3xl font-semibold text-white">{reconnectFailureRateDisplay}</p>
               <p className="mt-2 text-sm leading-6 text-white/55">
                 {language === "en" ? "Based on reconnect success and failure events from the last 24 hours." : "Βασισμένο σε reconnect success/failure events των τελευταίων 24 ωρών."}
               </p>
             </Surface>
+
             <Surface className="p-5">
               <p className="text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Moderation activity" : "Δραστηριότητα moderation"}</p>
               <p className="mt-3 text-3xl font-semibold text-white">{moderationActivityCount}</p>
@@ -1066,7 +1140,21 @@ const AdminPage = () => {
                 </Badge>
               </div>
 
+              <div className="flex flex-wrap gap-2 text-xs text-white/55">
+                {[
+                  { key: "reconnect_failed", label: "Reconnect failures" },
+                  { key: "restore_failed", label: "Restore failures" },
+                  { key: "content_api_failure", label: "Content API failures" },
+                  { key: "upload_failed", label: "Upload failures" },
+                ].map((item) => (
+                  <span key={item.key} className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                    {item.label} {errorCountsByType[item.key] ?? 0}
+                  </span>
+                ))}
+              </div>
+
               <div className="space-y-3">
+
                 {loadingData ? (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading error logs..." : "Διαβάζουμε τα error logs..."}</div>
                 ) : recentErrors.length ? (
@@ -1337,17 +1425,21 @@ const AdminPage = () => {
                     <div key={room.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
                         <span>room {room.id.slice(0, 8)}</span>
-                        <span>{new Date(room.started_at).toLocaleString()}</span>
+                        <span>{room.room_status}</span>
                       </div>
                       <p className="mt-2 text-sm text-white/75">
                         {room.user_a.slice(0, 8)} · {room.user_b.slice(0, 8)}
                       </p>
+                      <div className="mt-2 text-xs text-white/45">
+                        {language === "en" ? "Last activity" : "Τελευταία δραστηριότητα"}: {formatTimestampLabel(room.last_activity_at)}
+                      </div>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
                         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{room.rtc_state ?? "idle"}</span>
                         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{room.voice_enabled ? (language === "en" ? "voice on" : "φωνή on") : (language === "en" ? "voice off" : "φωνή off")}</span>
                         {room.voice_unlocked_at && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "voice unlocked" : "φωνή ξεκλείδωσε"}</span>}
                       </div>
                     </div>
+
                   ))
                 ) : (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No active rooms right now." : "Δεν υπάρχουν ενεργά rooms αυτή τη στιγμή."}</div>

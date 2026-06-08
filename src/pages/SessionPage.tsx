@@ -761,6 +761,19 @@ const SessionPage = () => {
     }
 
     restoreTimeoutRef.current = window.setTimeout(() => {
+      if (import.meta.env.DEV) {
+        console.log("[SessionPage] room restore timed out", { roomId: routeRoomId });
+      }
+
+      void logErrorEvent("restore_failed", {
+        roomId: routeRoomId,
+        severity: "warn",
+        errorMessage: "Room restore timed out.",
+        properties: {
+          routeRoomId,
+          reason: "timeout",
+        },
+      });
       setRestoreTimeoutElapsed(true);
       restoreTimeoutRef.current = null;
     }, 5000);

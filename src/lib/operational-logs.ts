@@ -21,6 +21,8 @@ const ERROR_EVENT_TYPES = [
   "reconnect_loop",
   "permission_denied",
   "unexpected_room_closure",
+  "restore_failed",
+  "content_api_failure",
 ] as const;
 
 export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
