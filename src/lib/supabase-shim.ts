@@ -458,22 +458,87 @@ function encodeStoragePath(path: string) {
 }
 
 class ChannelShim {
-  constructor(_topic: string, _key?: string) {}
-  on() {
+  private readonly url: string;
+  private readonly key: string;
+  private readonly getSession: () => StoredSession | null;
+  private readonly presenceCallbacks = new Set<() => void>();
+  private lastPresenceKey: { userId: string; tabId: string } | null = null;
+
+  constructor(_topic: string, key: string, url: string, getSession: () => StoredSession | null) {
+    this.url = url;
+    this.key = key;
+    this.getSession = getSession;
+  }
+
+  on(event: string, _filter: unknown, callback?: () => void) {
+    if (event === "presence" && typeof callback === "function") {
+      this.presenceCallbacks.add(callback);
+    }
     return this;
   }
-  subscribe() {
+
+  private async writePresence(value: Record<string, unknown>) {
+    const userId = String(value.userId ?? value.user_id ?? "");
+    const tabId = String(value.tabId ?? value.tab_id ?? "default");
+    const status = String(value.status ?? "online");
+    const roomId = value.roomId ?? value.room_id ?? null;
+
+    if (!userId) {
+      return;
+    }
+
+    this.lastPresenceKey = { userId, tabId };
+    await new QueryBuilder(this.url, this.key, "presence_signals", this.getSession())
+      .upsert({
+        user_id: userId,
+        tab_id: tabId,
+        status,
+        room_id: roomId,
+        updated_at: new Date().toISOString(),
+      });
+  }
+
+  private async clearPresence() {
+    if (!this.lastPresenceKey) {
+      return;
+    }
+
+    await new QueryBuilder(this.url, this.key, "presence_signals", this.getSession())
+      .delete()
+      .eq("user_id", this.lastPresenceKey.userId)
+      .eq("tab_id", this.lastPresenceKey.tabId);
+
+    this.lastPresenceKey = null;
+  }
+
+  private async notifyPresenceCallbacks() {
+    this.presenceCallbacks.forEach((callback) => callback());
+  }
+
+  subscribe(callback?: (status: string) => void) {
+    queueMicrotask(() => {
+      callback?.("SUBSCRIBED");
+      void this.notifyPresenceCallbacks();
+    });
     return this;
   }
+
   unsubscribe() {
     return Promise.resolve();
   }
-  track() {
-    return Promise.resolve();
+
+  async track(value: Record<string, unknown>) {
+    await this.writePresence(value);
+    await this.notifyPresenceCallbacks();
+    return Promise.resolve({});
   }
-  untrack() {
-    return Promise.resolve();
+
+  async untrack() {
+    await this.clearPresence();
+    await this.notifyPresenceCallbacks();
+    return Promise.resolve({});
   }
+
   send() {
     return Promise.resolve({});
   }
@@ -740,8 +805,9 @@ export function createClient(url: string, key: string) {
       },
     },
     channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
-      return new ChannelShim(topic ?? "default", options?.config?.presence?.key);
+      return new ChannelShim(topic ?? "default", options?.config?.presence?.key ?? "presence", url, () => currentSession);
     },
+
     async removeChannel(channel: { unsubscribe?: () => Promise<unknown> } | null) {
       if (channel?.unsubscribe) {
         await channel.unsubscribe();

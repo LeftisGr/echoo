@@ -1429,18 +1429,48 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     presenceChannelRef.current = channel;
 
-    const syncPresence = () => {
-      const snapshot = typeof channel.presenceState === "function" ? channel.presenceState() : {};
-      const nextSnapshot = derivePresenceSnapshot(snapshot as Record<string, RealtimePresenceEntry[]>);
-      const updatedAt = new Date().toISOString();
-      setPresenceStats({
-        onlineCount: nextSnapshot.onlineCount,
-        searchingCount: nextSnapshot.searchingCount,
-        roomCount: nextSnapshot.roomCount,
-      });
-      setPresenceOnlineUserIds(nextSnapshot.onlineUserIds);
-      setPresenceMetricsReady(true);
-      setPresenceMetricsUpdatedAt(updatedAt);
+    const syncPresence = async () => {
+      try {
+        const cutoff = new Date(Date.now() - 45_000).toISOString();
+        const { data, error } = await supabase
+          .from("presence_signals")
+          .select("user_id, tab_id, status, room_id, updated_at")
+          .gte("updated_at", cutoff);
+
+        if (error) {
+          throw error;
+        }
+
+        const snapshot = (Array.isArray(data) ? data : []).reduce<Record<string, RealtimePresenceEntry[]>>((acc, row) => {
+          if (!row?.user_id) {
+            return acc;
+          }
+
+          const entry: RealtimePresenceEntry = {
+            userId: String(row.user_id),
+            status: row.status === "searching" || row.status === "room" ? row.status : "online",
+            roomId: row.room_id ? String(row.room_id) : null,
+            updatedAt: new Date(row.updated_at).getTime(),
+            tabId: String(row.tab_id ?? "default"),
+          };
+
+          acc[entry.userId] = [...(acc[entry.userId] ?? []), entry];
+          return acc;
+        }, {});
+
+        const nextSnapshot = derivePresenceSnapshot(snapshot);
+        const updatedAt = new Date().toISOString();
+        setPresenceStats({
+          onlineCount: nextSnapshot.onlineCount,
+          searchingCount: nextSnapshot.searchingCount,
+          roomCount: nextSnapshot.roomCount,
+        });
+        setPresenceOnlineUserIds(nextSnapshot.onlineUserIds);
+        setPresenceMetricsReady(true);
+        setPresenceMetricsUpdatedAt(updatedAt);
+      } catch {
+        setPresenceChannelState("unavailable");
+      }
     };
 
     channel.on("presence", { event: "sync" }, syncPresence);

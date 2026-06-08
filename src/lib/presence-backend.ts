@@ -117,6 +117,15 @@ create table if not exists public.room_presence_signals (
   updated_at timestamptz not null default now(),
   primary key (room_id, user_id)
 );
+
+create table if not exists public.presence_signals (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  tab_id text not null,
+  status text not null,
+  room_id uuid references public.rooms(id) on delete cascade,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, tab_id)
+);
 `;
 
 interface QueueRow {
