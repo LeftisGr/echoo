@@ -312,42 +312,42 @@ class QueryBuilder {
   }
 
   eq(column: string, value: string | number | boolean | null) {
-    this.filters.push(`${column}=eq.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=eq.${String(value)}`);
     return this;
   }
 
   gte(column: string, value: string | number) {
-    this.filters.push(`${column}=gte.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=gte.${String(value)}`);
     return this;
   }
 
   lte(column: string, value: string | number) {
-    this.filters.push(`${column}=lte.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=lte.${String(value)}`);
     return this;
   }
 
   gt(column: string, value: string | number) {
-    this.filters.push(`${column}=gt.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=gt.${String(value)}`);
     return this;
   }
 
   lt(column: string, value: string | number) {
-    this.filters.push(`${column}=lt.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=lt.${String(value)}`);
     return this;
   }
 
   neq(column: string, value: string | number | boolean | null) {
-    this.filters.push(`${column}=neq.${encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=neq.${String(value)}`);
     return this;
   }
 
   is(column: string, value: null | boolean | string) {
-    this.filters.push(`${column}=is.${value === null ? "null" : encodeURIComponent(String(value))}`);
+    this.filters.push(`${column}=is.${value === null ? "null" : String(value)}`);
     return this;
   }
 
   in(column: string, values: string[]) {
-    this.inClause = `${column}=in.(${values.map((value) => encodeURIComponent(value)).join(",")})`;
+    this.inClause = `${column}=in.(${values.join(",")})`;
     return this;
   }
 
