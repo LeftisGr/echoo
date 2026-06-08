@@ -459,14 +459,14 @@ function encodeStoragePath(path: string) {
 
 class ChannelShim {
   private readonly url: string;
-  private readonly key: string;
+  private readonly apiKey: string;
   private readonly getSession: () => StoredSession | null;
   private readonly presenceCallbacks = new Set<() => void>();
   private lastPresenceKey: { userId: string; tabId: string } | null = null;
 
-  constructor(_topic: string, key: string, url: string, getSession: () => StoredSession | null) {
+  constructor(_topic: string, _presenceKey: string, url: string, apiKey: string, getSession: () => StoredSession | null) {
     this.url = url;
-    this.key = key;
+    this.apiKey = apiKey;
     this.getSession = getSession;
   }
 
@@ -488,7 +488,7 @@ class ChannelShim {
     }
 
     this.lastPresenceKey = { userId, tabId };
-    await new QueryBuilder(this.url, this.key, "presence_signals", this.getSession())
+    await new QueryBuilder(this.url, this.apiKey, "presence_signals", this.getSession())
       .upsert({
         user_id: userId,
         tab_id: tabId,
@@ -503,7 +503,7 @@ class ChannelShim {
       return;
     }
 
-    await new QueryBuilder(this.url, this.key, "presence_signals", this.getSession())
+    await new QueryBuilder(this.url, this.apiKey, "presence_signals", this.getSession())
       .delete()
       .eq("user_id", this.lastPresenceKey.userId)
       .eq("tab_id", this.lastPresenceKey.tabId);
@@ -805,7 +805,7 @@ export function createClient(url: string, key: string) {
       },
     },
     channel(topic?: string, options?: { config?: { presence?: { key?: string } } }) {
-      return new ChannelShim(topic ?? "default", options?.config?.presence?.key ?? "presence", url, () => currentSession);
+      return new ChannelShim(topic ?? "default", options?.config?.presence?.key ?? "presence", url, key, () => currentSession);
     },
 
     async removeChannel(channel: { unsubscribe?: () => Promise<unknown> } | null) {
