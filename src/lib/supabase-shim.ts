@@ -312,8 +312,27 @@ class QueryBuilder {
   }
 
   eq(column: string, value: string | number | boolean | null) {
-
     this.filters.push(`${column}=eq.${encodeURIComponent(String(value))}`);
+    return this;
+  }
+
+  gte(column: string, value: string | number) {
+    this.filters.push(`${column}=gte.${encodeURIComponent(String(value))}`);
+    return this;
+  }
+
+  lte(column: string, value: string | number) {
+    this.filters.push(`${column}=lte.${encodeURIComponent(String(value))}`);
+    return this;
+  }
+
+  gt(column: string, value: string | number) {
+    this.filters.push(`${column}=gt.${encodeURIComponent(String(value))}`);
+    return this;
+  }
+
+  lt(column: string, value: string | number) {
+    this.filters.push(`${column}=lt.${encodeURIComponent(String(value))}`);
     return this;
   }
 
@@ -353,6 +372,10 @@ class QueryBuilder {
 
   single() {
     return this.execute(true);
+  }
+
+  catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null) {
+    return this.execute().catch(onrejected);
   }
 
   then<TResult1 = any, TResult2 = never>(
@@ -661,36 +684,41 @@ export function createClient(url: string, key: string) {
       return new QueryBuilder(url, key, table, currentSession);
     },
     rpc(fnName: string, params?: Record<string, unknown>) {
+      const run = async () => {
+        const session = await ensureValidSession(url, key, currentSession ?? readSession());
+        const headers: Record<string, string> = {
+          apikey: key,
+          "Content-Type": "application/json",
+        };
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`;
+        }
+        const response = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(params ?? {}),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText);
+        }
+        const data = await response.json();
+        return { data, error: null };
+      };
+
       return {
+        catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null) {
+          return run().catch(onrejected);
+        },
         then<TResult1 = any, TResult2 = never>(
           onfulfilled?: ((value: any) => TResult1 | PromiseLike<TResult1>) | null,
           onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
         ) {
-          const run = async () => {
-            const session = await ensureValidSession(url, key, currentSession ?? readSession());
-            const headers: Record<string, string> = {
-              apikey: key,
-              "Content-Type": "application/json",
-            };
-            if (session?.access_token) {
-              headers.Authorization = `Bearer ${session.access_token}`;
-            }
-            const response = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
-              method: "POST",
-              headers,
-              body: JSON.stringify(params ?? {}),
-            });
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(errorText);
-            }
-            const data = await response.json();
-            return { data, error: null };
-          };
           return run().then(onfulfilled, onrejected);
         },
       };
     },
+
     functions: {
       async invoke(functionName: string, options?: { body?: unknown }) {
         const session = await ensureValidSession(url, key, currentSession ?? readSession());
