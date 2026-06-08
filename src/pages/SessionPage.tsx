@@ -333,6 +333,26 @@ const SessionPage = () => {
       clearPresenceBadge();
     };
 
+    const notifyRoomLocationChange = (reason: "granted" | "revoked" | "permission-denied") => {
+      void roomPresenceChannel.send({
+        type: "broadcast",
+        event: "location:changed",
+        payload: {
+          roomId: room.id,
+          userId: profile.id,
+          reason,
+        },
+      });
+
+      if (import.meta.env.DEV) {
+        console.log("[SessionPage] location sync broadcast sent", {
+          roomId: room.id,
+          userId: profile.id,
+          reason,
+        });
+      }
+    };
+
     const refreshPresence = async () => {
       if (cancelled || runId !== presenceRefreshRunIdRef.current) {
         return;
@@ -340,6 +360,7 @@ const SessionPage = () => {
 
       if (!navigator.geolocation) {
         await removeOwnSignal();
+        notifyRoomLocationChange("permission-denied");
         return;
       }
 
@@ -353,8 +374,10 @@ const SessionPage = () => {
 
             if (permissionStatus.state === "denied") {
               await removeOwnSignal();
+              notifyRoomLocationChange("permission-denied");
               return;
             }
+
           } catch {
             // If permission state can't be queried, still ask the browser normally.
           }
@@ -372,6 +395,7 @@ const SessionPage = () => {
           updatedAt: new Date().toISOString(),
           locationEnabled: true,
         });
+        notifyRoomLocationChange("granted");
 
         if (cancelled || runId !== presenceRefreshRunIdRef.current) {
           return;
@@ -409,6 +433,7 @@ const SessionPage = () => {
         const maybeError = error as GeolocationPositionError | Error | null;
         if (maybeError && "code" in maybeError && maybeError.code === 1) {
           await removeOwnSignal();
+          notifyRoomLocationChange("revoked");
           return;
         }
 
@@ -418,8 +443,25 @@ const SessionPage = () => {
 
     const roomPresenceChannel = supabase
       .channel(`session-presence-${room.id}`)
+      .on("broadcast", { event: "location:changed" }, (payload) => {
+        const nextLocationEvent = ((payload as { payload?: unknown })?.payload ?? payload) as {
+          roomId?: string;
+          userId?: string;
+          reason?: string;
+        } | null;
+
+        if (!nextLocationEvent || nextLocationEvent.roomId !== room.id || nextLocationEvent.userId === profile.id) {
+          return;
+        }
+
+        if (import.meta.env.DEV) {
+          console.log("[SessionPage] location sync broadcast received", nextLocationEvent);
+        }
+
+        void refreshPresence();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "room_presence_signals", filter: `room_id=eq.${room.id}` }, (payload) => {
-        const signalUserId = (payload.new as { user_id?: string } | null | undefined)?.user_id ?? null;
+        const signalUserId = (payload.new as { user_id?: string } | null | undefined)?.user_id ?? (payload.old as { user_id?: string } | null | undefined)?.user_id ?? null;
         if (signalUserId === profile.id) {
           return;
         }
