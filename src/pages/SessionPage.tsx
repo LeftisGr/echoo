@@ -174,6 +174,7 @@ const SessionPage = () => {
   const [progressionMoment, setProgressionMoment] = useState<string | null>(null);
   const [presenceDistanceKm, setPresenceDistanceKm] = useState<number | null>(null);
   const [presenceBadgeReady, setPresenceBadgeReady] = useState(false);
+  const presenceBadgeReadyRef = useRef(false);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
@@ -181,6 +182,10 @@ const SessionPage = () => {
 
   const presenceRefreshRunIdRef = useRef(0);
   const restoreTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    presenceBadgeReadyRef.current = presenceBadgeReady;
+  }, [presenceBadgeReady]);
 
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
@@ -441,6 +446,17 @@ const SessionPage = () => {
       }
     };
 
+    const presenceRefreshTimeouts: number[] = [];
+    const schedulePresenceRefreshRetry = (delay: number) => {
+      const timeoutId = window.setTimeout(() => {
+        if (!cancelled && !presenceBadgeReadyRef.current) {
+          void refreshPresence();
+        }
+      }, delay);
+
+      presenceRefreshTimeouts.push(timeoutId);
+    };
+
     const roomPresenceChannel = supabase
       .channel(`session-presence-${room.id}`)
       .on("broadcast", { event: "location:changed" }, (payload) => {
@@ -480,6 +496,10 @@ const SessionPage = () => {
         }
 
         void refreshPresence();
+        if (!presenceBadgeReadyRef.current) {
+          schedulePresenceRefreshRetry(2000);
+          schedulePresenceRefreshRetry(5000);
+        }
 
       });
 
@@ -506,11 +526,13 @@ const SessionPage = () => {
 
     return () => {
       cancelled = true;
+      presenceRefreshTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
       if (permissionStatus) {
         permissionStatus.onchange = null;
       }
       void supabase.removeChannel(roomPresenceChannel);
     };
+
   }, [online, profile?.id, room?.id, room?.rtcConnectionId, room?.rtcState, room?.status]);
 
   useEffect(() => {
