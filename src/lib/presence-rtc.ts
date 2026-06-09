@@ -83,7 +83,7 @@ function createPeerConnection() {
     iceServers: [
       { urls: ["stun:stun.l.google.com:19302"] },
       {
-        urls: ["free.expressturn.com:3478"],
+        urls: ["turn:free.expressturn.com:3478"],
         username: "000000002084988233",
         credential: "gFz9pW2Gt/fv1CrSY33N9/aLkPg=",
       },
