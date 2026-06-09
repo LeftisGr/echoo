@@ -47,9 +47,17 @@ export interface VoiceTransmissionDiagnostics {
 const RTC_RECONNECT_INTERVAL_MS = 2000;
 const RTC_RECONNECT_TIMEOUT_MS = 90 * 1000;
 
-function rtcLog(_message: string, _data?: unknown) {}
+function rtcLog(message: string, data?: unknown) {
+  if (import.meta.env.DEV) {
+    console.log("[presence-rtc]", message, data);
+  }
+}
 
-function pttLog(_message: string, _data?: unknown) {}
+function pttLog(message: string, data?: unknown) {
+  if (import.meta.env.DEV) {
+    console.log("[presence-rtc]", message, data);
+  }
+}
 
 function trackSnapshot(track: MediaStreamTrack) {
 
