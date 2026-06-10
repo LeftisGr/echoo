@@ -1188,7 +1188,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   const smoothedOnlineCount = useSmoothedNumber(
 
-    presenceStats.onlineCount > 0 ? Math.max(presenceStats.onlineCount, Math.round(presenceStats.onlineCount * 0.45 + 15.5)) : 17,
+    presenceStats.onlineCount + 16,
+
     17,
   );
   const smoothedSearchingCount = useSmoothedNumber(
