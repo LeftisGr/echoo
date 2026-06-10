@@ -27,69 +27,69 @@ async function getSessionToken() {
   return session.access_token;
 }
 
-export async function requestEphemeralContentAccess(messageId: string): Promise<SignedContentResponse | null> {
-  const accessToken = await getSessionToken();
-  if (!accessToken) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(CONTENT_FUNCTION_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action: "sign", messageId }),
-    });
-
-    if (response.status === 401) {
+  export async function requestEphemeralContentAccess(messageId: string): Promise<SignedContentResponse | null> {
+    const accessToken = await getSessionToken();
+    if (!accessToken) {
       return null;
     }
 
-    const payload = (await response.json().catch(() => null)) as SignedContentResponse | { error?: string } | null;
-    if (!response.ok) {
-      throw new Error((payload && "error" in payload && payload.error) || "Could not open content.");
+    try {
+      const response = await fetch(CONTENT_FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "sign", messageId }),
+      });
+
+      if (response.status === 401) {
+        return null;
+      }
+
+      const payload = (await response.json().catch(() => null)) as SignedContentResponse | { error?: string } | null;
+      if (!response.ok) {
+        throw new Error((payload && "error" in payload && payload.error) || "Could not open content.");
+      }
+
+      return payload as SignedContentResponse;
+    } catch (error) {
+      await logErrorEvent("content_api_failure", {
+        error,
+        errorMessage: error instanceof Error ? error.message : "Could not open content.",
+        properties: {
+          action: "sign",
+          messageId,
+        },
+      });
+      throw new Error("Could not open content.");
     }
-
-    return payload as SignedContentResponse;
-  } catch (error) {
-    await logErrorEvent("content_api_failure", {
-      error,
-      errorMessage: error instanceof Error ? error.message : "Could not open content.",
-      properties: {
-        action: "sign",
-        messageId,
-      },
-    });
-    throw new Error("Could not open content.");
-  }
-}
-
-export async function cleanupExpiredEphemeralContent() {
-  const accessToken = await getSessionToken();
-  if (!accessToken) {
-    return null;
   }
 
-  try {
-    const response = await fetch(CONTENT_FUNCTION_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action: "cleanup" }),
-    });
-
-    if (response.status === 401) {
+  export async function cleanupExpiredEphemeralContent() {
+    const accessToken = await getSessionToken();
+    if (!accessToken) {
       return null;
     }
 
-    const payload = (await response.json().catch(() => null)) as CleanupContentResponse | { error?: string } | null;
-    if (!response.ok) {
-      return null;
-    }
+    try {
+      const response = await fetch(CONTENT_FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "cleanup" }),
+      });
+
+      if (response.status === 401) {
+        return null;
+      }
+
+      const payload = (await response.json().catch(() => null)) as CleanupContentResponse | { error?: string } | null;
+      if (!response.ok) {
+        return null;
+      }
 
     return payload as CleanupContentResponse;
   } catch {
