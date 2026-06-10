@@ -88,13 +88,6 @@ export async function cleanupExpiredEphemeralContent() {
 
     const payload = (await response.json().catch(() => null)) as CleanupContentResponse | { error?: string } | null;
     if (!response.ok) {
-      await logErrorEvent("content_api_failure", {
-        errorMessage: (payload && "error" in payload && payload.error) || "Could not clean up content.",
-        properties: {
-          action: "cleanup",
-          status: response.status,
-        },
-      });
       return null;
     }
 
