@@ -489,19 +489,30 @@ const SessionPage = () => {
         void refreshPresence();
       })
       .subscribe((status) => {
+  if (status !== "SUBSCRIBED") {
+    clearPresenceBadge();
+    return;
+  }
 
-        if (status !== "SUBSCRIBED") {
-          clearPresenceBadge();
-          return;
-        }
+  void refreshPresence();
 
-        void refreshPresence();
-        if (!presenceBadgeReadyRef.current) {
-          schedulePresenceRefreshRetry(2000);
-          schedulePresenceRefreshRetry(5000);
-        }
+  const retry1 = setTimeout(() => {
+    if (!presenceBadgeReady) {
+      void refreshPresence();
+    }
+  }, 2000);
 
-      });
+  const retry2 = setTimeout(() => {
+    if (!presenceBadgeReady) {
+      void refreshPresence();
+    }
+  }, 5000);
+
+  return () => {
+    clearTimeout(retry1);
+    clearTimeout(retry2);
+  };
+});
 
     let permissionStatus: PermissionStatus | null = null;
     const bindPermissionChange = async () => {
