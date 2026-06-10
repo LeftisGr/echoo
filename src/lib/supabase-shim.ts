@@ -427,11 +427,15 @@ class QueryBuilder {
             : this.method === "delete"
               ? "DELETE"
               : "PATCH";
+    const preferHeader = this.method === "upsert"
+      ? `resolution=${this.useMerge ? "merge-duplicates" : "ignore-duplicates"}`
+      : undefined;
+    const countHeader = this.countExact ? "count=exact" : undefined;
     const response = await fetch(url.toString(), {
       method,
       headers: {
         ...headers,
-        ...(this.method === "upsert" ? { Prefer: `resolution=${this.useMerge ? "merge-duplicates" : "ignore-duplicates"}` } : {}),
+        ...(preferHeader || countHeader ? { Prefer: [preferHeader, countHeader].filter(Boolean).join(",") } : {}),
       },
       body: this.method === "select" || this.method === "delete" ? undefined : JSON.stringify(this.payload),
     });
@@ -443,12 +447,14 @@ class QueryBuilder {
 
     const responseText = await response.text();
     const data = responseText ? JSON.parse(responseText) : null;
+    const contentRange = response.headers.get("content-range");
+    const count = this.countExact && contentRange ? Number(contentRange.split("/")[1] ?? "0") : null;
 
     if (expectSingle) {
-      return { data: Array.isArray(data) ? data[0] ?? null : data, error: null };
+      return { data: Array.isArray(data) ? data[0] ?? null : data, error: null, count };
     }
 
-    return { data: this.head ? null : data, error: null };
+    return { data: this.head ? null : data, error: null, count };
 
   }
 }
