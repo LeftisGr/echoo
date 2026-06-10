@@ -244,6 +244,8 @@ const AdminPage = () => {
   const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(false);
   const [totalUsersCount, setTotalUsersCount] = useState(0);
   const [newTodayCount, setNewTodayCount] = useState(0);
+  const [registeredSevenDayCount, setRegisteredSevenDayCount] = useState(0);
+  const [guestSevenDayCount, setGuestSevenDayCount] = useState(0);
 
   const isMountedRef = useRef(true);
 
@@ -264,7 +266,7 @@ const AdminPage = () => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult, totalUsersResult, newTodayResult] = await Promise.all([
+      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult, totalUsersResult, newTodayResult, sevenDayProfilesResult] = await Promise.all([
         supabase
           .from("reports")
           .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
@@ -300,6 +302,7 @@ const AdminPage = () => {
           .limit(20),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(Date.now() - 86400000).toISOString()),
+        supabase.from("profiles").select("id, profile_mode, created_at").gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString()),
       ]);
 
       if (reportsResult.error) throw reportsResult.error;
@@ -309,6 +312,7 @@ const AdminPage = () => {
       if (bansResult.error) throw bansResult.error;
       if (totalUsersResult.error) throw totalUsersResult.error;
       if (newTodayResult.error) throw newTodayResult.error;
+      if (sevenDayProfilesResult.error) throw sevenDayProfilesResult.error;
 
       if (!isMountedRef.current) {
         return;
@@ -325,6 +329,9 @@ const AdminPage = () => {
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
       setTotalUsersCount(totalUsersResult.count ?? 0);
       setNewTodayCount(newTodayResult.count ?? 0);
+      const sevenDayProfiles = (sevenDayProfilesResult.data ?? []) as Array<{ profile_mode: string | null }>;
+      setRegisteredSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode === "registered").length);
+      setGuestSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode !== "registered").length);
     } catch (error) {
 
       if (!isMountedRef.current) {
@@ -920,6 +927,8 @@ const AdminPage = () => {
             <MetricCard icon={Activity} label="Active Voice Sessions" value={formatMetricValue(realAdminMetrics.activeVoiceSessions)} />
             <MetricCard icon={Users} label="Total Users" value={String(totalUsersCount)} />
             <MetricCard icon={UserPlus} label="New Today" value={String(newTodayCount)} />
+            <MetricCard icon={Users} label="Registered (7d)" value={String(registeredSevenDayCount)} />
+            <MetricCard icon={UserMinus} label="Guests (7d)" value={String(guestSevenDayCount)} />
           </div>
 
           <p className="mt-2 text-right text-xs text-white/40">
