@@ -30,7 +30,6 @@ import { usePresence } from "@/components/presence/presence-provider";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { adminChartData } from "@/lib/presence-content";
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -287,9 +286,10 @@ const AdminPage = () => {
         supabase
           .from("analytics_events")
           .select("id, event_type, room_id, anonymized_user_id, properties, created_at")
-          .gte("created_at", twentyFourHoursAgo)
+          .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
           .order("created_at", { ascending: false })
           .limit(100),
+
         supabase
           .from("user_suspensions")
           .select("id, user_id, reason, expires_at, created_by, created_at")
@@ -679,7 +679,26 @@ const AdminPage = () => {
     return acc;
   }, {});
 
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().slice(0, 10);
+  });
+
+  const chartDataFromEvents = last7Days.map((dateStr) => {
+    const dayEvents = analyticsEvents.filter((e) =>
+      e.created_at.slice(0, 10) === dateStr
+    );
+    return {
+      day: new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }),
+      sessions: dayEvents.filter((e) => e.event_type === "room_created").length,
+      reports: dayEvents.filter((e) => e.event_type === "report_submitted").length,
+      signups: dayEvents.filter((e) => e.event_type === "user_joined_queue").length,
+    };
+  });
+
   const errorCountsByType = recentErrors.reduce<Record<string, number>>((acc, event) => {
+
     acc[event.event_type] = (acc[event.event_type] ?? 0) + 1;
     return acc;
   }, {});
@@ -993,7 +1012,8 @@ const AdminPage = () => {
                 {language === "en" ? "Sessions + reports" : "Sessions + αναφορές"}
               </p>
               <ChartContainer config={chartConfig} className="h-[280px] w-full">
-                <AreaChart data={adminChartData}>
+                <AreaChart data={chartDataFromEvents}>
+
                   <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
                   <XAxis dataKey="day" tickLine={false} axisLine={false} />
                   <ChartTooltip content={<ChartTooltipContent />} />
@@ -1006,7 +1026,8 @@ const AdminPage = () => {
             <Surface className="p-5">
               <p className="mb-4 text-sm uppercase tracking-[0.22em] text-white/40">{language === "en" ? "Signups" : "Εγγραφές"}</p>
               <ChartContainer config={chartConfig} className="h-[280px] w-full">
-                <BarChart data={adminChartData}>
+                <BarChart data={chartDataFromEvents}>
+
                   <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
                   <XAxis dataKey="day" tickLine={false} axisLine={false} />
                   <ChartTooltip content={<ChartTooltipContent />} />
