@@ -311,8 +311,10 @@ const AdminPage = () => {
       setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
       setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
       setAnalyticsLiveData(!analyticsResult.error);
+      if (analyticsResult.error) console.warn("[admin] Analytics query failed:", analyticsResult.error.message);
       setAnalyticsEvents(analyticsResult.error ? [] : ((analyticsResult.data ?? []) as AnalyticsEventRow[]));
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
+
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
     } catch (error) {
 
