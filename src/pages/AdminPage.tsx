@@ -242,8 +242,11 @@ const AdminPage = () => {
   const [roomFeedbackFilter, setRoomFeedbackFilter] = useState<"all" | "good" | "neutral" | "bad">("all");
   const [selectedRoomFeedback, setSelectedRoomFeedback] = useState<RoomFeedbackRow | null>(null);
   const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(false);
+  const [totalUsersCount, setTotalUsersCount] = useState(0);
+  const [newTodayCount, setNewTodayCount] = useState(0);
 
   const isMountedRef = useRef(true);
+
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
 
   useEffect(() => {
@@ -261,7 +264,7 @@ const AdminPage = () => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult] = await Promise.all([
+      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult, totalUsersResult, newTodayResult] = await Promise.all([
         supabase
           .from("reports")
           .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
@@ -295,6 +298,8 @@ const AdminPage = () => {
           .select("id, user_id, reason, permanent, expires_at, created_by, created_at")
           .order("created_at", { ascending: false })
           .limit(20),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(Date.now() - 86400000).toISOString()),
       ]);
 
       if (reportsResult.error) throw reportsResult.error;
@@ -302,6 +307,8 @@ const AdminPage = () => {
       if (moderationResult.error) throw moderationResult.error;
       if (suspensionsResult.error) throw suspensionsResult.error;
       if (bansResult.error) throw bansResult.error;
+      if (totalUsersResult.error) throw totalUsersResult.error;
+      if (newTodayResult.error) throw newTodayResult.error;
 
       if (!isMountedRef.current) {
         return;
@@ -316,6 +323,8 @@ const AdminPage = () => {
       setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
 
       setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
+      setTotalUsersCount(totalUsersResult.count ?? 0);
+      setNewTodayCount(newTodayResult.count ?? 0);
     } catch (error) {
 
       if (!isMountedRef.current) {
@@ -909,7 +918,10 @@ const AdminPage = () => {
             <MetricCard icon={MessagesSquare} label="Active Rooms" value={formatMetricValue(realAdminMetrics.activeRooms)} />
             <MetricCard icon={Search} label="Searching" value={formatMetricValue(realAdminMetrics.usersSearching)} />
             <MetricCard icon={Activity} label="Active Voice Sessions" value={formatMetricValue(realAdminMetrics.activeVoiceSessions)} />
+            <MetricCard icon={Users} label="Total Users" value={String(totalUsersCount)} />
+            <MetricCard icon={UserPlus} label="New Today" value={String(newTodayCount)} />
           </div>
+
           <p className="mt-2 text-right text-xs text-white/40">
             {language === "en" ? "Last updated" : "Τελευταία ενημέρωση"}: {formatTimestampLabel(realAdminMetrics.lastUpdatedAt)}
           </p>
