@@ -1,7 +1,8 @@
 export const EPHEMERAL_CONTENT_TTL_SECONDS = 15;
 
 export const EPHEMERAL_CONTENT_TTL_MS = EPHEMERAL_CONTENT_TTL_SECONDS * 1000;
-export const EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS = 10_000;
+export const EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS = 60_000;
+
 export const EPHEMERAL_CONTENT_VIEWER_SECONDS = 18;
 
 export function getEphemeralContentExpiresAt(createdAt: string | Date) {

@@ -99,14 +99,7 @@ export async function cleanupExpiredEphemeralContent() {
     }
 
     return payload as CleanupContentResponse;
-  } catch (error) {
-    await logErrorEvent("content_api_failure", {
-      error,
-      errorMessage: error instanceof Error ? error.message : "Could not clean up content.",
-      properties: {
-        action: "cleanup",
-      },
-    });
+  } catch {
     return null;
   }
 }
