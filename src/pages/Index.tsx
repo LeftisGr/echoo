@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { SocialLinks } from "@/components/presence/social-links";
+import { SundayQuietHoursBanner } from "@/components/presence/sunday-quiet-hours-banner";
 import { usePresence } from "@/components/presence/presence-provider";
 
 const Index = () => {
@@ -116,22 +117,26 @@ const Index = () => {
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
-                <Link to="/auth">
-                  {language === "en" ? "Open a room" : "Άνοιξε ένα room"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-  
-              <a href="#how-it-works">
-                <Button
-                  variant="outline"
-                  className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
-                >
-                  {language === "en" ? "How Echoo works" : "Πώς λειτουργεί το Echoo"}
+            <div className="space-y-3">
+              <SundayQuietHoursBanner />
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button asChild className="h-12 rounded-full bg-violet-500 px-6 text-white hover:bg-violet-400">
+                  <Link to="/auth">
+                    {language === "en" ? "Open a room" : "Άνοιξε ένα room"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
                 </Button>
-              </a>
+  
+                <a href="#how-it-works">
+                  <Button
+                    variant="outline"
+                    className="h-12 rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white"
+                  >
+                    {language === "en" ? "How Echoo works" : "Πώς λειτουργεί το Echoo"}
+                  </Button>
+                </a>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
