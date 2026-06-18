@@ -32,6 +32,7 @@ const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
   const supporter = profile?.supporterBadge ?? false;
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
+  console.log("isGuestAccount:", isGuestAccount, "guestMode:", guestMode, "profileMode:", profile?.profileMode);
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
