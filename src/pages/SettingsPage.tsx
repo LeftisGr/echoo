@@ -144,6 +144,7 @@ const SettingsPage = () => {
               onCheckedChange={setMatchSoundEnabled}
             />
             <SwitchRow label={copy.settings.reconnect} checked={reconnectEnabled} onCheckedChange={setReconnectEnabled} />
+            
           </Surface>
         </div>
       </div>
