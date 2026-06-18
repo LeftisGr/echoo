@@ -32,6 +32,7 @@ const SettingsPage = () => {
 
   const supporter = profile?.supporterBadge ?? false;
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
+  
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
