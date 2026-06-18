@@ -140,22 +140,7 @@ const SettingsPage = () => {
               onCheckedChange={setMatchSoundEnabled}
             />
             <SwitchRow label={copy.settings.reconnect} checked={reconnectEnabled} onCheckedChange={setReconnectEnabled} />
-            {!isGuestAccount && (
-              <div className="flex items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-white/75">
-                    {language === "en" ? "Light mode" : "Φωτεινό θέμα"}
-                  </p>
-                  <p className="max-w-xs text-xs leading-5 text-white/45">
-                    {language === "en" ? "Switch to a lighter interface." : "Εναλλαγή σε πιο ανοιχτό χρωματισμό."}
-                  </p>
-                </div>
-                <Switch
-                  checked={theme === "light"}
-                  onCheckedChange={(checked) => setTheme(checked ? "light" : "dark")}
-                />
-              </div>
-            )}
+            
           </Surface>
         </div>
       </div>
