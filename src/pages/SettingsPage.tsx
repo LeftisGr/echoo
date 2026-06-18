@@ -148,15 +148,42 @@ const SettingsPage = () => {
       <SupportCard language={language} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Button asChild className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
-            <Link to="/dashboard">{copy.nav.dashboard}</Link>
-          </Button>
-          <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
-            {copy.settings.signOut}
-          </Button>
-        </div>
-      </Surface>
+  <div className="grid gap-3 sm:grid-cols-2">
+    <Button asChild className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
+      <Link to="/dashboard">{copy.nav.dashboard}</Link>
+    </Button>
+    <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
+      {copy.settings.signOut}
+    </Button>
+  </div>
+  {!isGuestAccount && (
+    <div className="border-t border-white/10 pt-4">
+      <p className="mb-3 text-xs text-white/35">
+        {language === "en" ? "Danger zone" : "Επικίνδυνη ζώνη"}
+      </p>
+      <Button
+        variant="outline"
+        className="h-11 w-full rounded-full border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+        onClick={async () => {
+          const confirmed = window.confirm(
+            language === "en"
+              ? "This will permanently delete your account and all your data. This cannot be undone. Are you sure?"
+              : "Αυτό θα διαγράψει μόνιμα τον λογαριασμό σου και όλα τα δεδομένα σου. Δεν μπορεί να αναιρεθεί. Είσαι σίγουρος;"
+          );
+          if (!confirmed) return;
+          try {
+            await supabase.rpc("delete_own_account");
+            await logout();
+          } catch (e) {
+            console.error("Delete account failed:", e);
+          }
+        }}
+      >
+        {language === "en" ? "Delete account" : "Διαγραφή λογαριασμού"}
+      </Button>
+    </div>
+  )}
+</Surface>
     </PageShell>
   );
 };
