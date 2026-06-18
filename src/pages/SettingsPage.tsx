@@ -29,7 +29,7 @@ const SettingsPage = () => {
     guestMode,
   } = usePresence();
 
-  const { theme, setTheme } = useTheme();
+  
   const supporter = profile?.supporterBadge ?? false;
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
   console.log("isGuestAccount:", isGuestAccount, "guestMode:", guestMode, "profileMode:", profile?.profileMode);
