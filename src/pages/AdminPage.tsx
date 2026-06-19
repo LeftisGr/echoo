@@ -343,7 +343,9 @@ const AdminPage = () => {
       const sevenDayProfiles = (sevenDayProfilesResult.data ?? []) as Array<{ profile_mode: string | null }>;
       setRegisteredSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode === "registered").length);
       setGuestSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode !== "registered").length);
-      
+      if (roomStatsResult.data?.[0]) {
+        setRoomStats(roomStatsResult.data[0]);
+       }
     } catch (error) {
 
       if (!isMountedRef.current) {
