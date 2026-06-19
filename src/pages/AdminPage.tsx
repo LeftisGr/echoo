@@ -963,6 +963,17 @@ const AdminPage = () => {
             <MetricCard icon={UserPlus} label="New Today" value={String(newTodayCount)} />
             <MetricCard icon={Users} label="Registered (7d)" value={String(registeredSevenDayCount)} />
             <MetricCard icon={UserMinus} label="Guests (7d)" value={String(guestSevenDayCount)} />
+            {roomStats && (
+  <>
+    <MetricCard icon={MessagesSquare} label="Total Rooms" value={String(roomStats.total_rooms)} />
+    <MetricCard icon={MessagesSquare} label="Rooms Today" value={String(roomStats.rooms_today)} />
+    <MetricCard icon={MessagesSquare} label="Rooms (7d)" value={String(roomStats.rooms_7d)} />
+    <MetricCard icon={Users} label="Unique in Rooms" value={String(roomStats.unique_users_in_rooms)} />
+    <MetricCard icon={Activity} label="Voice Adoption" value={`${roomStats.voice_adoption_pct}%`} />
+    <MetricCard icon={Activity} label="Avg Duration" value={`${roomStats.avg_duration_minutes} min`} />
+    <MetricCard icon={Activity} label="Match Rate" value={`${roomStats.match_success_rate}%`} />
+  </>
+)}
           </div>
 
           <p className="mt-2 text-right text-xs text-white/40">
