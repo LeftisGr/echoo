@@ -246,6 +246,16 @@ const AdminPage = () => {
   const [registeredSevenDayCount, setRegisteredSevenDayCount] = useState(0);
   const [guestSevenDayCount, setGuestSevenDayCount] = useState(0);
 
+  const [roomStats, setRoomStats] = useState<{
+  total_rooms: number;
+  rooms_today: number;
+  rooms_7d: number;
+  voice_adoption_pct: number;
+  avg_duration_minutes: number;
+  unique_users_in_rooms: number;
+  match_success_rate: number;
+} | null>(null);
+
   const isMountedRef = useRef(true);
 
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
