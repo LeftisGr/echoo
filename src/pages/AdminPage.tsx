@@ -954,6 +954,7 @@ const AdminPage = () => {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard icon={Users} label="Connected now" value={formatMetricValue(realAdminMetrics.connectedNow)} />
             <MetricCard icon={UserMinus} label="Guests online" value={formatMetricValue(realAdminMetrics.guestsOnline)} />
+            
             <MetricCard icon={UserPlus} label="Registered online" value={formatMetricValue(realAdminMetrics.registeredOnline)} />
             <MetricCard icon={MessagesSquare} label="Active Rooms" value={formatMetricValue(realAdminMetrics.activeRooms)} />
             <MetricCard icon={Search} label="Searching" value={formatMetricValue(realAdminMetrics.usersSearching)} />
