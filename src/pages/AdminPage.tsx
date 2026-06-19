@@ -311,8 +311,8 @@ const AdminPage = () => {
           .order("created_at", { ascending: false })
           .limit(20),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(Date.now() - 86400000).toISOString())
-        supabase.rpc("get_admin_room_stats"),,
+        supabase.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(Date.now() - 86400000).toISOString()),
+        supabase.rpc("get_admin_room_stats"),
         supabase.from("profiles").select("id, profile_mode, created_at").gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString()),
       ]);
 
