@@ -954,7 +954,17 @@ const AdminPage = () => {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard icon={Users} label="Connected now" value={formatMetricValue(realAdminMetrics.connectedNow)} />
             <MetricCard icon={UserMinus} label="Guests online" value={formatMetricValue(realAdminMetrics.guestsOnline)} />
-            
+            {roomStats && (
+  <>
+    <MetricCard icon={MessagesSquare} label="Total Rooms" value={String(roomStats.total_rooms)} />
+    <MetricCard icon={MessagesSquare} label="Rooms Today" value={String(roomStats.rooms_today)} />
+    <MetricCard icon={MessagesSquare} label="Rooms (7d)" value={String(roomStats.rooms_7d)} />
+    <MetricCard icon={Users} label="Unique in Rooms" value={String(roomStats.unique_users_in_rooms)} />
+    <MetricCard icon={Activity} label="Voice Adoption" value={`${roomStats.voice_adoption_pct}%`} />
+    <MetricCard icon={Activity} label="Avg Duration" value={`${roomStats.avg_duration_minutes} min`} />
+    <MetricCard icon={Activity} label="Match Rate" value={`${roomStats.match_success_rate}%`} />
+  </>
+)}
             <MetricCard icon={UserPlus} label="Registered online" value={formatMetricValue(realAdminMetrics.registeredOnline)} />
             <MetricCard icon={MessagesSquare} label="Active Rooms" value={formatMetricValue(realAdminMetrics.activeRooms)} />
             <MetricCard icon={Search} label="Searching" value={formatMetricValue(realAdminMetrics.usersSearching)} />
