@@ -275,7 +275,7 @@ const AdminPage = () => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult, totalUsersResult, newTodayResult, sevenDayProfilesResult] = await Promise.all([
+      const [reportsResult, errorsResult, moderationResult, analyticsResult, suspensionsResult, bansResult, totalUsersResult, newTodayResult, sevenDayProfilesResult, roomStatsResult] = await Promise.all([
         supabase
           .from("reports")
           .select("id, room_id, reporter_id, reported_user, reason, status, reviewed_at, moderation_action, moderation_reason, created_at")
