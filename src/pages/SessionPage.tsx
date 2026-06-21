@@ -2098,7 +2098,7 @@ const SessionPage = () => {
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={() => stopTyping("blur")}
                       placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
-                      className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50"
+                      className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50 [color-scheme:dark]"
                     />
 
                     <Button
