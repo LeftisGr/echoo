@@ -5,29 +5,41 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/presence/presence-shell";
 
-function getSundayCutoff() {
+function getSundayCutoff(): number | null {
   const now = new Date();
-  const cutoff = new Date(now);
-  const daysUntilSunday = (7 - cutoff.getDay()) % 7;
-  cutoff.setDate(cutoff.getDate() + daysUntilSunday);
-  cutoff.setHours(0, 0, 0, 0);
 
-  return cutoff.getTime() > now.getTime() ? cutoff : null;
+  // Αν είναι Κυριακή και δεν έχουν περάσει τα μεσάνυχτα
+  if (now.getDay() === 0) {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    return midnight.getTime();
+  }
+
+  // Αλλιώς επόμενη Κυριακή στα μεσάνυχτα
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  const nextSunday = new Date(now);
+  nextSunday.setDate(now.getDate() + daysUntilSunday);
+  nextSunday.setHours(0, 0, 0, 0);
+
+  return nextSunday.getTime();
 }
 
 export function SundayQuietHoursBanner() {
-  const [visible, setVisible] = useState(() => Boolean(getSundayCutoff()));
+  const [visible, setVisible] = useState(() => {
+    const cutoff = getSundayCutoff();
+    return cutoff !== null && cutoff > Date.now();
+  });
 
   useEffect(() => {
     const cutoff = getSundayCutoff();
-    if (!cutoff) {
+    if (!cutoff || cutoff <= Date.now()) {
       setVisible(false);
       return;
     }
 
     const timeout = window.setTimeout(() => {
       setVisible(false);
-    }, cutoff.getTime() - Date.now());
+    }, cutoff - Date.now());
 
     return () => window.clearTimeout(timeout);
   }, []);
