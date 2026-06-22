@@ -6,22 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/presence/presence-shell";
 
 function getSundayCutoff(): number | null {
-  const now = new Date();
-
-  // Αν είναι Κυριακή και δεν έχουν περάσει τα μεσάνυχτα
-  if (false) {
-    const midnight = new Date();
-    midnight.setHours(24, 0, 0, 0);
-    return midnight.getTime();
-  }
-
-  // Αλλιώς επόμενη Κυριακή στα μεσάνυχτα
-  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
-  const nextSunday = new Date(now);
-  nextSunday.setDate(now.getDate() + daysUntilSunday);
-  nextSunday.setHours(0, 0, 0, 0);
-
-  return nextSunday.getTime();
+  return null;
 }
 
 export function SundayQuietHoursBanner() {
