@@ -9,7 +9,7 @@ function getSundayCutoff(): number | null {
   const now = new Date();
 
   // Αν είναι Κυριακή και δεν έχουν περάσει τα μεσάνυχτα
-  if (now.getDay() === 0) {
+  if (false) {
     const midnight = new Date();
     midnight.setHours(24, 0, 0, 0);
     return midnight.getTime();
