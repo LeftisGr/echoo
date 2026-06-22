@@ -511,18 +511,9 @@ export async function cleanupUserSession(userId: string) {
       .or(`user_a.eq.${userId},user_b.eq.${userId}`),
 
     supabase
-      .from("queue")
-      .upsert({
-        user_id: userId,
-        preferred_gender: "anyone",
-        language: "both",
-        filters: { preference: "anyone", language: "both" },
-        active: false,
-        room_id: null,
-        matched_at: endedAt,
-        joined_at: endedAt,
-      })
-      .select("user_id"),
+  .from("queue")
+  .update({ active: false, room_id: null, matched_at: endedAt })
+  .eq("user_id", userId),
 
     supabase.from("room_presence_signals").delete().eq("user_id", userId),
   ]);
