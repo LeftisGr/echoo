@@ -1527,7 +1527,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           ),
         );
 
-      }, 15000);
+      }, 30000);
     });
 
     const handlePageHide = () => {
