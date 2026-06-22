@@ -30,10 +30,7 @@ const QueuePage = () => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
-  useEffect(() => {
-    if (room && !matchTransition) {
-    }
-  }, [matchTransition, room]);
+  
 
   useEffect(() => {
     if (!authenticated) {
