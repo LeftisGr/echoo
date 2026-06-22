@@ -172,9 +172,15 @@ async function ensureValidSession(baseUrl: string, key: string, session: StoredS
     return session;
   }
 
-  const refreshed = await refreshSession(baseUrl, key, session);
-  if (refreshed) {
-    return refreshed;
+  // Retry up to 2 times with delay
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    }
+    const refreshed = await refreshSession(baseUrl, key, session);
+    if (refreshed) {
+      return refreshed;
+    }
   }
 
   writeSession(null);
