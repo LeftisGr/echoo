@@ -1427,12 +1427,14 @@ export async function createPeerToPeerVoiceSession({
   };
 
   const handleOnline = () => {
-    const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
-    if (isConnected) {
-      clearReconnectTimersForConnected();
-      void setRoomState("connected", currentConnectionId).catch(() => undefined);
-    }
-  };
+  const isConnected = activePeer?.connectionState === "connected" || activePeer?.iceConnectionState === "connected";
+  if (isConnected) {
+    clearReconnectTimersForConnected();
+    void setRoomState("connected", currentConnectionId).catch(() => undefined);
+  } else if (activePeer) {
+    void requestReconnect("network-restored");
+  }
+};
 
   document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("pageshow", handlePageShow);
