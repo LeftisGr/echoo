@@ -1531,8 +1531,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     });
 
     const handlePageHide = () => {
-      void channel.untrack?.();
-    };
+  void channel.untrack?.();
+  if (userId) {
+    void leaveQueue(userId);
+  }
+};
 
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("beforeunload", handlePageHide);
