@@ -958,6 +958,9 @@ export async function createPeerToPeerVoiceSession({
       if (peer.iceConnectionState === "failed") {
         void requestReconnect("ice-failed");
       }
+      if (peer.iceConnectionState === "disconnected") {
+  void requestReconnect("ice-disconnected");
+}
 
     };
 
