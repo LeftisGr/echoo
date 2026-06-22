@@ -314,7 +314,7 @@ export async function syncProfile(profile: PresenceProfile) {
     streak_days: profile.streakDays,
     last_completed_at: profile.lastCompletedAt,
     supporter_badge: profile.supporterBadge,
-    role: profile.role,
+    
 
     updated_at: profile.updatedAt,
   });
