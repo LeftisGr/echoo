@@ -1346,13 +1346,15 @@ export async function createPeerToPeerVoiceSession({
   };
 
   const fetchPendingSignals = async () => {
-    const { data, error } = await supabase
-      .from("voice_signals")
-      .select("id, room_id, sender_id, target_id, signal_type, signal_payload, created_at")
-      .eq("room_id", roomId)
-      .eq("target_id", currentUserId)
-      .order("created_at", { ascending: true })
-      .limit(100);
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("voice_signals")
+    .select("id, room_id, sender_id, target_id, signal_type, signal_payload, created_at")
+    .eq("room_id", roomId)
+    .eq("target_id", currentUserId)
+    .gte("created_at", fiveMinutesAgo)
+    .order("created_at", { ascending: true })
+    .limit(100);
 
     if (error) {
       rtcLog("signal fetch failed", { roomId, sessionId, error: error.message });
