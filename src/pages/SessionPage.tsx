@@ -628,7 +628,14 @@ const SessionPage = () => {
   if (userMessages.length === 0) return;
 
   icebreakerTimerRef.current = window.setTimeout(() => {
-    setIcebreakerPrompt(getRandomIcebreaker(language));
+  setIcebreakerPrompt(getRandomIcebreaker(language));
+  shouldForceScrollRef.current = true;
+  const node = chatScrollRef.current;
+  if (node) {
+    window.requestAnimationFrame(() => {
+      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+    });
+   }
   }, 3 * 60 * 1000);
 
   return () => {
