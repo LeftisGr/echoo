@@ -613,6 +613,31 @@ const SessionPage = () => {
   }, [room?.messages]);
 
   useEffect(() => {
+  if (icebreakerTimerRef.current !== null) {
+    window.clearTimeout(icebreakerTimerRef.current);
+    icebreakerTimerRef.current = null;
+  }
+
+  setIcebreakerPrompt(null);
+
+  if (!room || room.status !== "active") return;
+
+  const userMessages = room.messages.filter((m) => m.type === "text");
+  if (userMessages.length === 0) return;
+
+  icebreakerTimerRef.current = window.setTimeout(() => {
+    setIcebreakerPrompt(getRandomIcebreaker(language));
+  }, 3 * 60 * 1000);
+
+  return () => {
+    if (icebreakerTimerRef.current !== null) {
+      window.clearTimeout(icebreakerTimerRef.current);
+    }
+  };
+}, [room?.messages, room?.status, language]);
+
+
+  useEffect(() => {
 
     if (!room || !featureGates[FeatureGateKey.PttVoice].unlocked || room.voiceUnlockedAt) {
       return;
