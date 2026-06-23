@@ -685,7 +685,7 @@ export async function createPeerToPeerVoiceSession({
       localTrack: localAudioTracks[0] ? trackSnapshot(localAudioTracks[0]) : null,
     });
 
-    if (bytesSent > lastObservedBytesSent) {
+    if (bytesSent > lastObservedBytesSent || !transmissionDesiredEnabled) {
       lastObservedBytesSent = bytesSent;
       bytesFrozenCount = 0;
       await syncDiagnostics("watchdog-progress");
