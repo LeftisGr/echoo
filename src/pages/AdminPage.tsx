@@ -675,9 +675,7 @@ const AdminPage = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!isAdmin) {
-  return <Navigate to="/" replace />;  // ← πρόσθεσε αυτό
-  }
+  
 
   if (!profile) {
     return (
