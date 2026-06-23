@@ -1783,8 +1783,14 @@ const SessionPage = () => {
               </div>
             </div>
 
-            <div className="flex justify-self-center text-center">
+            <div className="flex flex-col items-center justify-self-center text-center gap-1">
               <UnlockProgress stage={unlockStage} timerLabel={timerLabel} timerProgress={timerProgress} timerUrgent={timerUrgent} language={language} />
+              {commonInterests.length > 0 && (
+             <div className="flex items-center gap-1.5 text-xs text-white/40">
+               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+               <span>{language === "en" ? "Matched on" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
+             </div>
+                )}
             </div>
 
             <div className="flex justify-end justify-self-end pl-1">
