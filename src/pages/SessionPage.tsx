@@ -44,7 +44,7 @@ import {
   prepareMediaUpload,
 } from "@/lib/session-media";
 
-
+import { getRandomIcebreaker } from "@/config/icebreakers";
 import { canUseFeature, FeatureGateKey, useFeatureGates } from "@/lib/feature-gates";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
