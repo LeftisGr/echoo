@@ -671,9 +671,9 @@ const AdminPage = () => {
     void runCleanup();
   }, [isAdmin, runCleanup]);
 
-  if (!authenticated) {
-    return <Navigate to="/auth" replace />;
-  }
+  if (profile && !isAdmin) {
+  return <Navigate to="/" replace />;
+}
 
   
 
