@@ -619,6 +619,7 @@ const SessionPage = () => {
     icebreakerTimerRef.current = null;
   }
 
+  if (icebreakerPrompt === null) return;
   setIcebreakerPrompt(null);
 
   if (!room || room.status !== "active") return;
