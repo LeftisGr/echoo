@@ -635,8 +635,7 @@ const SessionPage = () => {
       window.clearTimeout(icebreakerTimerRef.current);
     }
   };
-}, [room?.messages, room?.status, language]);
-
+}, [room?.messages.length, room?.status, language]);
 
   useEffect(() => {
 
