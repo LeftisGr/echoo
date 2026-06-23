@@ -7,18 +7,18 @@ export interface WhatsNextItem {
 
 export const whatsNextConfig = {
   workingOn: [
-    { en: "Smoother room recovery", el: "Πιο ομαλή επαναφορά room" },
-    { en: "Gentler voice fallback", el: "Πιο ήπιο fallback για voice" },
-    { en: "Cleaner content sharing states", el: "Πιο καθαρές καταστάσεις για περιεχόμενο" },
-    { en: "Less friction in matching", el: "Λιγότερη τριβή στο matching" },
-    { en: "Sharper room handoff moments", el: "Πιο καθαρές μεταβάσεις room" },
+    { en: "Icebreaker prompts during quiet moments", el: "Ερωτήσεις για να σπάσει ο πάγος στις ήσυχες στιγμές" },
+    { en: "Push notifications when a match is found", el: "Ειδοποιήσεις όταν βρεθεί match" },
+    { en: "Interest-based conversation starters", el: "Εκκίνηση συνομιλίας βάσει κοινών ενδιαφερόντων" },
+    { en: "Smoother voice reconnection", el: "Πιο ομαλή επανασύνδεση φωνής" },
+    { en: "Queue activity during wait", el: "Δραστηριότητα κατά την αναμονή στην ουρά" },
   ] satisfies WhatsNextItem[],
   recentlyShipped: [
-    { en: "Service status banner for slower moments", el: "Banner κατάστασης υπηρεσιών για πιο αργές στιγμές" },
-    { en: "Room restore timeout handling", el: "Χειρισμός timeout στην επαναφορά room" },
-    { en: "Safer fallback actions for failed restore", el: "Πιο ασφαλείς επιλογές όταν αποτυγχάνει η επαναφορά" },
-    { en: "More stable voice and sharing flows", el: "Πιο σταθερές ροές voice και sharing" },
-    { en: "Menu access to the app’s latest updates", el: "Πρόσβαση από το μενού στα τελευταία updates" },
+    { en: "Interest-based matchmaking", el: "Matching βάσει κοινών ενδιαφερόντων" },
+    { en: "Voice reconnection improvements", el: "Βελτιώσεις στην επανασύνδεση φωνής" },
+    { en: "Faster abandoned room cleanup", el: "Γρηγορότερος καθαρισμός εγκαταλελειμμένων rooms" },
+    { en: "Improved admin metrics", el: "Βελτιωμένα metrics στο admin" },
+    { en: "Account deletion option", el: "Επιλογή διαγραφής λογαριασμού" },
   ] satisfies WhatsNextItem[],
   footer: {
     en: "Built in public. Things may change.",
