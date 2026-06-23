@@ -208,6 +208,8 @@ const SessionPage = () => {
 
   const isNearBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef<string | null>(null);
+  const icebreakerTimerRef = useRef<number | null>(null);
+  const [icebreakerPrompt, setIcebreakerPrompt] = useState<string | null>(null);
   const lastVoiceUnlockAtRef = useRef<string | null>(null);
   const mediaUnlockMessageRoomIdRef = useRef<string | null>(null);
   const lastProgressionPhaseRef = useRef<string | null>(null);
