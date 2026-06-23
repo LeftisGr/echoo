@@ -2107,6 +2107,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
 
         clearTypingIndicator("broadcast-stop");
+        setRoom((current) => {
+        if (!current || current.id !== roomId) return current;
+        return { ...current, typingUserId: null, typingUpdatedAt: null };
+        });
       })
 
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` }, (payload) => {
