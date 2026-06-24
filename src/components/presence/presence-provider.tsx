@@ -1776,7 +1776,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           await supabase.rpc("merge_guest_into_registered", {
            p_guest_user_id: upgradeGuestId,
            p_registered_user_id: currentUserId,
-        });
+          });
     toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
   } catch {
     toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
