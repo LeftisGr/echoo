@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EPHEMERAL_CONTENT_TTL_SECONDS = 15;
+const EPHEMERAL_CONTENT_TTL_SECONDS = 30;
 
 interface ContentRequestBody {
   action?: "sign" | "cleanup";
