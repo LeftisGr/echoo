@@ -204,7 +204,7 @@ const ProfilePage = () => {
                   type="button"
                   className="h-11 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400"
                   onClick={async () => {
-                    await login("google");
+                    await upgradeAccount();
                   }}
                 >
                   {language === "en" ? "Upgrade to registered" : "Μετάβαση σε registered"}
