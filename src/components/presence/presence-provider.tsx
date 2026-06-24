@@ -898,6 +898,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const roomSnapshotRef = useRef(room);
 
   const matchmakingInFlightRef = useRef(false);
+  const upgradeAttemptedRef = useRef(false);
 
   const matchedRoomIdsRef = useRef<Set<string>>(new Set());
   const hydratedSessionUserIdRef = useRef<string | null>(null);
