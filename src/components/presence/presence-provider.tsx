@@ -3571,6 +3571,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       login,
 
       logout,
+      upgradeAccount,
       updateProfile,
 
       startQueue,
