@@ -1775,7 +1775,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         await supabase.rpc("merge_guest_into_registered", {
          p_guest_user_id: upgradeGuestId,
-      p_registered_user_id: currentUserId,
+         p_registered_user_id: currentUserId,
       });
       toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
     } catch (err) {
