@@ -37,10 +37,10 @@ const ProfilePage = () => {
     language,
     updateProfile,
     login,
-    upgradeAccount,
     blockedUserCount,
     blockedUserIds,
     guestMode,
+    upgradeAccount,
   } = usePresence();
 
   const supporter = profile?.supporterBadge ?? false;
