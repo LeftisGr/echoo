@@ -2012,10 +2012,7 @@ const SessionPage = () => {
                 <SessionTypingIndicator />
               </div>
             )}
-            {icebreakerPrompt && (
-              <div className="mx-auto my-3 max-w-xs rounded-2xl border border-violet-400/20 bg-violet-500/10 px-4 py-3 text-center text-sm text-violet-200/80">
-           💬 {icebreakerPrompt}
-              </div>
+            
             )}
 
 
