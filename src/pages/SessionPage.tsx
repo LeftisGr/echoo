@@ -1209,10 +1209,10 @@ const SessionPage = () => {
 
   const roomMessages = room?.messages ?? [];
   const commonInterests = useMemo(() => {
-  if (!room?.partner?.interests || !profile?.interests) return [];
-  if (profile.profileMode === "guest" || !room.partner.interests?.length) return [];
+  if (!room?.partner?.interests?.length || !profile?.interests?.length) return [];
+  if (profile.profileMode === "guest") return [];
   return profile.interests.filter((i) => room.partner!.interests.includes(i));
-  }, [room?.partner?.interests, profile?.interests]);
+  }, [room?.partner?.interests, profile?.interests, profile?.profileMode]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 
   const visibleMessages = roomMessages;
