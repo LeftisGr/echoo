@@ -1969,7 +1969,7 @@ const SessionPage = () => {
                               onContextMenu={(event) => event.preventDefault()}
                             >
                               <SessionMediaMessage message={message} isSelf={item.isSelf} />
-                              {renderTimestamp(timestamp, item.isSelf)}
+                              {isLastInGroup && renderTimestamp(timestamp, item.isSelf)}
                               {renderReactionBadge(message.id, item.isSelf)}
                               {activeReactionMessageId === message.id && renderReactionPicker(message.id, item.isSelf)}
                             </div>
