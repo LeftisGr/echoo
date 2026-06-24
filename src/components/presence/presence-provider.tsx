@@ -3616,6 +3616,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       leaveRoom,
       login,
       logout,
+      upgradeAccount,
       matchSoundEnabled,
       matchTransition,
       online,
