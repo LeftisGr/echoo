@@ -3283,13 +3283,15 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
             setVoicePlaybackBlocked(true);
           },
           onReconnectTimeout: () => {
-          if (voiceSessionTokenRef.current !== sessionToken) {
+            if (voiceSessionTokenRef.current !== sessionToken) {
             return;
-          }
-
-          updateServiceStatus("voice", "degraded");
-          leaveRoomRef.current(language === "en" ? "The room closed after audio could not reconnect in time." : "Το room έκλεισε επειδή ο ήχος δεν μπόρεσε να επανασυνδεθεί έγκαιρα.");
-        },
+            }
+            updateServiceStatus("voice", "degraded");
+            setVoiceState("failed");
+            voiceControllerRef.current = null;
+            voiceStartInFlightRef.current = false;
+            toast.error(language === "en" ? "Voice connection lost. The chat continues." : "Η φωνή αποσυνδέθηκε. Η συνομιλία συνεχίζεται.");
+          },
 
           onDiagnosticsChange: (diagnostics) => {
             if (voiceSessionTokenRef.current !== sessionToken) {
