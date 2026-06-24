@@ -1210,6 +1210,7 @@ const SessionPage = () => {
   const roomMessages = room?.messages ?? [];
   const commonInterests = useMemo(() => {
   if (!room?.partner?.interests || !profile?.interests) return [];
+  if (profile.profileMode === "guest" || room.partner.profileMode === "guest") return [];
   return profile.interests.filter((i) => room.partner!.interests.includes(i));
   }, [room?.partner?.interests, profile?.interests]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
