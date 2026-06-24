@@ -209,6 +209,14 @@ async function exchangeCodeForSession(baseUrl: string, key: string, code: string
 
   const session = (await response.json()) as StoredSession;
   window.localStorage.removeItem(PKCE_VERIFIER_KEY);
+  
+  // ΝΕΟ: Αν είμαστε σε upgrade flow, σβήνουμε τα guest data ΤΩΡΑ
+  if (window.localStorage.getItem("echoo-upgrade-guest-id")) {
+    window.localStorage.removeItem("presence-supabase-guest-email");
+    window.localStorage.removeItem("presence-supabase-guest-password");
+    window.localStorage.removeItem("presence-mvp-guest-session");
+  }
+  
   writeSession(session);
   emit("SIGNED_IN", session);
   return session;
