@@ -867,6 +867,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [realAdminMetrics, setRealAdminMetrics] = useState<AdminOperationalMetrics>(createUnavailableAdminOperationalMetrics());
 
   const voiceControllerRef = useRef<VoiceSessionController | null>(null);
+  const voiceConnectedToastShownRef = useRef<string | null>(null);
 
   const voiceSessionTokenRef = useRef<string | null>(null);
   const voiceStartInFlightRef = useRef(false);
