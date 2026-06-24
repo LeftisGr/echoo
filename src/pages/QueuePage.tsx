@@ -379,7 +379,7 @@ const QueuePage = () => {
         </div>
 
         {matchTransition && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050814]/88 backdrop-blur-xl transition-opacity duration-500">
+          <div className="fixed inset-0 z-50 flex items-center justify-center pb-20 bg-[#050814]/88 backdrop-blur-xl transition-opacity duration-500">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.22),transparent_55%)] opacity-90" />
             <div className="relative mx-auto w-full max-w-md px-6 text-center -translate-y-8">
               <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.2)]">
