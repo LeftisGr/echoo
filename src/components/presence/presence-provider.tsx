@@ -3225,10 +3225,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
             if (nextState === "connected") {
               updateServiceStatus("voice", "healthy");
-            if (voiceConnectedToastShownRef.current !== sessionToken) {
-    voiceConnectedToastShownRef.current = sessionToken;
-    toast.success(copy.session.connected);
-  };
+                if (voiceConnectedToastShownRef.current !== sessionToken) {
+                   voiceConnectedToastShownRef.current = sessionToken;
+                   toast.success(copy.session.connected);
+              };
               void logAnalyticsEvent("reconnect_success", {
                 userId,
                 roomId: room.id,
