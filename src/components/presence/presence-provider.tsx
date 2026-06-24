@@ -2628,11 +2628,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
   window.localStorage.setItem("echoo-upgrade-guest-id", userId);
 
-  // Σβήνουμε ΟΛΑ τα guest/session data
+  // Σβήνουμε ΜΟΝΟ τα guest credentials, ΟΧΙ το session
   window.localStorage.removeItem("presence-supabase-guest-email");
   window.localStorage.removeItem("presence-supabase-guest-password");
   window.localStorage.removeItem("presence-mvp-guest-session");
-  window.localStorage.removeItem("presence-supabase-session"); // ← ΝΕΟ: σβήνει το session token
+  // ΜΗΝ σβήνεις το "presence-supabase-session" εδώ!
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
