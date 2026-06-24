@@ -625,7 +625,7 @@ const SessionPage = () => {
 
   const userMessages = room.messages.filter((m) => m.type === "text");
   console.log("icebreaker check:", userMessages.length, room.status);
-  if (userMessages.length === 0) return;
+  
 
   icebreakerTimerRef.current = window.setTimeout(() => {
   setIcebreakerPrompt(getRandomIcebreaker(language));
