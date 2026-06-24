@@ -1785,7 +1785,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         }
     // 409 = ήδη έγινε merge, αγνοούμε
       }
-}
+    }
     
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
