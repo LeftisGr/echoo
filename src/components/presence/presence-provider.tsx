@@ -1771,8 +1771,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     // Έλεγχος αν ήρθαμε από upgrade guest flow
     const upgradeGuestId = window.localStorage.getItem("echoo-upgrade-guest-id");
-    if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession) {
+    const upgradeDone = window.localStorage.getItem("echoo-upgrade-done") === currentUserId;
+    if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession && !upgradeDone) {
       window.localStorage.removeItem("echoo-upgrade-guest-id");
+      window.localStorage.setItem("echoo-upgrade-done", currentUserId);
       try {
         await supabase.rpc("merge_guest_into_registered", {
           p_guest_user_id: upgradeGuestId,
