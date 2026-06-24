@@ -643,7 +643,7 @@ const SessionPage = () => {
       window.clearTimeout(icebreakerTimerRef.current);
     }
   };
-}, [room?.messages.length, room?.status, language]);
+}, [room?.messages.length, room?.status, room?.endedAt, language]);
 
   useEffect(() => {
 
