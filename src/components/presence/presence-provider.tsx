@@ -1782,15 +1782,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
         toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const isExpected = 
-          message.includes("409") || 
-          message.includes("Conflict") || 
-          message.includes("not found") ||
-          message.includes("Guest profile not found");
-        if (!isExpected) {
-          toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
-        }
+        
       }
     }
     const loadedProfile = await loadProfile(currentUserId);
