@@ -1997,7 +1997,7 @@ const SessionPage = () => {
                             >
                               {message.content}
                             </div>
-                            {renderTimestamp(timestamp, item.isSelf)}
+                            {isLastInGroup && renderTimestamp(timestamp, item.isSelf)}
                             {renderReactionBadge(message.id, item.isSelf)}
                             {activeReactionMessageId === message.id && renderReactionPicker(message.id, item.isSelf)}
                           </div>
