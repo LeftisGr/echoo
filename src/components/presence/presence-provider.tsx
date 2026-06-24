@@ -1781,7 +1781,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         const message = err instanceof Error ? err.message : "";
         if (!message.includes("409") && !message.includes("Conflict") && !message.includes("not found")) {
-      toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
+          toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
     }
     // 409 = ήδη έγινε merge, αγνοούμε
   }
