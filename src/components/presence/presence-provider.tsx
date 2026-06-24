@@ -2622,7 +2622,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   // Αποθηκεύουμε το guest user_id πριν το redirect
   window.localStorage.setItem("echoo-upgrade-guest-id", userId);
 
-  // Κάνουμε Google sign-in (θα δημιουργήσει νέο user)
+  // ΝΕΟ: Σβήνουμε τα guest credentials ώστε να μην κάνει auto-login ως guest
+  window.localStorage.removeItem("presence-supabase-guest-email");
+  window.localStorage.removeItem("presence-supabase-guest-password");
+  window.localStorage.removeItem("presence-mvp-guest-session");
+
+  // Κάνουμε Google sign-in
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
