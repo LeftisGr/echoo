@@ -1787,7 +1787,7 @@ const SessionPage = () => {
               {commonInterests.length > 0 && (
              <div className="flex items-center gap-1.5 text-xs text-white/40">
                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-               <span>{language === "en" ? "Matched on" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
+               <span>{language === "en" ? "Shared interest" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
              </div>
                 )}
             </div>
