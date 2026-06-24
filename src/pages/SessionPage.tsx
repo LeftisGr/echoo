@@ -1954,7 +1954,7 @@ const SessionPage = () => {
                   normalizedSystemMessage.includes("unlocked") ||
                   normalizedSystemMessage.includes("ανοιχτ");
 
-                const isIcebreaker = icebreakers.en.includes(item.message.content) || icebreakers.el.includes(item.message.content);
+                
 
                 return (
                   <div
