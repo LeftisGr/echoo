@@ -203,10 +203,11 @@ const ProfilePage = () => {
                 <Button
                   type="button"
                   className="h-11 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400"
-                  onClick={async () => {
-                   console.log("upgradeAccount:", upgradeAccount);
-                   console.log("userId:", profile?.id);
-                   await upgradeAccount();
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("CLICKED!");
+                    void upgradeAccount();
                   }}
                 >
                   {language === "en" ? "Upgrade to registered" : "Μετάβαση σε registered"}
