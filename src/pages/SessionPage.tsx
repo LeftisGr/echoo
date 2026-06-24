@@ -1954,16 +1954,22 @@ const SessionPage = () => {
                   normalizedSystemMessage.includes("unlocked") ||
                   normalizedSystemMessage.includes("ανοιχτ");
 
+                const isIcebreaker = icebreakers.en.includes(item.message.content) || icebreakers.el.includes(item.message.content);
+
                 return (
                   <div
                     key={item.message.id}
                     className={cn(
-                      "mx-auto max-w-[min(92%,34rem)] rounded-full border px-4 py-2 text-center text-xs leading-5 shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                      isPositiveSystemMessage ? "border-emerald-300/18 bg-emerald-500/10 text-emerald-50" : "border-white/8 bg-white/5 text-white/45",
+                      "mx-auto max-w-[min(92%,34rem)] border text-center shadow-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                      isIcebreaker
+                        ? "rounded-2xl border-violet-400/20 bg-violet-500/10 px-4 py-3 text-sm leading-6 text-violet-200/80"
+                        : isPositiveSystemMessage
+                          ? "rounded-full border-emerald-300/18 bg-emerald-500/10 px-4 py-2 text-xs leading-5 text-emerald-50"
+                          : "rounded-full border-white/8 bg-white/5 px-4 py-2 text-xs leading-5 text-white/45",
                       item.arrivedHot && "animate-[echo-message-in_220ms_ease-out]",
                     )}
                   >
-                    {item.message.content}
+                    {isIcebreaker ? `💬 ${item.message.content}` : item.message.content}
                   </div>
                 );
               }
