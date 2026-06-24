@@ -636,7 +636,7 @@ const SessionPage = () => {
       node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
     });
    }
-  }, 3 * 60 * 1000);
+  }, 75 * 1000);
 
   return () => {
     if (icebreakerTimerRef.current !== null) {
