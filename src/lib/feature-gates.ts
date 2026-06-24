@@ -28,10 +28,10 @@ export type FeatureGateSnapshot = Record<FeatureGateKey, FeatureGateState>;
 
 const FEATURE_UNLOCK_SCHEDULE: Record<FeatureGateKey, number> = {
   [FeatureGateKey.RealtimeTextChat]: 0,
-  [FeatureGateKey.PttVoice]: 600,
-  [FeatureGateKey.EphemeralContent]: 1200,
-  [FeatureGateKey.ImageSending]: 1200,
-  [FeatureGateKey.AudioContentSending]: 1200,
+  [FeatureGateKey.PttVoice]: 300,
+  [FeatureGateKey.EphemeralContent]: 600,
+  [FeatureGateKey.ImageSending]: 600,
+  [FeatureGateKey.AudioContentSending]: 600,
 };
 
 function createFeatureGateState(
