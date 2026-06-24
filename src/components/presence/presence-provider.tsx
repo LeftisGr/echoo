@@ -1770,6 +1770,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     // Έλεγχος αν ήρθαμε από upgrade guest flow
     const upgradeGuestId = window.localStorage.getItem("echoo-upgrade-guest-id");
+    console.log("HYDRATE:", { upgradeGuestId, currentUserId, isGuestSession });
     if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession) {
        window.localStorage.removeItem("echoo-upgrade-guest-id");
         try {
