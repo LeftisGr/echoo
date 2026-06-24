@@ -628,7 +628,8 @@ const SessionPage = () => {
   
 
   icebreakerTimerRef.current = window.setTimeout(() => {
-  setIcebreakerPrompt(getRandomIcebreaker(language));
+  appendSystemMessage(getRandomIcebreaker(language));
+
   shouldForceScrollRef.current = true;
   const node = chatScrollRef.current;
   if (node) {
