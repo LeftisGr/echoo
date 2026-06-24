@@ -6,6 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/presence/presence-shell";
 
 function getSundayCutoff(): number | null {
+  const now = new Date();
+  const day = now.getDay(); // 0 = Κυριακή
+  const hour = now.getHours();
+
+  // Εμφάνιση μόνο Κυριακή 21:00 - 23:59
+  if (day === 0 && hour >= 21) {
+    // Cutoff = Δευτέρα 00:00 (τέλος της Κυριακής)
+    const cutoff = new Date(now);
+    cutoff.setHours(24, 0, 0, 0); // επόμενα μεσάνυχτα
+    return cutoff.getTime();
+  }
+
   return null;
 }
 
