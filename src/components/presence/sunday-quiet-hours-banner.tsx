@@ -11,7 +11,7 @@ function getSundayCutoff(): number | null {
   const hour = now.getHours();
 
   // Εμφάνιση μόνο Κυριακή 21:00 - 23:59
-  if (day === 0 && hour >= 21) {
+  if (day === 0 && hour >= 20) {
     // Cutoff = Δευτέρα 00:00 (τέλος της Κυριακής)
     const cutoff = new Date(now);
     cutoff.setHours(24, 0, 0, 0); // επόμενα μεσάνυχτα
