@@ -1771,12 +1771,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     // Έλεγχος αν ήρθαμε από upgrade guest flow
     const upgradeGuestId = window.localStorage.getItem("echoo-upgrade-guest-id");
       if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession) {
-      window.localStorage.removeItem("echoo-upgrade-guest-id");
-      try {
-        await supabase.rpc("merge_guest_into_registered", {
-         p_guest_user_id: upgradeGuestId,
-         p_registered_user_id: currentUserId,
-       });
+       window.localStorage.removeItem("echoo-upgrade-guest-id");
+        try {
+          await supabase.rpc("merge_guest_into_registered", {
+           p_guest_user_id: upgradeGuestId,
+           p_registered_user_id: currentUserId,
+        });
     toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
   } catch {
     toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
