@@ -200,13 +200,13 @@ const AdminPage = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const supporterPage = parsePaginationValue(searchParams.get("usersPage"), 1);
-  const supporterPageSize = parsePaginationValue(searchParams.get("usersPageSize"), 25);
+  const supporterPageSize = parsePaginationValue(searchParams.get("usersPageSize"), 10);
   const supporterSearch = searchParams.get("usersSearch") ?? "";
   const roomsPage = parsePaginationValue(searchParams.get("roomsPage"), 1);
-  const roomsPageSize = parsePaginationValue(searchParams.get("roomsPageSize"), 25);
+  const roomsPageSize = parsePaginationValue(searchParams.get("roomsPageSize"), 10);
   const roomsSearch = searchParams.get("roomsSearch") ?? "";
   const feedbackPage = parsePaginationValue(searchParams.get("feedbackPage"), 1);
-  const feedbackPageSize = parsePaginationValue(searchParams.get("feedbackPageSize"), 25);
+  const feedbackPageSize = parsePaginationValue(searchParams.get("feedbackPageSize"), 10);
   const feedbackSearch = searchParams.get("feedbackSearch") ?? "";
 
   const updatePaginationParams = useCallback(
