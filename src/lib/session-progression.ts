@@ -111,7 +111,7 @@ export function useSessionProgression(startedAt: string | null | undefined) {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [progression.phase, startedAt]);
+  }, [startedAt]);
 
   return progression;
 }
