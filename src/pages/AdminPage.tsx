@@ -137,7 +137,7 @@ interface RoomFeedbackRow {
 type ModerationAction = "suspend_user" | "temporary_ban" | "permanent_ban" | "dismiss_report" | "mark_reviewed";
 
 const cleanupStorageKey = "echoo-admin-log-cleanup";
-const paginationPageSizes = [25, 50, 100] as const;
+const paginationPageSizes = [10, 25, 50] as const;
 
 function parsePaginationValue(value: string | null, fallback: number) {
   const parsed = Number(value);
