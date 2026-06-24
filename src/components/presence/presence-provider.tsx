@@ -3228,7 +3228,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 if (voiceConnectedToastShownRef.current !== sessionToken) {
                    voiceConnectedToastShownRef.current = sessionToken;
                    toast.success(copy.session.connected);
-              };
+                 };
               void logAnalyticsEvent("reconnect_success", {
                 userId,
                 roomId: room.id,
