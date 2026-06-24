@@ -1784,7 +1784,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
         }
     // 409 = ήδη έγινε merge, αγνοούμε
-  }
+      }
 }
     
     const loadedProfile = await loadProfile(currentUserId);
