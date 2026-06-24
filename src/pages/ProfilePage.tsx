@@ -206,8 +206,8 @@ const ProfilePage = () => {
                   onClick={async () => {
                    console.log("upgradeAccount:", upgradeAccount);
                    console.log("userId:", profile?.id);
-                  await upgradeAccount();
-}}
+                   await upgradeAccount();
+                  }}
                 >
                   {language === "en" ? "Upgrade to registered" : "Μετάβαση σε registered"}
                   <ArrowRight className="ml-2 h-4 w-4" />
