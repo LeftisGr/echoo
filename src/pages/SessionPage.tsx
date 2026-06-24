@@ -1917,6 +1917,27 @@ const SessionPage = () => {
                   .replace(/[.·…]+/g, " ")
                   .replace(/\s+/g, " ")
                   .trim();
+                const isIcebreaker = 
+                 normalizedSystemMessage.startsWith("out of ideas") ||
+                 normalizedSystemMessage.startsWith("what's something") ||
+                 normalizedSystemMessage.startsWith("if you could") ||
+                 normalizedSystemMessage.startsWith("what's the last") ||
+                 normalizedSystemMessage.startsWith("what's a small") ||
+                 normalizedSystemMessage.startsWith("if you had") ||
+                 normalizedSystemMessage.startsWith("what's something most") ||
+                 normalizedSystemMessage.startsWith("what's the best") ||
+                 normalizedSystemMessage.startsWith("what are you") ||
+                 normalizedSystemMessage.startsWith("what's a movie") ||
+                 normalizedSystemMessage.startsWith("εχεις μεινει") ||
+                 normalizedSystemMessage.startsWith("τι εχεις") ||
+                 normalizedSystemMessage.startsWith("αν μπορουσες") ||
+                 normalizedSystemMessage.startsWith("ποιο ειναι") ||
+                 normalizedSystemMessage.startsWith("τι μικρο") ||
+                 normalizedSystemMessage.startsWith("αν ειχες") ||
+                 normalizedSystemMessage.startsWith("τι δεν ξερουν") ||
+                 normalizedSystemMessage.startsWith("ποια ειναι") ||
+                 normalizedSystemMessage.startsWith("τι περιμενεις") ||
+                 normalizedSystemMessage.startsWith("ποια ταινια");  
                 const isPositiveSystemMessage =
                   normalizedSystemMessage.includes("connection opened") ||
                   normalizedSystemMessage.includes("η συνδεση ανοιξε") ||
