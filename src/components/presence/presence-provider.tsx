@@ -2601,18 +2601,24 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   );
 
   const upgradeAccount = useCallback(async () => {
-  const { data, error } = await supabase.auth.linkIdentity({
+  if (!userId) return;
+
+  // Αποθηκεύουμε το guest user_id πριν το redirect
+  window.localStorage.setItem("echoo-upgrade-guest-id", userId);
+
+  // Κάνουμε Google sign-in (θα δημιουργήσει νέο user)
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/dashboard`,
+      redirectTo: `${window.location.origin}/dashboard?upgrade=1`,
     },
   });
+
   if (error) {
     toast.error(error.message);
-    return;
+    window.localStorage.removeItem("echoo-upgrade-guest-id");
   }
-  // Το redirect θα γίνει αυτόματα από το Supabase
-}, []);
+}, [userId]);
 
   const logout = useCallback(async () => {
     stopVoiceChat();
