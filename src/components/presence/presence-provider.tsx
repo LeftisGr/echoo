@@ -2620,15 +2620,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const upgradeAccount = useCallback(async () => {
   if (!userId) return;
 
-  // Αποθηκεύουμε το guest user_id πριν το redirect
   window.localStorage.setItem("echoo-upgrade-guest-id", userId);
 
-  // ΝΕΟ: Σβήνουμε τα guest credentials ώστε να μην κάνει auto-login ως guest
+  // Σβήνουμε ΟΛΑ τα guest/session data
   window.localStorage.removeItem("presence-supabase-guest-email");
   window.localStorage.removeItem("presence-supabase-guest-password");
   window.localStorage.removeItem("presence-mvp-guest-session");
+  window.localStorage.removeItem("presence-supabase-session"); // ← ΝΕΟ: σβήνει το session token
 
-  // Κάνουμε Google sign-in
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
