@@ -1767,6 +1767,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [reconnectEnabled, room?.id]);
 
   async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession: boolean, email: string | null) {
+    
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =
