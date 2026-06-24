@@ -233,7 +233,7 @@ const QueuePage = () => {
 
   return (
     <PageShell className="flex items-center">
-      <Surface className="relative mx-auto w-full max-w-3xl overflow-hidden p-0 shadow-2xl shadow-black/20 min-h-[500px]">
+      <Surface className="relative mx-auto w-full max-w-3xl overflow-hidden p-0 shadow-2xl shadow-black/20 min-h-[600px]">
         <div className="absolute inset-0 bg-[#0b1020]" />
         <div className="absolute -left-24 top-10 h-48 w-48 rounded-full bg-violet-500/12 blur-3xl" />
         <div className="absolute -right-24 bottom-0 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
