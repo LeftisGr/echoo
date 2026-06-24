@@ -2094,6 +2094,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           displayName: currentRoom.partner?.username ?? "Someone",
           updatedAt: nextTyping.updatedAt ?? new Date().toISOString(),
         });
+        if (typingIndicatorTimeoutRef.current !== null) {
+         window.clearTimeout(typingIndicatorTimeoutRef.current);
+        }
+         typingIndicatorTimeoutRef.current = window.setTimeout(() => {
+         setTypingIndicator(null);
+        typingIndicatorTimeoutRef.current = null;
+        }, 5000);
       })
       .on("broadcast", { event: "typing:stop" }, (payload) => {
         const nextTyping = ((payload as { payload?: unknown })?.payload ?? payload) as {
