@@ -171,6 +171,7 @@ interface PresenceContextValue {
   login: (method: AuthMethod, email?: string) => Promise<void>;
 
   logout: () => void;
+  upgradeAccount: () => Promise<void>;
 
   updateProfile: (updates: Partial<PresenceProfile>) => void;
 
