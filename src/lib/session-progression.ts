@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AppLanguage } from "@/lib/presence-types";
 
-export const SESSION_TEXT_PHASE_SECONDS = 600;
-export const SESSION_AUDIO_PHASE_SECONDS = 600;
-export const SESSION_MEDIA_PHASE_SECONDS = 600;
+export const SESSION_TEXT_PHASE_SECONDS = 300;
+export const SESSION_AUDIO_PHASE_SECONDS = 300;
+export const SESSION_MEDIA_PHASE_SECONDS = 300;
 export const SESSION_TOTAL_PROGRESS_SECONDS = SESSION_TEXT_PHASE_SECONDS + SESSION_AUDIO_PHASE_SECONDS + SESSION_MEDIA_PHASE_SECONDS;
 
 export type SessionPhase = "TEXT_PHASE" | "AUDIO_PHASE" | "MEDIA_PHASE";
