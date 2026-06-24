@@ -1774,19 +1774,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       window.localStorage.removeItem("echoo-upgrade-guest-id");
       try {
         await supabase.rpc("merge_guest_into_registered", {
-         p_guest_user_id: upgradeGuestId,
-         p_registered_user_id: currentUserId,
+          p_guest_user_id: upgradeGuestId,
+          p_registered_user_id: currentUserId,
         });
         toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
       } catch (err) {
-        const message = err instanceof Error ? err.message : "";
-        if (!message.includes("409") && !message.includes("Conflict") && !message.includes("not found")) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isExpected = 
+          message.includes("409") || 
+          message.includes("Conflict") || 
+          message.includes("not found") ||
+          message.includes("Guest profile not found");
+        if (!isExpected) {
           toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
         }
-    // 409 = ήδη έγινε merge, αγνοούμε
       }
     }
-    
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =
