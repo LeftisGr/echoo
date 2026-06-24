@@ -102,7 +102,7 @@ export function useSessionProgression(startedAt: string | null | undefined) {
   const progression = useMemo(() => getSessionProgression(startedAt, now), [now, startedAt]);
 
   useEffect(() => {
-    if (!startedAt || progression.phase === "MEDIA_PHASE") {
+    if (!startedAt) {
       return;
     }
 
