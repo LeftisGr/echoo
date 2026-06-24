@@ -2599,6 +2599,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     [language],
   );
 
+  const upgradeAccount = useCallback(async () => {
+  const { data, error } = await supabase.auth.linkIdentity({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/dashboard`,
+    },
+  });
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
+  // Το redirect θα γίνει αυτόματα από το Supabase
+}, []);
+
   const logout = useCallback(async () => {
     stopVoiceChat();
     matchedRoomIdsRef.current.clear();
