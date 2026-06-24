@@ -844,7 +844,7 @@ const SessionPage = () => {
       });
       setRestoreTimeoutElapsed(true);
       restoreTimeoutRef.current = null;
-    }, 5000);
+    }, 15000);
 
     return () => {
       if (restoreTimeoutRef.current !== null) {
