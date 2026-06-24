@@ -2629,9 +2629,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   window.localStorage.setItem("echoo-upgrade-guest-id", userId);
 
   // Σβήνουμε ΜΟΝΟ τα guest credentials, ΟΧΙ το session
+  window.localStorage.setItem("echoo-upgrade-guest-id", userId);
   window.localStorage.removeItem("presence-supabase-guest-email");
   window.localStorage.removeItem("presence-supabase-guest-password");
   window.localStorage.removeItem("presence-mvp-guest-session");
+// ΜΗΝ σβήνεις το presence-supabase-session
   // ΜΗΝ σβήνεις το "presence-supabase-session" εδώ!
 
   const { error } = await supabase.auth.signInWithOAuth({
