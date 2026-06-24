@@ -1770,19 +1770,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     // Έλεγχος αν ήρθαμε από upgrade guest flow
     const upgradeGuestId = window.localStorage.getItem("echoo-upgrade-guest-id");
-    console.log("HYDRATE:", { upgradeGuestId, currentUserId, isGuestSession });
-    if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession) {
-       window.localStorage.removeItem("echoo-upgrade-guest-id");
-        try {
-          await supabase.rpc("merge_guest_into_registered", {
-           p_guest_user_id: upgradeGuestId,
-           p_registered_user_id: currentUserId,
-          });
-          toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
-          } catch {
-          toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
-          }
+if (upgradeGuestId && upgradeGuestId !== currentUserId && !isGuestSession) {
+  window.localStorage.removeItem("echoo-upgrade-guest-id");
+  try {
+    await supabase.rpc("merge_guest_into_registered", {
+      p_guest_user_id: upgradeGuestId,
+      p_registered_user_id: currentUserId,
+    });
+    toast.success(language === "en" ? "Account upgraded successfully!" : "Ο λογαριασμός αναβαθμίστηκε!");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (!message.includes("409") && !message.includes("Conflict") && !message.includes("not found")) {
+      toast.error(language === "en" ? "Could not transfer your data." : "Δεν ήταν δυνατή η μεταφορά δεδομένων.");
     }
+    // 409 = ήδη έγινε merge, αγνοούμε
+  }
+}
     
     const loadedProfile = await loadProfile(currentUserId);
     const storedGuestProfile = readStoredGuestProfile();
