@@ -233,7 +233,7 @@ const QueuePage = () => {
 
   return (
     <PageShell className="flex items-center">
-       <Surface className="relative mx-auto w-full max-w-3xl overflow-hidden p-0 shadow-2xl shadow-black/20">
+      <Surface className="relative mx-auto w-full max-w-3xl overflow-hidden p-0 shadow-2xl shadow-black/20">
         <div className="absolute inset-0 bg-[#0b1020]" />
         <div className="absolute -left-24 top-10 h-48 w-48 rounded-full bg-violet-500/12 blur-3xl" />
         <div className="absolute -right-24 bottom-0 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -344,7 +344,7 @@ const QueuePage = () => {
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{liveUsers}</p>
                 <p className="mt-1 text-sm text-white/50">{language === "en" ? "active users online now" : "ενεργοί χρήστες online τώρα"}</p>
               </div>
-              <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-[#0b1020]") }>
+              <div className={cn("rounded-[24px] border p-4", queueUrgent ? "border-rose-400/20 bg-rose-500/10" : "border-white/10 bg-[#0b1020]")}>
                 <p className={cn("text-xs uppercase tracking-[0.24em]", queueUrgent ? "text-rose-100/70" : "text-white/40")}>{language === "en" ? "Status" : "Κατάσταση"}</p>
                 <p className={cn("mt-3 text-sm font-medium", queueUrgent ? "text-rose-100" : "text-violet-100")}>
                   {phase === "loading" ? copy.queue.loading : phase === "searching" ? copy.queue.searching : copy.queue.matchFound}
@@ -359,10 +359,9 @@ const QueuePage = () => {
               variant="outline"
               className="h-12 flex-1 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
               onClick={async () => {
-                  await cancelQueue();
-                  navigate("/dashboard", { replace: true });
-                }}
-  
+                await cancelQueue();
+                navigate("/dashboard", { replace: true });
+              }}
             >
               <X className="mr-2 h-4 w-4" />
               {copy.queue.cancel}
@@ -377,41 +376,40 @@ const QueuePage = () => {
             </Button>
           </div>
         </div>
+      </Surface>
 
-        {matchTransition && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center pb-20 bg-[#050814]/88 backdrop-blur-xl transition-opacity duration-500">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.22),transparent_55%)] opacity-90" />
-            <div className="relative mx-auto w-full max-w-md px-6 text-center -translate-y-8">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.2)]">
-                <div className="flex items-center gap-1.5 text-violet-100">
-                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.16s]" />
-                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.08s]" />
-                  <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current" />
-                </div>
+      {matchTransition && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050814]/88 backdrop-blur-xl transition-opacity duration-500">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.22),transparent_55%)] opacity-90" />
+          <div className="relative mx-auto w-full max-w-md px-6 text-center">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.2)]">
+              <div className="flex items-center gap-1.5 text-violet-100">
+                <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.16s]" />
+                <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current [animation-delay:-0.08s]" />
+                <span className="h-2 w-2 animate-[echo-typing-dots_1s_ease-in-out_infinite] rounded-full bg-current" />
               </div>
-
-              <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.matchFound}</p>
-              <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-white/65">
-                {language === "en" ? "A quiet room is opening for you." : "Ένα ήσυχο room ανοίγει για εσένα."}
-              </p>
-              <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
-                  {language === "en" ? "Listening" : "Ακούμε"}
-                </div>
-                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
-                  {language === "en" ? "Connecting" : "Σύνδεση"}
-                </div>
-                <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
-                  {language === "en" ? "Opening" : "Άνοιγμα"}
-                </div>
+            </div>
+            <p className="text-xs uppercase tracking-[0.32em] text-white/45">{copy.queue.matchFound}</p>
+            <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              {matchTransition.secondsLeft > 0 ? matchTransition.secondsLeft : 1}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-white/65">
+              {language === "en" ? "A quiet room is opening for you." : "Ένα ήσυχο room ανοίγει για εσένα."}
+            </p>
+            <div className="mt-6 grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
+              <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                {language === "en" ? "Listening" : "Ακούμε"}
+              </div>
+              <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                {language === "en" ? "Connecting" : "Σύνδεση"}
+              </div>
+              <div className="rounded-full border border-violet-300/25 bg-violet-400/15 px-2 py-2 text-violet-50">
+                {language === "en" ? "Opening" : "Άνοιγμα"}
               </div>
             </div>
           </div>
-        )}
-      </Surface>
+        </div>
+      )}
     </PageShell>
   );
 };
