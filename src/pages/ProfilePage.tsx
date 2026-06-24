@@ -204,8 +204,10 @@ const ProfilePage = () => {
                   type="button"
                   className="h-11 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400"
                   onClick={async () => {
-                    await upgradeAccount();
-                  }}
+                   console.log("upgradeAccount:", upgradeAccount);
+                   console.log("userId:", profile?.id);
+                  await upgradeAccount();
+}}
                 >
                   {language === "en" ? "Upgrade to registered" : "Μετάβαση σε registered"}
                   <ArrowRight className="ml-2 h-4 w-4" />
