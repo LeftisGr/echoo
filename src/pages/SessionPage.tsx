@@ -508,7 +508,7 @@ const SessionPage = () => {
     if (!presenceBadgeReady) {
       void refreshPresence();
     }
-  }, 5000);
+  }, 10000);
 
   return () => {
     clearTimeout(retry1);
