@@ -647,7 +647,10 @@ export function createClient(url: string, key: string) {
 
   const auth = {
     async getSession() {
-      currentSession = currentSession ?? (await getInitialSession(url, key));
+      const hasCode = typeof window !== "undefined" && new URL(window.location.href).searchParams.has("code");
+      if (hasCode || !currentSession) {
+        currentSession = await getInitialSession(url, key);
+      }
       currentSession = await ensureValidSession(url, key, currentSession);
       return { data: { session: currentSession }, error: null };
     },
