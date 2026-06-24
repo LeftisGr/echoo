@@ -342,7 +342,7 @@ function createDefaultProfile(userId?: string, profileMode: PresenceProfile["pro
     gender: "prefer-not",
     preference: "anyone",
     language: "both",
-    interests: ["music", "deep talks", "travel"],
+    interests: [],
     vibeLabel: randomFrom(vibeLabels),
     conversationsCompleted: 0,
     streakDays: 0,
