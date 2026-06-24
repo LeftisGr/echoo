@@ -1954,7 +1954,8 @@ const SessionPage = () => {
                   {item.showSenderLabel && renderSenderLabel(item.senderLabel, item.isSelf)}
 
                   <div className="space-y-2">
-                    {item.messages.map(({ message, timestamp, arrivedHot }) => {
+                    {item.messages.map(({ message, timestamp, arrivedHot }, msgIndex) => {
+                     const isLastInGroup = msgIndex === item.messages.length - 1;
                       if (message.type === "media") {
                         return (
                           <div key={message.id} className={cn("relative flex min-w-0", item.isSelf ? "justify-end" : "justify-start")}>
