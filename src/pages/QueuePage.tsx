@@ -71,15 +71,17 @@ const QueuePage = () => {
 
   // Broken Telephone trigger — 60 δευτερόλεπτα αναμονής
   useEffect(() => {
-    if (!queue.active || room || matchTransition || brokenTelephoneShownRef.current) return;
-    const timeout = window.setTimeout(() => {
-      if (!room && !matchTransition && queue.active) {
-        brokenTelephoneShownRef.current = true;
-        setShowBrokenTelephone(true);
-      }
-    }, 60000);
-    return () => window.clearTimeout(timeout);
-  }, [queue.active, room, matchTransition]);
+  if (!queue.active || room || matchTransition || brokenTelephoneShownRef.current) return;
+  console.log("BT timer started, queue.active:", queue.active);
+  const timeout = window.setTimeout(() => {
+    console.log("BT timeout fired!", { room, matchTransition, queueActive: queue.active });
+    if (!room && !matchTransition && queue.active) {
+      brokenTelephoneShownRef.current = true;
+      setShowBrokenTelephone(true);
+    }
+  }, 60000);
+  return () => window.clearTimeout(timeout);
+}, [queue.active, room, matchTransition]);
 
   // Κλείσε το modal αν βρεθεί match
   useEffect(() => {
