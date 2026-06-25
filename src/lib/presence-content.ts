@@ -207,7 +207,7 @@ export const copy = {
     },
     queue: {
       title: "Waiting quietly for your next conversation",
-      body: "We’re finding another active user who fits your language and pace.",
+      body: "Hang on a little longer — something unexpected might find you.",
       cancel: "Leave queue",
       changeFilters: "Adjust preferences",
       found: "A room is opening...",
