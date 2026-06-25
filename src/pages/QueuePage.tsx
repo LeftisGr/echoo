@@ -406,7 +406,7 @@ const QueuePage = () => {
         </div>
       )}
 
-      {showBrokenTelephone && userId && (
+      {showBrokenTelephone && (
         <BrokenTelephoneModal
           userId={userId}
           language={language}
