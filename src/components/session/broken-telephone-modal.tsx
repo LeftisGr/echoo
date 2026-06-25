@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Mic, MicOff, Play, SkipForward, Square } from "lucide-react";
+import { Mic, MicOff, Phone, Play, SkipForward, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
