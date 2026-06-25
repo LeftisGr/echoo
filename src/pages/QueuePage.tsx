@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
 
