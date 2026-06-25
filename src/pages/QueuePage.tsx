@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
-
+import { BrokenTelephoneModal } from "@/components/session/broken-telephone-modal";
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
 
 import { cn, upperWithoutAccents } from "@/lib/utils";
