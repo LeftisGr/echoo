@@ -52,7 +52,7 @@ export async function submitBrokenTelephone(
 ): Promise<boolean> {
   try {
     const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
-    const path = `broken-telephone/${userId}/${Date.now()}.${ext}`;
+    const path = `${userId}/broken-telephone/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(MEDIA_UPLOAD_BUCKET)
