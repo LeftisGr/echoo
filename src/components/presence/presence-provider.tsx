@@ -1296,9 +1296,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       const isGuestSession = isGuestAuthSession(sessionUser);
       const authProvider = getAuthProvider(sessionUser);
 
-      console.log("[presence-provider] auth.provider", authProvider);
-      console.log("[presence-provider] profile.type", isGuestSession ? "guest" : "registered");
-      console.log("[presence-provider] session.user.is_anonymous", sessionUser?.is_anonymous ?? null);
+      
 
       setInitializing(true);
       setAppReady(false);
