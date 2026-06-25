@@ -32,6 +32,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
   // Φόρτωσε active μήνυμα
   useEffect(() => {
     void fetchActiveBrokenTelephone().then(async (msg) => {
+      
       if (!msg) return;
       setActiveMessage(msg);
       const url = await getPlaybackUrl(msg.audioPath, msg.audioBucket);
