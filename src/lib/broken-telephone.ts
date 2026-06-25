@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-
+import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 
 export interface BrokenTelephoneMessage {
   id: string;
