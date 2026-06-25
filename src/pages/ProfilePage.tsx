@@ -206,7 +206,7 @@ const ProfilePage = () => {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log("CLICKED!");
+                    
                     void upgradeAccount();
                   }}
                 >
