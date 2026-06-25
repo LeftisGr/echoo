@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Clock3, Sparkles, SlidersHorizontal, WifiOff, X } from "lucide-react";
 
@@ -10,6 +10,7 @@ import { PageShell, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 import { BrokenTelephoneModal } from "@/components/session/broken-telephone-modal";
+
 import { localizeLanguagePreference, localizePreference, queueMessages } from "@/lib/presence-content";
 
 import { cn, upperWithoutAccents } from "@/lib/utils";
@@ -25,24 +26,17 @@ const QueuePage = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageFading, setMessageFading] = useState(false);
+  const [showBrokenTelephone, setShowBrokenTelephone] = useState(false);
+  const brokenTelephoneShownRef = useRef(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
-  
-
   useEffect(() => {
-    if (!authenticated) {
-      return;
-    }
-
-    if (queue.active && !room && !matchTransition) {
-      return;
-    }
-
+    if (!authenticated) return;
+    if (queue.active && !room && !matchTransition) return;
     if (!queue.active && !room && !matchTransition) {
-
       setElapsedSeconds(0);
       setMessageIndex(0);
       setMessageFading(false);
@@ -50,23 +44,16 @@ const QueuePage = () => {
   }, [authenticated, queue.active, queue.joinedAt, room, matchTransition]);
 
   useEffect(() => {
-    if (!queue.active || room || matchTransition) {
-      return;
-    }
-
+    if (!queue.active || room || matchTransition) return;
     setElapsedSeconds(0);
     const interval = window.setInterval(() => {
       setElapsedSeconds((current) => Math.min(current + 1, totalQueueSeconds));
     }, 1000);
-
     return () => window.clearInterval(interval);
   }, [queue.active, room, matchTransition]);
 
   useEffect(() => {
-    if (!queue.active || room || matchTransition) {
-      return;
-    }
-
+    if (!queue.active || room || matchTransition) return;
     const timeoutIds: number[] = [];
     const interval = window.setInterval(() => {
       setMessageFading(true);
@@ -76,12 +63,30 @@ const QueuePage = () => {
       }, 160);
       timeoutIds.push(timeoutId);
     }, 3000);
-
     return () => {
       window.clearInterval(interval);
       timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
     };
   }, [language, queue.active, room, matchTransition]);
+
+  // Broken Telephone trigger — 60 δευτερόλεπτα αναμονής
+  useEffect(() => {
+    if (!queue.active || room || matchTransition || brokenTelephoneShownRef.current) return;
+    const timeout = window.setTimeout(() => {
+      if (!room && !matchTransition && queue.active) {
+        brokenTelephoneShownRef.current = true;
+        setShowBrokenTelephone(true);
+      }
+    }, 60000);
+    return () => window.clearTimeout(timeout);
+  }, [queue.active, room, matchTransition]);
+
+  // Κλείσε το modal αν βρεθεί match
+  useEffect(() => {
+    if (matchTransition || room) {
+      setShowBrokenTelephone(false);
+    }
+  }, [matchTransition, room]);
 
   const phase = matchTransition ? "match-found" : room ? "opening" : elapsedSeconds < loadingWindowSeconds ? "loading" : "searching";
 
@@ -89,7 +94,6 @@ const QueuePage = () => {
     if (phase === "match-found") {
       return Math.min(((3 - matchTransition!.secondsLeft) / 3) * 100, 100);
     }
-
     return Math.min((elapsedSeconds / totalQueueSeconds) * 100, 100);
   }, [elapsedSeconds, matchTransition, phase]);
 
@@ -127,8 +131,7 @@ const QueuePage = () => {
           : "Η ουρά κινείται απαλά ώστε τίποτα να μη νιώθει κολλημένο."
         : language === "en"
           ? "A connection has found its shape."
-          : "Μια σύνδεση έχει βρει το σχήμα της."
-;
+          : "Μια σύνδεση έχει βρει το σχήμα της.";
 
   const queueNotice = !online ? copy.queue.offline : phase === "searching" && queue.softRelaxed ? copy.queue.relaxed : null;
   const queueUrgent = secondsLeft <= 10;
@@ -163,7 +166,7 @@ const QueuePage = () => {
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-0">
           <CalmStateCard
             eyebrow={language === "en" ? "Room error" : "Σφάλμα room"}
-            title={language === "en" ? "We couldn’t open that room" : "Δεν μπορέσαμε να ανοίξουμε το room"}
+            title={language === "en" ? "We couldn't open that room" : "Δεν μπορέσαμε να ανοίξουμε το room"}
             body={roomFlowError}
             status={language === "en" ? "Please try again from the dashboard." : "Δοκίμασε ξανά από το dashboard."}
             tone="rose"
@@ -205,7 +208,6 @@ const QueuePage = () => {
             action={
               <Button asChild className="h-11 rounded-full bg-rose-500 text-white hover:bg-rose-400">
                 <Link to="/trust-safety#safety">{language === "en" ? "Safety & rules" : "Ασφάλεια & κανόνες"}</Link>
-
               </Button>
             }
             secondaryAction={
@@ -220,7 +222,6 @@ const QueuePage = () => {
   }
 
   if (!queue.active && !room && !matchTransition) {
-
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -265,16 +266,10 @@ const QueuePage = () => {
 
             <Badge className={cn("w-fit rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.18em]", stageToneClass)}>
               {phase === "loading"
-                ? language === "en"
-                  ? "Listening"
-                  : "Ακούμε"
+                ? language === "en" ? "Listening" : "Ακούμε"
                 : phase === "searching"
-                  ? language === "en"
-                    ? "Searching"
-                    : "Αναζήτηση"
-                  : language === "en"
-                    ? "Opening"
-                    : "Άνοιγμα"}
+                  ? language === "en" ? "Searching" : "Αναζήτηση"
+                  : language === "en" ? "Opening" : "Άνοιγμα"}
             </Badge>
           </div>
 
@@ -409,6 +404,14 @@ const QueuePage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showBrokenTelephone && userId && (
+        <BrokenTelephoneModal
+          userId={userId}
+          language={language}
+          onClose={() => setShowBrokenTelephone(false)}
+        />
       )}
     </PageShell>
   );
