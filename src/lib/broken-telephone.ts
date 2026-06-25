@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
+
+const BT_BUCKET = "echoo-bt";
 
 export interface BrokenTelephoneMessage {
   id: string;
@@ -28,20 +29,12 @@ export async function fetchActiveBrokenTelephone(): Promise<BrokenTelephoneMessa
   }
 }
 
-// Δημιούργησε signed URL για playback
+// Public URL για playback (το bucket είναι public)
 export async function getPlaybackUrl(
   audioPath: string,
   audioBucket: string
 ): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from(audioBucket)
-      .createSignedUrl(audioPath, 60); // 60s TTL
-    if (error || !data?.signedUrl) return null;
-    return data.signedUrl;
-  } catch {
-    return null;
-  }
+  return `https://dfaevplpniphpgnljrpn.supabase.co/storage/v1/object/public/${audioBucket}/${audioPath}`;
 }
 
 // Upload audio και αντικατέστησε το active μήνυμα
@@ -55,7 +48,7 @@ export async function submitBrokenTelephone(
     const path = `${userId}/broken-telephone/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
-      .from(MEDIA_UPLOAD_BUCKET)
+      .from(BT_BUCKET)
       .upload(path, audioBlob, {
         contentType: audioBlob.type,
         upsert: true,
@@ -65,7 +58,7 @@ export async function submitBrokenTelephone(
 
     const { error: rpcError } = await supabase.rpc("replace_broken_telephone", {
       p_audio_path: path,
-      p_audio_bucket: MEDIA_UPLOAD_BUCKET,
+      p_audio_bucket: BT_BUCKET,
       p_duration_seconds: Math.round(durationSeconds),
     });
 
