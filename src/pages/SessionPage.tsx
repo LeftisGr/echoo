@@ -622,7 +622,7 @@ const SessionPage = () => {
   if (!room || (room.status !== "active" && room.status !== "idle")) return;
 
   const userMessages = room.messages.filter((m) => m.type === "text");
-  console.log("icebreaker check:", userMessages.length, room.status);
+  
   
 
   icebreakerTimerRef.current = window.setTimeout(() => {
