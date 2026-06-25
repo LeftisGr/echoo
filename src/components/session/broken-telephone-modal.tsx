@@ -37,6 +37,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
       if (!msg) return;
       setActiveMessage(msg);
       const url = await getPlaybackUrl(msg.audioPath, msg.audioBucket);
+      console.log("BT playback url:", url);
       setPlaybackUrl(url);
     });
   }, []);
