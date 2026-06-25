@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/lib/supabase-shim";
 import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 
 export interface BrokenTelephoneMessage {
