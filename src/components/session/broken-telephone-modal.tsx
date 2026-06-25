@@ -32,12 +32,12 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
   // Φόρτωσε active μήνυμα
   useEffect(() => {
     void fetchActiveBrokenTelephone().then(async (msg) => {
-      console.log("BT active message:", msg);
+      
       
       if (!msg) return;
       setActiveMessage(msg);
       const url = await getPlaybackUrl(msg.audioPath, msg.audioBucket);
-      console.log("BT playback url:", url);
+      
       setPlaybackUrl(url);
     });
   }, []);
