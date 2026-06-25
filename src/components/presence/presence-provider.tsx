@@ -2621,7 +2621,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const upgradeAccount = useCallback(async () => {
   if (!userId) return;
 
-  window.localStorage.setItem("echoo-upgrade-guest-id", userId);
+  
 
   // Σβήνουμε ΜΟΝΟ τα guest credentials, ΟΧΙ το session
   window.localStorage.setItem("echoo-upgrade-guest-id", userId);
