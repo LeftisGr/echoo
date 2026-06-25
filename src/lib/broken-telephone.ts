@@ -1,9 +1,4 @@
-import { createClient } from "@/lib/supabase-shim";
-
-const SUPABASE_URL = "https://dfaevplpniphpgnljrpn.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from "@/integrations/supabase/client";
 import { MEDIA_UPLOAD_BUCKET } from "@/lib/session-media";
 
 export interface BrokenTelephoneMessage {
