@@ -107,7 +107,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
 
         {/* Icon */}
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(168,85,247,0.2)]">
-          <span className="text-3xl">📞</span>
+          <Phone className="h-8 w-8 text-violet-200" />
         </div>
 
         {/* Title */}
