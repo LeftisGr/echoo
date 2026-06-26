@@ -651,7 +651,7 @@ export function createClient(url: string, key: string) {
        currentSession = await getInitialSession(url, key);
       }
       currentSession = await ensureValidSession(url, key, currentSession);
-  return { data: { session: currentSession }, error: null };
+      return { data: { session: currentSession }, error: null };
 },
     onAuthStateChange(callback: AuthChangeHandler) {
       listeners.add(callback);
