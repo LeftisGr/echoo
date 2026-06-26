@@ -2050,6 +2050,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
 
         playSoundFeedback("match", matchSoundEnabled);
+        
         updateServiceStatus("matching", "healthy");
 
         await openRoom(activeRoom.id, currentUserId, activeRoom);
