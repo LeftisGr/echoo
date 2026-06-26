@@ -521,6 +521,7 @@ const SessionPage = () => {
   return () => {
     clearTimeout(retry1);
     clearTimeout(retry2);
+    clearTimeout(retry3);
   };
 });
 
