@@ -35,9 +35,9 @@ Deno.serve(async (req) => {
   .from("push_subscriptions")
   .select("endpoint, p256dh, auth");
 
-if (body.target_user_id !== "ALL") {
+  if (body.target_user_id !== "ALL") {
   subsQuery.eq("user_id", body.target_user_id);
-}
+  }
 
 const { data: subs, error } = await subsQuery;
 
