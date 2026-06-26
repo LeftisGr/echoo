@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -7,6 +8,7 @@ import { PageShell, SectionTitle, Surface } from "@/components/presence/presence
 import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
+import { getPushPermissionState, isPushSupported, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 
 import { languageOptions, localizeLanguagePreference, localizePreference, preferenceOptions } from "@/lib/presence-content";
 import { upperWithoutAccents } from "@/lib/utils";
@@ -15,6 +17,7 @@ const SettingsPage = () => {
   const {
     authenticated,
     profile,
+    userId,
     copy,
     language,
     setLanguage,
@@ -29,10 +32,30 @@ const SettingsPage = () => {
     guestMode,
   } = usePresence();
 
-  
   const supporter = profile?.supporterBadge ?? false;
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
-  console.log("isGuestAccount:", isGuestAccount, "guestMode:", guestMode, "profileMode:", profile?.profileMode);
+
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    void getPushPermissionState().then((state) => {
+      setPushEnabled(state === "granted");
+    });
+  }, []);
+
+  const handlePushToggle = async (enabled: boolean) => {
+    if (!userId) return;
+    setPushLoading(true);
+    if (enabled) {
+      const success = await subscribeToPush(userId);
+      setPushEnabled(success);
+    } else {
+      await unsubscribeFromPush(userId);
+      setPushEnabled(false);
+    }
+    setPushLoading(false);
+  };
 
   if (!authenticated) {
     return <Navigate to="/auth" replace />;
@@ -140,7 +163,26 @@ const SettingsPage = () => {
               onCheckedChange={setMatchSoundEnabled}
             />
             <SwitchRow label={copy.settings.reconnect} checked={reconnectEnabled} onCheckedChange={setReconnectEnabled} />
-            
+
+            {!isGuestAccount && isPushSupported() && (
+              <div className="flex items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-black/20 p-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-white/75">
+                    {language === "en" ? "Push notifications" : "Ειδοποιήσεις"}
+                  </p>
+                  <p className="max-w-xs text-xs leading-5 text-white/45">
+                    {language === "en"
+                      ? "Get notified when a match is found or Sunday Nights starts."
+                      : "Λάβε ειδοποίηση όταν βρεθεί match ή ξεκινά το Sunday Nights."}
+                  </p>
+                </div>
+                <Switch
+                  checked={pushEnabled}
+                  onCheckedChange={(v) => { void handlePushToggle(v); }}
+                  disabled={pushLoading}
+                />
+              </div>
+            )}
           </Surface>
         </div>
       </div>
@@ -148,42 +190,42 @@ const SettingsPage = () => {
       <SupportCard language={language} />
 
       <Surface className="space-y-4 p-5 sm:p-6">
-  <div className="grid gap-3 sm:grid-cols-2">
-    <Button asChild className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
-      <Link to="/dashboard">{copy.nav.dashboard}</Link>
-    </Button>
-    <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
-      {copy.settings.signOut}
-    </Button>
-  </div>
-  {!isGuestAccount && (
-    <div className="border-t border-white/10 pt-4">
-      <p className="mb-3 text-xs text-white/35">
-        {language === "en" ? "Danger zone" : "Επικίνδυνη ζώνη"}
-      </p>
-      <Button
-        variant="outline"
-        className="h-11 w-full rounded-full border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-        onClick={async () => {
-          const confirmed = window.confirm(
-            language === "en"
-              ? "This will permanently delete your account and all your data. This cannot be undone. Are you sure?"
-              : "Αυτό θα διαγράψει μόνιμα τον λογαριασμό σου και όλα τα δεδομένα σου. Δεν μπορεί να αναιρεθεί. Είσαι σίγουρος;"
-          );
-          if (!confirmed) return;
-          try {
-            await supabase.rpc("delete_own_account");
-            await logout();
-          } catch (e) {
-            console.error("Delete account failed:", e);
-          }
-        }}
-      >
-        {language === "en" ? "Delete account" : "Διαγραφή λογαριασμού"}
-      </Button>
-    </div>
-  )}
-</Surface>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Button asChild className="h-12 w-full rounded-full bg-violet-500 text-white hover:bg-violet-400">
+            <Link to="/dashboard">{copy.nav.dashboard}</Link>
+          </Button>
+          <Button variant="outline" className="h-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={logout}>
+            {copy.settings.signOut}
+          </Button>
+        </div>
+        {!isGuestAccount && (
+          <div className="border-t border-white/10 pt-4">
+            <p className="mb-3 text-xs text-white/35">
+              {language === "en" ? "Danger zone" : "Επικίνδυνη ζώνη"}
+            </p>
+            <Button
+              variant="outline"
+              className="h-11 w-full rounded-full border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              onClick={async () => {
+                const confirmed = window.confirm(
+                  language === "en"
+                    ? "This will permanently delete your account and all your data. This cannot be undone. Are you sure?"
+                    : "Αυτό θα διαγράψει μόνιμα τον λογαριασμό σου και όλα τα δεδομένα σου. Δεν μπορεί να αναιρεθεί. Είσαι σίγουρος;"
+                );
+                if (!confirmed) return;
+                try {
+                  await supabase.rpc("delete_own_account");
+                  await logout();
+                } catch (e) {
+                  console.error("Delete account failed:", e);
+                }
+              }}
+            >
+              {language === "en" ? "Delete account" : "Διαγραφή λογαριασμού"}
+            </Button>
+          </div>
+        )}
+      </Surface>
     </PageShell>
   );
 };
