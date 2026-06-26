@@ -1038,7 +1038,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     const updatedAt = currentRoom.typingUpdatedAt ?? new Date().toISOString();
-    if (Date.now() - new Date(updatedAt).getTime() > 2000) {
+    if (Date.now() - new Date(updatedAt).getTime() > 5000) {
       clearTypingIndicator("room-sync-stale");
       return;
     }
