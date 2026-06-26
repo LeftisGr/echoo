@@ -34,6 +34,7 @@ const SettingsPage = () => {
 
   const supporter = profile?.supporterBadge ?? false;
   const isGuestAccount = guestMode || profile?.profileMode === "guest";
+  console.log("push supported:", isPushSupported(), "isGuest:", isGuestAccount);
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
