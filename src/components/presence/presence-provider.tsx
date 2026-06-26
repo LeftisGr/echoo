@@ -2051,23 +2051,22 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
         playSoundFeedback("match", matchSoundEnabled);
         // Push notification στον partner
-if (activeRoom.userA === currentUserId) {
-  void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-      "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-    },
-    body: JSON.stringify({
-      target_user_id: activeRoom.userB,
-      title: "Echoo 📞",
-      body: language === "en" ? "Someone is waiting for you." : "Κάποιος σε περιμένει.",
-      url: `/session/${activeRoom.id}`,
-      tag: "match",
-    }),
-  }).catch(() => undefined);
-}
+const partnerId = activeRoom.userA === currentUserId ? activeRoom.userB : activeRoom.userA;
+void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+    "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+  },
+  body: JSON.stringify({
+    target_user_id: partnerId,
+    title: "Echoo 📞",
+    body: language === "en" ? "Someone is waiting for you." : "Κάποιος σε περιμένει.",
+    url: `/session/${activeRoom.id}`,
+    tag: "match",
+  }),
+}).catch(() => undefined);
         
         updateServiceStatus("matching", "healthy");
 
