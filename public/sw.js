@@ -72,4 +72,33 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+// Push notification listener
+self.addEventListener("push", (event) => {
+  let payload = { title: "Echoo", body: "Κάτι νέο σε περιμένει", url: "/" };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {}
 
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icons/icon-192.svg",
+      badge: "/icons/icon-192.svg",
+      data: { url: payload.url },
+      tag: payload.tag || "echoo-notification",
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(url) && "focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
