@@ -46,6 +46,8 @@ const SettingsPage = () => {
   }, []);
 
   const handlePushToggle = async (enabled: boolean) => {
+    console.log("handlePushToggle called:", enabled, "userId:", userId);
+
     if (!userId) return;
     setPushLoading(true);
     if (enabled) {
