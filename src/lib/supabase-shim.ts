@@ -647,13 +647,12 @@ export function createClient(url: string, key: string) {
 
   const auth = {
     async getSession() {
-      const hasCode = typeof window !== "undefined" && new URL(window.location.href).searchParams.has("code");
-      if (hasCode || !currentSession) {
-        currentSession = await getInitialSession(url, key);
-      }
-      currentSession = await ensureValidSession(url, key, currentSession);
-      return { data: { session: currentSession }, error: null };
-    },
+  if (!currentSession) {
+    currentSession = await getInitialSession(url, key);
+  }
+  currentSession = await ensureValidSession(url, key, currentSession);
+  return { data: { session: currentSession }, error: null };
+},
     onAuthStateChange(callback: AuthChangeHandler) {
       listeners.add(callback);
       void auth.getSession().then(({ data }) => callback("INITIAL_SESSION", data.session));
