@@ -46,13 +46,13 @@ const SettingsPage = () => {
   }, []);
 
   const handlePushToggle = async (enabled: boolean) => {
-    console.log("handlePushToggle called:", enabled, "userId:", userId);
+    
 
     if (!userId) return;
     setPushLoading(true);
     if (enabled) {
       const success = await subscribeToPush(userId);
-      console.log("subscribeToPush result:", success);
+      
       setPushEnabled(success);
     } else {
       await unsubscribeFromPush(userId);
