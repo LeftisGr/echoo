@@ -504,11 +504,13 @@ const SessionPage = () => {
     }
   }, 2000);
 
-const retry2 = setTimeout(() => {
-  if (!presenceBadgeReadyRef.current) {
-    void refreshPresence();
-  }
-}, 10000);
+  const retry2 = setTimeout(() => {
+    if (!presenceBadgeReadyRef.current) {
+     void refreshPresence();
+    }
+  }, 10000);
+
+  
 
   return () => {
     clearTimeout(retry1);
