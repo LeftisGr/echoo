@@ -31,10 +31,15 @@ Deno.serve(async (req) => {
 
   const body = (await req.json()) as PushRequestBody;
 
-  const { data: subs, error } = await supabase
-    .from("push_subscriptions")
-    .select("endpoint, p256dh, auth")
-    .eq("user_id", body.target_user_id);
+  const subsQuery = supabase
+  .from("push_subscriptions")
+  .select("endpoint, p256dh, auth");
+
+if (body.target_user_id !== "ALL") {
+  subsQuery.eq("user_id", body.target_user_id);
+}
+
+const { data: subs, error } = await subsQuery;
 
   if (error || !subs?.length) {
     return new Response(JSON.stringify({ sent: 0 }), {
