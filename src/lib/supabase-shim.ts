@@ -647,7 +647,7 @@ export function createClient(url: string, key: string) {
 
   const auth = {
     async getSession() {
-  if (!currentSession) {
+      if (!currentSession) {
     currentSession = await getInitialSession(url, key);
   }
   currentSession = await ensureValidSession(url, key, currentSession);
