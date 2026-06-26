@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
   const body = (await req.json()) as PushRequestBody;
 
   const subsQuery = supabase
-  .from("push_subscriptions")
-  .select("endpoint, p256dh, auth");
+   .from("push_subscriptions")
+   .select("endpoint, p256dh, auth");
 
   if (body.target_user_id !== "ALL") {
     subsQuery.eq("user_id", body.target_user_id);
