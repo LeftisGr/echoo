@@ -21,8 +21,7 @@
 
 ## Links
 
-- App: https://echoo.gr
-- Privacy: https://echoo.gr/privacy
-- Terms: https://echoo.gr/terms
-- Community Guidelines: https://echoo.gr/community-guidelines
-- Contact: hello@echoo.gr
+- [Echoo App](https://echoo.gr)
+- [Privacy Policy](https://echoo.gr/privacy)
+- [Terms of Service](https://echoo.gr/terms)
+- [Community Guidelines](https://echoo.gr/community-guidelines)
