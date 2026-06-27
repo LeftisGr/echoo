@@ -180,6 +180,13 @@ const SettingsPage = () => {
                       : "Λάβε ειδοποίηση όταν βρεθεί match ή ξεκινά το Sunday Nights."}
                   </p>
                 </div>
+                {!isGuestAccount && isPushSupported() && (
+  <p className="px-1 text-xs leading-5 text-white/35">
+    {language === "en"
+      ? "On iPhone, add Echoo to your Home Screen to receive notifications."
+      : "Σε iPhone, πρόσθεσε το Echoo στην Αρχική Οθόνη για να λαμβάνεις ειδοποιήσεις."}
+  </p>
+)}
                 <Switch
                   checked={pushEnabled}
                   onCheckedChange={(v) => { void handlePushToggle(v); }}
