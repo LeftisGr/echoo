@@ -1189,9 +1189,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setIsAdmin(profile?.role === "admin");
   }, [profile?.role]);
 
+  // Deterministic pseudo-random base so everyone sees the same number at the
+  // same time (no Math.random). Shifts every 15 minutes, ranges 8–18.
+  const onlineBaseSlot = Math.floor(Date.now() / (15 * 60 * 1000));
+  const onlineBase = 8 + (onlineBaseSlot % 11);
   const smoothedOnlineCount = useSmoothedNumber(
 
-    presenceStats.onlineCount + 16,
+    presenceStats.onlineCount + onlineBase,
 
     17,
   );

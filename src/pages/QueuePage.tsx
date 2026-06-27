@@ -109,7 +109,7 @@ const QueuePage = () => {
           : 0;
 
   const estimatedWait = Math.max(queue.estimatedWaitSeconds, phase === "searching" ? secondsLeft : queue.estimatedWaitSeconds);
-  const liveUsers = Math.max(adminMetrics.usersOnlineNow, 14);
+  const liveUsers = Math.max(adminMetrics.usersOnlineNow, 8);
   const currentPreferenceLabel = localizePreference(language, queue.filters.preference);
   const currentLanguageLabel = localizeLanguagePreference(language, queue.filters.language);
 
