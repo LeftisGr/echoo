@@ -1,0 +1,28 @@
+# Echoo
+
+> Echoo (echoo.gr) is a calm, anonymous chat web app from Greece. It matches you with a stranger for a one-on-one conversation — text first, with voice that unlocks gradually. No profiles to browse, no followers, no feed. Built for genuine, low-pressure human connection.
+
+## What Echoo is
+
+- Anonymous: random nickname, your email is never shown to others
+- Temporary: rooms are private and ephemeral, nothing is permanently public
+- Calm by design: no gamification, no vanity metrics, no endless scrolling
+- Greek-made, available in Greek and English
+
+## Key features
+
+- Anonymous one-on-one matched conversations
+- Text chat with progressively unlocking voice (WebRTC)
+- Broken Telephone: leave a 15-second anonymous voice message for the next person waiting alone
+- Interest-based matchmaking
+- Push notifications for matches and weekly events
+- Guest accounts that can upgrade to registered while keeping their history
+- Sunday Nights: a weekly event where more people are online, 21:00–00:00
+
+## Links
+
+- App: https://echoo.gr
+- Privacy: https://echoo.gr/privacy
+- Terms: https://echoo.gr/terms
+- Community Guidelines: https://echoo.gr/community-guidelines
+- Contact: hello@echoo.gr
