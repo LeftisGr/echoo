@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -13,28 +13,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { PresenceProvider, usePresence } from "@/components/presence/presence-provider";
+import { CalmStateCard } from "@/components/presence/calm-state-card";
 
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider } from "@/hooks/use-pwa-install";
 
-import AdminPage from "@/pages/AdminPage";
-import AuthPage from "@/pages/AuthPage";
-import CommunityGuidelinesPage from "@/pages/CommunityGuidelinesPage";
-import ContactPage from "@/pages/ContactPage";
-import DashboardPage from "@/pages/DashboardPage";
+// Critical pages stay static for instant load.
 import Index from "@/pages/Index";
-import LearnPage from "@/pages/LearnPage";
 import NotFound from "@/pages/NotFound";
-import ProfilePage from "@/pages/ProfilePage";
-import QueuePage from "@/pages/QueuePage";
-import RetentionPage from "@/pages/RetentionPage";
-import SessionPage from "@/pages/SessionPage";
-import SettingsPage from "@/pages/SettingsPage";
-import SupportPage from "@/pages/SupportPage";
-import TrustSafetyPage from "@/pages/TrustSafetyPage";
-import VoiceUnlockPage from "@/pages/VoiceUnlockPage";
-import WhatsNextPage from "@/pages/WhatsNextPage";
+
+// All other pages are code-split (lazy) to shrink the initial bundle.
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const AuthPage = lazy(() => import("@/pages/AuthPage"));
+const CommunityGuidelinesPage = lazy(() => import("@/pages/CommunityGuidelinesPage"));
+const ContactPage = lazy(() => import("@/pages/ContactPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const LearnPage = lazy(() => import("@/pages/LearnPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const QueuePage = lazy(() => import("@/pages/QueuePage"));
+const RetentionPage = lazy(() => import("@/pages/RetentionPage"));
+const SessionPage = lazy(() => import("@/pages/SessionPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const SupportPage = lazy(() => import("@/pages/SupportPage"));
+const TrustSafetyPage = lazy(() => import("@/pages/TrustSafetyPage"));
+const VoiceUnlockPage = lazy(() => import("@/pages/VoiceUnlockPage"));
+const WhatsNextPage = lazy(() => import("@/pages/WhatsNextPage"));
 
 import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useBlocker, useLocation, useNavigate } from "react-router-dom";
 
@@ -260,7 +264,17 @@ function AppLayoutContent() {
     <>
       <BackNavigationGuard />
       <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[60vh] items-center justify-center px-4">
+              <div className="w-full max-w-2xl">
+                <CalmStateCard title={copy.misc.loading} status={copy.misc.loading} />
+              </div>
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </div>
     </>
   );
