@@ -7,18 +7,17 @@ export interface WhatsNextItem {
 
 export const whatsNextConfig = {
   workingOn: [
-    { en: "Push notifications when a match is found", el: "Ειδοποιήσεις όταν βρεθεί match" },
-    { en: "Queue trivia while waiting", el: "Trivia ερωτήσεις κατά την αναμονή" },
-    { en: "Badges and conversation milestones", el: "Badges και milestones συνομιλιών" },
+    { en: "Queue heatmap — see when people are online", el: "Queue heatmap — δες πότε υπάρχει κόσμος online" },
+    { en: "Heart a Broken Telephone message to keep it alive", el: "Κάνε like σε φωνητικό του Σπασμένου Τηλεφώνου για να το κρατήσεις ζωντανό" },
+    { en: "Performance improvements", el: "Βελτιώσεις απόδοσης" },
     { en: "Light theme", el: "Light theme" },
-    { en: "Sunday Nights weekly event", el: "Εβδομαδιαία εκδήλωση Sunday Nights" },
   ] satisfies WhatsNextItem[],
   recentlyShipped: [
+    { en: "Push notifications for matches and events", el: "Ειδοποιήσεις για matches και events" },
+    { en: "Badges and conversation milestones", el: "Badges και milestones συνομιλιών" },
+    { en: "Sunday Nights weekly event", el: "Εβδομαδιαία εκδήλωση Sunday Nights" },
     { en: "Broken Telephone — voice messages for solo waiters", el: "Σπασμένο Τηλέφωνο — φωνητικά για όσους περιμένουν μόνοι" },
     { en: "Guest to registered account upgrade", el: "Αναβάθμιση από guest σε εγγεγραμμένο λογαριασμό" },
-    { en: "Icebreaker prompts in chat history", el: "Ερωτήσεις για να σπάσει ο πάγος στο ιστορικό chat" },
-    { en: "Interest-based matchmaking", el: "Matching βάσει κοινών ενδιαφερόντων" },
-    { en: "Voice reconnection improvements", el: "Βελτιώσεις στην επανασύνδεση φωνής" },
   ] satisfies WhatsNextItem[],
   footer: {
     en: "Built in public. Things may change.",

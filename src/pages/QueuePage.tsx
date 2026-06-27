@@ -69,7 +69,7 @@ const QueuePage = () => {
     };
   }, [language, queue.active, room, matchTransition]);
 
-  // Broken Telephone trigger — 60 δευτερόλεπτα αναμονής
+  // Broken Telephone trigger — 40 δευτερόλεπτα αναμονής
   useEffect(() => {
   if (!queue.active || room || matchTransition || brokenTelephoneShownRef.current) return;
   
@@ -79,7 +79,7 @@ const QueuePage = () => {
       brokenTelephoneShownRef.current = true;
       setShowBrokenTelephone(true);
     }
-  }, 60000);
+  }, 40000);
   return () => window.clearTimeout(timeout);
 }, [queue.active, room, matchTransition]);
 

@@ -27,7 +27,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [hearted, setHearted] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -43,7 +43,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
       // Restore "already liked" state for this specific message.
       try {
         if (window.localStorage.getItem(`echoo-bt-liked-${msg.id}`) === "1") {
-          setLiked(true);
+          setHearted(true);
         }
       } catch {
         // Ignore storage access issues (private mode, etc.)
@@ -80,12 +80,12 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
 
   // ❤️ Δώσε +24h ζωής στο μήνυμα (μία φορά ανά μήνυμα)
   const handleLike = useCallback(async () => {
-    if (!activeMessage || liked || isLiking) return;
+    if (!activeMessage || hearted || isLiking) return;
     setIsLiking(true);
     const success = await extendBrokenTelephone(activeMessage.id);
     setIsLiking(false);
     if (success) {
-      setLiked(true);
+      setHearted(true);
       try {
         window.localStorage.setItem(`echoo-bt-liked-${activeMessage.id}`, "1");
       } catch {
@@ -97,7 +97,7 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
           : "Έδωσες +24 ώρες ζωής σε αυτό το μήνυμα 💜",
       );
     }
-  }, [activeMessage, liked, isLiking, language]);
+  }, [activeMessage, hearted, isLiking, language]);
 
   const handleSubmit = useCallback(async () => {
     if (!recorder.audioBlob) return;
@@ -185,17 +185,17 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
             <button
               type="button"
               onClick={() => { void handleLike(); }}
-              disabled={liked || isLiking}
+              disabled={hearted || isLiking}
               aria-label={language === "en" ? "Give this message 24 more hours" : "Δώσε 24 ώρες ζωής ακόμα σε αυτό το μήνυμα"}
               title={language === "en" ? "Give +24 hours" : "Δώσε +24 ώρες"}
               className={cn(
                 "flex w-14 shrink-0 items-center justify-center rounded-2xl border transition",
-                liked
+                hearted
                   ? "border-rose-400/30 bg-rose-500/20 text-rose-300"
                   : "border-rose-300/20 bg-rose-500/10 text-rose-200/80 hover:bg-rose-500/20 disabled:opacity-60",
               )}
             >
-              <Heart className={cn("h-5 w-5", liked && "fill-current")} />
+              <Heart className="h-5 w-5" fill={hearted ? "currentColor" : "none"} />
             </button>
           </div>
         )}
