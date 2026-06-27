@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
+import { BadgesDisplay } from "@/components/profile/badges-display";
 
 import { interestTags } from "@/lib/presence-content";
 import { toast } from "sonner";
@@ -130,9 +131,6 @@ const ProfilePage = () => {
               {isRegistered ? (language === "en" ? "Registered" : "Εγγεγραμμένο") : (language === "en" ? "Guest account" : "Guest λογαριασμός")}
             </Badge>
 
-            <Badge className="rounded-full border border-violet-300/15 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-100 hover:bg-violet-500/10">
-              {profile.vibeLabel}
-            </Badge>
             {supporter && (
               <Badge className="rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-1 text-[11px] font-medium text-rose-50 hover:bg-rose-500/10">
                 ❤️ Supporter
@@ -248,26 +246,9 @@ const ProfilePage = () => {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-white/60">
                     <MoonStar className="h-4 w-4 text-violet-200" />
-                    <span>{language === "en" ? "Vibe" : "Vibe"}</span>
+                    <span>{language === "en" ? "Badges" : "Σήματα"}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {vibeChoices.map((vibe) => {
-                      const active = draftVibeLabel === vibe;
-                      return (
-                        <button
-                          key={vibe}
-                          type="button"
-                          onClick={() => setDraftVibeLabel(vibe)}
-                          className={cn(
-                            "rounded-full border px-4 py-2 text-sm transition",
-                            active ? "border-violet-300/20 bg-violet-500/15 text-violet-50" : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white",
-                          )}
-                        >
-                          {vibe}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <BadgesDisplay profile={profile} language={language} />
                 </div>
 
                 <Separator className="bg-white/10" />
