@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Mic, MicOff, Phone, Play, SkipForward, Square } from "lucide-react";
+import { Heart, Mic, MicOff, Phone, Play, SkipForward, Square } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import {
+  extendBrokenTelephone,
   fetchActiveBrokenTelephone,
   getPlaybackUrl,
   submitBrokenTelephone,
@@ -25,6 +27,8 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const recorder = useAudioRecorder();
@@ -36,8 +40,16 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
       
       if (!msg) return;
       setActiveMessage(msg);
+      // Restore "already liked" state for this specific message.
+      try {
+        if (window.localStorage.getItem(`echoo-bt-liked-${msg.id}`) === "1") {
+          setLiked(true);
+        }
+      } catch {
+        // Ignore storage access issues (private mode, etc.)
+      }
       const url = await getPlaybackUrl(msg.audioPath, msg.audioBucket);
-      
+
       setPlaybackUrl(url);
     });
   }, []);
@@ -65,6 +77,27 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
     setIsPlaying(true);
     await audio.play();
   }, [playbackUrl]);
+
+  // ❤️ Δώσε +24h ζωής στο μήνυμα (μία φορά ανά μήνυμα)
+  const handleLike = useCallback(async () => {
+    if (!activeMessage || liked || isLiking) return;
+    setIsLiking(true);
+    const success = await extendBrokenTelephone(activeMessage.id);
+    setIsLiking(false);
+    if (success) {
+      setLiked(true);
+      try {
+        window.localStorage.setItem(`echoo-bt-liked-${activeMessage.id}`, "1");
+      } catch {
+        // Ignore storage access issues.
+      }
+      toast.success(
+        language === "en"
+          ? "You gave this message +24 more hours 💜"
+          : "Έδωσες +24 ώρες ζωής σε αυτό το μήνυμα 💜",
+      );
+    }
+  }, [activeMessage, liked, isLiking, language]);
 
   const handleSubmit = useCallback(async () => {
     if (!recorder.audioBlob) return;
@@ -121,31 +154,50 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
 
         {/* Play previous message */}
         {activeMessage && playbackUrl && !submitted && (
-          <button
-            type="button"
-            onClick={() => { void handlePlay(); }}
-            disabled={isPlaying}
-            className="mt-5 w-full rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-left transition hover:bg-violet-500/15"
-          >
-            <p className="text-xs uppercase tracking-[0.24em] text-violet-200/60">
-              {copy.hasMessage}
-            </p>
-            <div className="mt-2 flex items-center gap-3">
-              <div className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full border",
-                isPlaying
-                  ? "border-violet-300/30 bg-violet-500/20 text-violet-200"
-                  : "border-white/15 bg-white/5 text-white/60"
-              )}>
-                <Play className="h-4 w-4" />
+          <div className="mt-5 flex items-stretch gap-2">
+            <button
+              type="button"
+              onClick={() => { void handlePlay(); }}
+              disabled={isPlaying}
+              className="flex-1 rounded-2xl border border-violet-300/20 bg-violet-500/10 px-4 py-3 text-left transition hover:bg-violet-500/15"
+            >
+              <p className="text-xs uppercase tracking-[0.24em] text-violet-200/60">
+                {copy.hasMessage}
+              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <div className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-full border",
+                  isPlaying
+                    ? "border-violet-300/30 bg-violet-500/20 text-violet-200"
+                    : "border-white/15 bg-white/5 text-white/60"
+                )}>
+                  <Play className="h-4 w-4" />
+                </div>
+                <div className="text-sm text-white/70">
+                  {activeMessage.durationSeconds}s · {isPlaying
+                    ? (language === "en" ? "Playing..." : "Παίζει...")
+                    : (language === "en" ? "Tap to listen" : "Πάτα για ακρόαση")}
+                </div>
               </div>
-              <div className="text-sm text-white/70">
-                {activeMessage.durationSeconds}s · {isPlaying
-                  ? (language === "en" ? "Playing..." : "Παίζει...")
-                  : (language === "en" ? "Tap to listen" : "Πάτα για ακρόαση")}
-              </div>
-            </div>
-          </button>
+            </button>
+
+            {/* ❤️ Extend message life by 24h */}
+            <button
+              type="button"
+              onClick={() => { void handleLike(); }}
+              disabled={liked || isLiking}
+              aria-label={language === "en" ? "Give this message 24 more hours" : "Δώσε 24 ώρες ζωής ακόμα σε αυτό το μήνυμα"}
+              title={language === "en" ? "Give +24 hours" : "Δώσε +24 ώρες"}
+              className={cn(
+                "flex w-14 shrink-0 items-center justify-center rounded-2xl border transition",
+                liked
+                  ? "border-rose-400/30 bg-rose-500/20 text-rose-300"
+                  : "border-rose-300/20 bg-rose-500/10 text-rose-200/80 hover:bg-rose-500/20 disabled:opacity-60",
+              )}
+            >
+              <Heart className={cn("h-5 w-5", liked && "fill-current")} />
+            </button>
+          </div>
         )}
 
         {/* Recording area */}

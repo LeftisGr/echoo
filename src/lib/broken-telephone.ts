@@ -81,3 +81,15 @@ export async function submitBrokenTelephone(
     return false;
   }
 }
+
+// Παράτεινε τη ζωή ενός μηνύματος κατά 24 ώρες (❤️)
+export async function extendBrokenTelephone(messageId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc("extend_broken_telephone", {
+      p_message_id: messageId,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
