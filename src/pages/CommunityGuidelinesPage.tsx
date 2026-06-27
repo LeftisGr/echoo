@@ -1,4 +1,4 @@
-import { HeartHandshake, ShieldAlert, Sparkles, Users } from "lucide-react";
+import { HeartHandshake, Mic, ShieldAlert, Sparkles, Users } from "lucide-react";
 
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { usePresence } from "@/components/presence/presence-provider";
@@ -20,6 +20,7 @@ const CommunityGuidelinesPage = () => {
             { title: "No hate or intimidation", body: "Do not use Echoo to attack, isolate, threaten, or humiliate people." },
             { title: "No explicit sexual behavior", body: "Keep sexual pressure, explicit behavior, and boundary-pushing out of the room." },
             { title: "Protect privacy", body: "Do not ask for or share personal details that make someone easier to track in real life." },
+            { title: "Broken Telephone voice messages", body: "Voice messages left in Broken Telephone must follow the same rules as any other interaction. No threats, no offensive content, no harassment. Messages are anonymous and temporary — keep them thoughtful." },
           ],
         }
       : {
@@ -34,10 +35,11 @@ const CommunityGuidelinesPage = () => {
             { title: "Όχι hate ή εκφοβισμός", body: "Μη χρησιμοποιείς το Echoo για να επιτίθεσαι, να απομονώνεις, να απειλείς ή να εξευτελίζεις ανθρώπους." },
             { title: "Όχι ακραία σεξουαλική συμπεριφορά", body: "Κράτα μακριά από το room την πίεση, την ακραία συμπεριφορά και το pushing ορίων." },
             { title: "Προστάτεψε το απόρρητο", body: "Μην ζητάς ή μοιράζεσαι προσωπικά στοιχεία που κάνουν κάποιον πιο εύκολο να εντοπιστεί στην πραγματική ζωή." },
+            { title: "Φωνητικά μηνύματα Σπασμένου Τηλεφώνου", body: "Τα φωνητικά μηνύματα στο Σπασμένο Τηλέφωνο ακολουθούν τους ίδιους κανόνες με κάθε άλλη αλληλεπίδραση. Όχι απειλές, όχι προσβλητικό περιεχόμενο, όχι παρενόχληση. Τα μηνύματα είναι ανώνυμα και προσωρινά — κράτα τα με σκέψη." },
           ],
         };
 
-  const icons = [HeartHandshake, ShieldAlert, Sparkles, Users, ShieldAlert, HeartHandshake] as const;
+  const icons = [HeartHandshake, ShieldAlert, Sparkles, Users, ShieldAlert, HeartHandshake, Mic] as const;
 
   return (
     <PageShell className="space-y-6">
