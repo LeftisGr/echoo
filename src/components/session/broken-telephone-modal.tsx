@@ -81,16 +81,17 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
   // ❤️ Δώσε +24h ζωής στο μήνυμα (μία φορά ανά μήνυμα)
   const handleLike = useCallback(async () => {
     if (!activeMessage || hearted || isLiking) return;
+    // Optimistic: κλείδωσε το κουμπί ΑΜΕΣΩΣ, πριν το await
+    setHearted(true);
     setIsLiking(true);
+    try {
+      window.localStorage.setItem(`echoo-bt-liked-${activeMessage.id}`, "1");
+    } catch {
+      // Ignore storage access issues.
+    }
     const success = await extendBrokenTelephone(activeMessage.id);
     setIsLiking(false);
     if (success) {
-      setHearted(true);
-      try {
-        window.localStorage.setItem(`echoo-bt-liked-${activeMessage.id}`, "1");
-      } catch {
-        // Ignore storage access issues.
-      }
       toast.success(
         language === "en"
           ? "You gave this message +24 more hours 💜"
@@ -189,13 +190,16 @@ export function BrokenTelephoneModal({ userId, language, onClose }: BrokenTeleph
               aria-label={language === "en" ? "Give this message 24 more hours" : "Δώσε 24 ώρες ζωής ακόμα σε αυτό το μήνυμα"}
               title={language === "en" ? "Give +24 hours" : "Δώσε +24 ώρες"}
               className={cn(
-                "flex w-14 shrink-0 items-center justify-center rounded-2xl border transition",
+                "flex w-14 shrink-0 items-center justify-center rounded-2xl border bg-rose-500/10 transition disabled:cursor-not-allowed",
                 hearted
-                  ? "border-rose-400/30 bg-rose-500/20 text-rose-300"
-                  : "border-rose-300/20 bg-rose-500/10 text-rose-200/80 hover:bg-rose-500/20 disabled:opacity-60",
+                  ? "border-rose-400/30"
+                  : "border-rose-300/20 hover:bg-rose-500/20",
               )}
             >
-              <Heart className="h-5 w-5" fill={hearted ? "currentColor" : "none"} />
+              <Heart
+                className={cn("h-5 w-5 transition-colors", hearted ? "text-rose-500" : "text-rose-200/80")}
+                fill={hearted ? "#f43f5e" : "none"}
+              />
             </button>
           </div>
         )}
