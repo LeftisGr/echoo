@@ -14,12 +14,38 @@ import { PageShell, SectionTitle, Surface } from "@/components/presence/presence
 import { SupportCard } from "@/components/support/support-card";
 import { usePresence } from "@/components/presence/presence-provider";
 import { BadgesDisplay } from "@/components/profile/badges-display";
+import { getBadges } from "@/lib/badges";
 
 import { interestTags } from "@/lib/presence-content";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const vibeChoices = ["night owl", "deep talker", "soft listener", "curious mind"] as const;
+
+const EARNED_BADGES_STORAGE_KEY = "echoo-earned-badges";
+
+function readStoredBadgeIds(): string[] | null {
+  // Returns null when no record exists yet (first run), so callers can stay
+  // silent the first time instead of toasting every already-earned badge.
+  try {
+    const raw = window.localStorage.getItem(EARNED_BADGES_STORAGE_KEY);
+    if (raw === null) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredBadgeIds(ids: string[]) {
+  try {
+    window.localStorage.setItem(EARNED_BADGES_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // Ignore storage failures (private mode, quota, etc.) — purely decorative.
+  }
+}
 
 function formatJoinDate(date: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -64,6 +90,49 @@ const ProfilePage = () => {
     setDraftInterests(profile.interests);
     setDraftVibeLabel(profile.vibeLabel as (typeof vibeChoices)[number]);
   }, [profile]);
+
+  // Notify when a new badge gets unlocked. Compares the current earned badges
+  // against what we last stored, then keeps localStorage in sync.
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const allBadges = getBadges(profile);
+    const earnedIds = allBadges.filter((badge) => badge.earned).map((badge) => badge.id);
+    const stored = readStoredBadgeIds();
+
+    // First run (no record yet): store silently, no toasts for existing badges.
+    if (stored === null) {
+      writeStoredBadgeIds(earnedIds);
+      return;
+    }
+
+    const newlyEarned = earnedIds.filter((id) => !stored.includes(id));
+
+    if (newlyEarned.length > 0) {
+      newlyEarned.forEach((id) => {
+        const badge = allBadges.find((item) => item.id === id);
+        if (!badge) {
+          return;
+        }
+        const label = language === "en" ? badge.labelEN : badge.labelEL;
+        toast.success(language === "en" ? `🎉 New badge unlocked: ${label}` : `🎉 Νέο badge: ${label}`, {
+          action: {
+            label: language === "en" ? "View badges" : "Δες τα badges",
+            onClick: () => {
+              document.getElementById("echoo-badges")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            },
+          },
+        });
+      });
+    }
+
+    // Keep storage current (covers newly earned and any drift).
+    if (newlyEarned.length > 0 || earnedIds.length !== stored.length) {
+      writeStoredBadgeIds(earnedIds);
+    }
+  }, [profile, language]);
 
   const avatarLabel = profile?.avatarEmoji ?? profile?.username?.slice(0, 1).toUpperCase() ?? "E";
 
@@ -243,7 +312,7 @@ const ProfilePage = () => {
 
                 <Separator className="bg-white/10" />
 
-                <div className="space-y-3">
+                <div id="echoo-badges" className="space-y-3 scroll-mt-24">
                   <div className="flex items-center gap-2 text-sm text-white/60">
                     <MoonStar className="h-4 w-4 text-violet-200" />
                     <span>{language === "en" ? "Badges" : "Σήματα"}</span>
