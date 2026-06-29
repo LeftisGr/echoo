@@ -1788,6 +1788,45 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
     }
     const loadedProfile = await loadProfile(currentUserId);
+
+    // Admin alert: ειδοποίησε εμένα όταν μπαίνει κάποιος (cold start strategy)
+    const ADMIN_ID = "4ba657ac-2e2a-4c49-aa2e-c678e48e9cb7";
+    if (currentUserId !== ADMIN_ID) {
+      // Throttle: max 1 ειδοποίηση ανά χρήστη κάθε 10 λεπτά (αποφυγή spam από refreshes)
+      const throttleKey = `echoo-admin-alert-${currentUserId}`;
+      let shouldNotify = true;
+      try {
+        const last = window.localStorage.getItem(throttleKey);
+        if (last && Date.now() - Number(last) < 10 * 60 * 1000) {
+          shouldNotify = false;
+        }
+      } catch {
+        // ignore storage issues
+      }
+      if (shouldNotify) {
+        try {
+          window.localStorage.setItem(throttleKey, String(Date.now()));
+        } catch {
+          // ignore
+        }
+        void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+            "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+          },
+          body: JSON.stringify({
+            target_user_id: ADMIN_ID,
+            title: "Echoo 👀",
+            body: "Κάποιος μόλις μπήκε — μπες κι εσύ!",
+            url: "/queue",
+            tag: "admin-login-alert",
+          }),
+        }).catch(() => undefined);
+      }
+    }
+
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =
       loadedProfile
