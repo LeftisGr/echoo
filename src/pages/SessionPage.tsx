@@ -2150,7 +2150,6 @@ const SessionPage = () => {
                           ref={imageInputRef}
                           type="file"
                           accept="image/*"
-                          capture="environment"
                           className="hidden"
                           onChange={async (event) => {
                             const file = event.target.files?.[0];
@@ -2164,7 +2163,6 @@ const SessionPage = () => {
                           ref={videoInputRef}
                           type="file"
                           accept="video/*"
-                          capture="environment"
                           className="hidden"
                           onChange={async (event) => {
                             const file = event.target.files?.[0];
