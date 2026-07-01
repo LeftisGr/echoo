@@ -180,7 +180,7 @@ const SessionPage = () => {
 
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
   const [restoreTimeoutElapsed, setRestoreTimeoutElapsed] = useState(false);
-  const [topbarCollapsed, setTopbarCollapsed] = useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
   const presenceRefreshRunIdRef = useRef(0);
   const restoreTimeoutRef = useRef<number | null>(null);
@@ -189,19 +189,16 @@ const SessionPage = () => {
     presenceBadgeReadyRef.current = presenceBadgeReady;
   }, [presenceBadgeReady]);
 
-  // Auto-collapse το topbar όταν ανοίγει το keyboard στο mobile (ανίχνευση μέσω
-  // visualViewport: αν το ύψος μικρύνει σημαντικά, μάλλον άνοιξε το keyboard).
-  // Ο χρήστης μπορεί πάντα να το ξαναανοίξει manual με το chevron toggle.
+  // Auto-collapse το header όταν ανοίγει το keyboard στο mobile (ανίχνευση μέσω
+  // visualViewport: αν το ύψος μικρύνει >150px, μάλλον άνοιξε το keyboard).
+  // Ο χρήστης μπορεί πάντα να το ξαναανοίξει manual με το chevron.
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return;
     const vv = window.visualViewport;
-    const initialHeight = vv.height;
+    const baseHeight = vv.height;
     const handler = () => {
-      if (initialHeight - vv.height > 150) {
-        setTopbarCollapsed(true);
-      } else if (vv.height >= initialHeight - 40) {
-        // Keyboard έκλεισε — ξαναφέρε το topbar.
-        setTopbarCollapsed(false);
+      if (baseHeight - vv.height > 150) {
+        setHeaderCollapsed(true);
       }
     };
     vv.addEventListener("resize", handler);
@@ -1742,8 +1739,28 @@ const SessionPage = () => {
       <div className="flex h-full min-h-0 flex-col">
 
         <header className="sticky top-0 z-30 flex-none border-b border-white/5 bg-[#0f1627]/92 px-3 py-2 pt-[calc(env(safe-area-inset-top,0px)+8px)] shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-4 sm:py-2">
+          {headerCollapsed ? (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs uppercase tracking-[0.2em] text-white/40 truncate">
+                {roomDisplayName}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold tabular-nums text-white/85">
+                  {timerLabel}
+                </span>
+                <button
+                  type="button"
+                  aria-label={language === "en" ? "Expand header" : "Άνοιγμα"}
+                  onClick={() => setHeaderCollapsed(false)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
-            <div className={cn("min-w-0 space-y-1 text-left", topbarCollapsed && "hidden")}>
+            <div className="min-w-0 space-y-1 text-left">
               <div>
                 <p className="text-[9px] uppercase tracking-[0.28em] text-white/30">Echoo</p>
                 <h1 className="mt-0.5 truncate text-base font-semibold tracking-tight text-white/85 sm:text-lg">{roomDisplayName}</h1>
@@ -1813,7 +1830,7 @@ const SessionPage = () => {
 
             <div className="flex flex-col items-center justify-self-center text-center gap-1">
               <UnlockProgress stage={unlockStage} timerLabel={timerLabel} timerProgress={timerProgress} timerUrgent={timerUrgent} language={language} />
-              {!topbarCollapsed && commonInterests.length > 0 && (
+              {commonInterests.length > 0 && (
              <div className="flex items-center gap-1.5 text-xs text-white/40">
                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                <span>{language === "en" ? "Shared interest" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
@@ -1827,50 +1844,46 @@ const SessionPage = () => {
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setTopbarCollapsed((value) => !value)}
-                    aria-label={topbarCollapsed
-                      ? (language === "en" ? "Expand header" : "Ξεδίπλωμα μπάρας")
-                      : (language === "en" ? "Collapse header" : "Μάζεμα μπάρας")}
+                    aria-label={language === "en" ? "Collapse header" : "Κλείσιμο"}
+                    onClick={() => setHeaderCollapsed(true)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
                   >
-                    {topbarCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    <ChevronUp className="h-4 w-4" />
                   </button>
 
-                  {!topbarCollapsed && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-xs text-rose-100 hover:bg-rose-500/20 hover:text-white"
-                        >
-                          {copy.session.leave}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{copy.session.backLeaveTitle}</AlertDialogTitle>
-                          <AlertDialogDescription className="whitespace-pre-line text-white/55">
-                            {copy.session.backLeaveBody}
-                          </AlertDialogDescription>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-8 rounded-full border-rose-400/20 bg-rose-500/10 px-3 text-xs text-rose-100 hover:bg-rose-500/20 hover:text-white"
+                      >
+                        {copy.session.leave}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{copy.session.backLeaveTitle}</AlertDialogTitle>
+                        <AlertDialogDescription className="whitespace-pre-line text-white/55">
+                          {copy.session.backLeaveBody}
+                        </AlertDialogDescription>
 
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                            {copy.session.backStay}
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
-                            onClick={() => leaveRoom(copy.session.partnerDisconnected)}
-                          >
-                            {copy.session.backLeave}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                          {copy.session.backStay}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                          onClick={() => leaveRoom(copy.session.partnerDisconnected)}
+                        >
+                          {copy.session.backLeave}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
 
-                {!topbarCollapsed && presenceLabel && (
+                {presenceLabel && (
                   <div
                     key={presenceTone ?? "unknown"}
                     className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left shadow-[0_10px_24px_rgba(10,14,25,0.18),0_0_18px_rgba(139,92,246,0.06)] animate-[echo-fade-in_240ms_ease-out] backdrop-blur-sm"
@@ -1888,6 +1901,7 @@ const SessionPage = () => {
               </div>
             </div>
           </div>
+          )}
         </header>
 
         {progressionMoment && (
