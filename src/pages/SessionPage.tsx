@@ -2105,8 +2105,8 @@ const SessionPage = () => {
           </div>
         </main>
 
-        <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/94 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-3 backdrop-blur-xl sm:px-6 sm:pt-4">
-          <div className={cn("mx-auto w-full max-w-3xl rounded-[28px] border px-3 py-3 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4", composerShellClass)}>
+        <footer className="sticky bottom-0 z-30 flex-none border-t border-white/5 bg-[#0b1220]/94 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-2 backdrop-blur-xl sm:px-6 sm:pt-3">
+          <div className={cn("mx-auto w-full max-w-3xl rounded-[28px] border px-3 py-2 shadow-[0_-18px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:px-4", composerShellClass)}>
 
             {reconnectingAudio && (
               <div className="mb-3 flex items-center gap-2 rounded-full border border-amber-300/15 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-50">
@@ -2154,7 +2154,7 @@ const SessionPage = () => {
                           variant="outline"
                           size="icon"
                           className={cn(
-                            "h-12 w-12 rounded-full border-white/10 bg-white/5 text-white/70 shadow-sm shadow-black/15 transition-all duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-95",
+                            "h-11 w-11 rounded-full border-white/10 bg-white/5 text-white/70 shadow-sm shadow-black/15 transition-all duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-violet-300/40 active:scale-95",
                             attachmentMenuOpen && "border-violet-300/25 bg-violet-500/15 text-violet-50",
                           )}
                           onClick={() => setAttachmentMenuOpen((current) => !current)}
@@ -2230,12 +2230,12 @@ const SessionPage = () => {
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={() => stopTyping("blur")}
                       placeholder={language === "en" ? "Say something simple..." : "Πες κάτι απλό..."}
-                      className="h-14 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50 [color-scheme:dark]"
+                      className="h-12 min-w-0 flex-1 rounded-full border-0 bg-white/6 px-5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-violet-400/50 [color-scheme:dark]"
                     />
 
                     <Button
                       type="submit"
-                      className="h-14 shrink-0 rounded-full bg-violet-500 px-5 text-white shadow-md shadow-violet-500/20 transition-transform duration-150 hover:bg-violet-400 active:scale-95"
+                      className="h-12 shrink-0 rounded-full bg-violet-500 px-5 text-white shadow-md shadow-violet-500/20 transition-transform duration-150 hover:bg-violet-400 active:scale-95"
                       disabled={messageSending || !draft.trim()}
                     >
                       {messageSending ? (
