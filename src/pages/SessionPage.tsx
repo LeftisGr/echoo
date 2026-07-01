@@ -1846,7 +1846,7 @@ const SessionPage = () => {
                     type="button"
                     aria-label={language === "en" ? "Collapse header" : "Κλείσιμο"}
                     onClick={() => setHeaderCollapsed(true)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                    className="relative z-40 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
                   >
                     <ChevronUp className="h-4 w-4" />
                   </button>

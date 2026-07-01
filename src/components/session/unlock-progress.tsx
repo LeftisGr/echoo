@@ -77,7 +77,7 @@ export function UnlockProgress({
     return (
       <div
         className={cn(
-          "absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center transition-all duration-300 ease-out sm:px-5",
+          "pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center transition-all duration-300 ease-out sm:px-5",
           isActive ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.98] opacity-0",
         )}
       >
