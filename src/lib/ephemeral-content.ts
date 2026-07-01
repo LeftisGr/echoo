@@ -3,7 +3,7 @@ export const EPHEMERAL_CONTENT_TTL_SECONDS = 15;
 export const EPHEMERAL_CONTENT_TTL_MS = EPHEMERAL_CONTENT_TTL_SECONDS * 1000;
 export const EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS = 60_000;
 
-export const EPHEMERAL_CONTENT_VIEWER_SECONDS = 15;
+export const EPHEMERAL_CONTENT_VIEWER_SECONDS = 30;
 
 export function getEphemeralContentExpiresAt(createdAt: string | Date) {
   const timestamp = typeof createdAt === "string" ? Date.parse(createdAt) : createdAt.getTime();

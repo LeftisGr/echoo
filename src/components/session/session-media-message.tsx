@@ -18,6 +18,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const expiryTimerRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
+  const startDelayRef = useRef<number | null>(null);
   const timerStartedRef = useRef(false);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
 
     if (expiryTimerRef.current) window.clearTimeout(expiryTimerRef.current);
     if (countdownRef.current) window.clearInterval(countdownRef.current);
+    if (startDelayRef.current) window.clearTimeout(startDelayRef.current);
 
     setError(null);
     setViewerExpired(false);
@@ -37,6 +39,7 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
     return () => {
       if (expiryTimerRef.current) window.clearTimeout(expiryTimerRef.current);
       if (countdownRef.current) window.clearInterval(countdownRef.current);
+      if (startDelayRef.current) window.clearTimeout(startDelayRef.current);
     };
   }, []);
 
@@ -56,24 +59,29 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
     if (timerStartedRef.current) return;
     timerStartedRef.current = true;
 
-    setSecondsLeft(EPHEMERAL_CONTENT_VIEWER_SECONDS);
+    // Μικρή καθυστέρηση 500ms πριν ξεκινήσει ο countdown, ώστε ο χρήστης να
+    // προλάβει να δει την εικόνα να εμφανίζεται (ειδικά για cached/μικρές εικόνες
+    // που φορτώνουν ακαριαία).
+    startDelayRef.current = window.setTimeout(() => {
+      setSecondsLeft(EPHEMERAL_CONTENT_VIEWER_SECONDS);
 
-    countdownRef.current = window.setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev === null || prev <= 1) {
-          if (countdownRef.current) window.clearInterval(countdownRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      countdownRef.current = window.setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev === null || prev <= 1) {
+            if (countdownRef.current) window.clearInterval(countdownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-    expiryTimerRef.current = window.setTimeout(() => {
-      if (countdownRef.current) window.clearInterval(countdownRef.current);
-      setOpenedUrl(null);
-      setViewerExpired(true);
-      setSecondsLeft(null);
-    }, EPHEMERAL_CONTENT_VIEWER_SECONDS * 1000);
+      expiryTimerRef.current = window.setTimeout(() => {
+        if (countdownRef.current) window.clearInterval(countdownRef.current);
+        setOpenedUrl(null);
+        setViewerExpired(true);
+        setSecondsLeft(null);
+      }, EPHEMERAL_CONTENT_VIEWER_SECONDS * 1000);
+    }, 500);
   };
 
   const openContent = async () => {
@@ -147,6 +155,13 @@ export function SessionMediaMessage({ message, isSelf }: { message: ChatMessage;
               </div>
             ) : null}
           </div>
+          {canOpen ? (
+            <p className={cn("text-xs opacity-50", isSelf ? "text-slate-700" : "text-white/70")}>
+              {language === "en"
+                ? `Opens once · visible for ${EPHEMERAL_CONTENT_VIEWER_SECONDS}s`
+                : `Ανοίγει μία φορά · ορατό για ${EPHEMERAL_CONTENT_VIEWER_SECONDS} δευτ.`}
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-3 p-0">
