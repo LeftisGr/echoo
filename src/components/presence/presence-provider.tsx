@@ -1038,7 +1038,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     const updatedAt = currentRoom.typingUpdatedAt ?? new Date().toISOString();
-    if (Date.now() - new Date(updatedAt).getTime() > 5000) {
+    if (Date.now() - new Date(updatedAt).getTime() > 8000) {
       clearTypingIndicator("room-sync-stale");
       return;
     }
@@ -1162,7 +1162,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     typingIndicatorTimeoutRef.current = window.setTimeout(() => {
       clearTypingIndicator("failsafe-timeout");
-    }, 2000);
+    }, 5000);
 
     return () => {
       if (typingIndicatorTimeoutRef.current !== null) {
@@ -1789,43 +1789,61 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
     const loadedProfile = await loadProfile(currentUserId);
 
-    // Admin alert: ειδοποίησε εμένα όταν μπαίνει κάποιος (cold start strategy)
-    const ADMIN_ID = "4ba657ac-2e2a-4c49-aa2e-c678e48e9cb7";
-    if (currentUserId !== ADMIN_ID) {
+    // Admin alert: ειδοποίησε τους admins όταν μπαίνει κάποιος (cold start strategy).
+    // Fire-and-forget ώστε να μη μπλοκάρει το login flow.
+    void (async () => {
+      // Πάρε όλους τους admins (role = 'admin' — υπάρχον field στον profiles πίνακα)
+      const { data: admins } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin");
+
+      if (!admins || admins.length === 0) {
+        return;
+      }
+
+      // Skip αν ο τρέχων user είναι admin (μην ειδοποιείς τους admins για admin login)
+      if (admins.some((admin) => admin.id === currentUserId)) {
+        return;
+      }
+
       // Throttle: max 1 ειδοποίηση ανά χρήστη κάθε 10 λεπτά (αποφυγή spam από refreshes)
       const throttleKey = `echoo-admin-alert-${currentUserId}`;
-      let shouldNotify = true;
       try {
         const last = window.localStorage.getItem(throttleKey);
         if (last && Date.now() - Number(last) < 10 * 60 * 1000) {
-          shouldNotify = false;
+          return;
         }
       } catch {
         // ignore storage issues
       }
-      if (shouldNotify) {
-        try {
-          window.localStorage.setItem(throttleKey, String(Date.now()));
-        } catch {
-          // ignore
-        }
-        void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-            "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-          },
-          body: JSON.stringify({
-            target_user_id: ADMIN_ID,
-            title: "Echoo 👀",
-            body: "Κάποιος μόλις μπήκε — μπες κι εσύ!",
-            url: "/queue",
-            tag: "admin-login-alert",
-          }),
-        }).catch(() => undefined);
+      try {
+        window.localStorage.setItem(throttleKey, String(Date.now()));
+      } catch {
+        // ignore
       }
-    }
+
+      // Στείλε push σε κάθε admin
+      await Promise.all(
+        admins.map((admin) =>
+          fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+              "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+            },
+            body: JSON.stringify({
+              target_user_id: admin.id,
+              title: "Echoo 👀",
+              body: "Κάποιος μόλις μπήκε — μπες κι εσύ!",
+              url: "/queue",
+              tag: "admin-login-alert",
+            }),
+          }).catch(() => undefined),
+        ),
+      );
+    })().catch(() => undefined);
 
     const storedGuestProfile = readStoredGuestProfile();
     const profileToUse: PresenceProfile =

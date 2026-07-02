@@ -220,6 +220,7 @@ const SessionPage = () => {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const typingStopTimeoutRef = useRef<number | null>(null);
+  const typingHeartbeatRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const shouldForceScrollRef = useRef(true);
 
@@ -808,6 +809,12 @@ const SessionPage = () => {
     (reason: string) => {
       clearTypingTimers();
 
+      // Σταμάτα το heartbeat
+      if (typingHeartbeatRef.current !== null) {
+        window.clearInterval(typingHeartbeatRef.current);
+        typingHeartbeatRef.current = null;
+      }
+
       if (!typingActiveRef.current) {
         return;
       }
@@ -826,6 +833,16 @@ const SessionPage = () => {
 
     typingActiveRef.current = true;
     sendTypingState(true, new Date().toISOString());
+
+    // Heartbeat: ανανέωσε το typing state κάθε 3s όσο γράφει
+    if (typingHeartbeatRef.current !== null) {
+      window.clearInterval(typingHeartbeatRef.current);
+    }
+    typingHeartbeatRef.current = window.setInterval(() => {
+      if (typingActiveRef.current) {
+        sendTypingState(true, new Date().toISOString());
+      }
+    }, 3000);
 
   }, [room?.id, sendTypingState]);
 
