@@ -859,7 +859,8 @@ const SessionPage = () => {
     typingHeartbeatRef.current = window.setInterval(() => {
       // Διπλός έλεγχος: μόνο αν ακόμα typing ΚΑΙ το draft δεν είναι κενό
       if (typingActiveRef.current) {
-        sendTypingState(true, new Date().toISOString());
+        // Μόνο broadcast (persist:false) — κρατά τον indicator ζωντανό χωρίς DB writes
+        sendTypingState(true, new Date().toISOString(), { persist: false });
       } else {
         // Ασφάλεια: αν κάπως έμεινε ζωντανό, σβήσ' το
         if (typingHeartbeatRef.current !== null) {
@@ -1875,12 +1876,6 @@ const SessionPage = () => {
 
             <div className="flex flex-col items-center justify-self-center text-center gap-1">
               <UnlockProgress stage={unlockStage} timerLabel={timerLabel} timerProgress={timerProgress} timerUrgent={timerUrgent} language={language} />
-              {commonInterests.length > 0 && (
-             <div className="flex items-center gap-1.5 text-xs text-white/40">
-               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-               <span>{language === "en" ? "Shared interest" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
-             </div>
-                )}
             </div>
 
             <div className="flex justify-end justify-self-end pl-1">
@@ -1948,6 +1943,15 @@ const SessionPage = () => {
           </div>
           )}
         </header>
+
+        {commonInterests.length > 0 && (
+          <div className="flex-none px-4 pt-2 sm:px-6">
+            <div className="mx-auto flex max-w-3xl items-center justify-center gap-1.5 text-xs text-white/40">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>{language === "en" ? "Shared interest" : "Κοινό"}: <span className="text-emerald-400/80">{commonInterests[0]}</span></span>
+            </div>
+          </div>
+        )}
 
         {progressionMoment && (
           <div className="flex-none px-4 pt-3 sm:px-6">

@@ -195,7 +195,7 @@ interface PresenceContextValue {
   enableVoicePlayback: () => Promise<void>;
   setVoiceMuted: (muted: boolean) => void;
   setVoiceTransmissionEnabled: (enabled: boolean) => void;
-  sendTypingState: (typing: boolean, updatedAt?: string) => void;
+  sendTypingState: (typing: boolean, updatedAt?: string, options?: { persist?: boolean }) => void;
 
   appendSystemMessage: (content: string) => void;
 
@@ -1029,37 +1029,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const syncTypingIndicatorFromRoom = useCallback(() => {
     const currentRoom = roomSnapshotRef.current;
 
+    // ONLY-CLEAR: αυτό το sync ΠΟΤΕ δεν ανάβει τον indicator από DB state.
+    // Το "show" το οδηγεί αποκλειστικά το broadcast `typing:start` (με το failsafe του).
+    // Έτσι stale/καθυστερημένα postgres_changes δεν μπορούν να ξαναανάψουν τον indicator.
     if (!currentRoom || currentRoom.status !== "active") {
       clearTypingIndicator("room-sync-clear");
       return;
     }
 
+    // Αν η DB λέει ότι δεν γράφει κανείς (ή γράφω εγώ), σβήσε τον indicator.
     if (!currentRoom.typingUserId || currentRoom.typingUserId === userId) {
       setTypingIndicator(null);
-      return;
     }
-
-    // Grace period: αγνόησε room updates αμέσως μετά από explicit stop
-    if (Date.now() - lastTypingStopAtRef.current < 1500) {
-      return;
-    }
-
-    const updatedAt = currentRoom.typingUpdatedAt ?? new Date().toISOString();
-    if (Date.now() - new Date(updatedAt).getTime() > 8000) {
-      clearTypingIndicator("room-sync-stale");
-      return;
-    }
-
-    setTypingIndicator({
-      roomId: currentRoom.id,
-      senderId: currentRoom.typingUserId,
-      displayName: currentRoom.partner?.username ?? "Someone",
-      updatedAt,
-    });
   }, [clearTypingIndicator, userId]);
 
   const sendTypingState = useCallback(
-    (typing: boolean, updatedAt = new Date().toISOString()) => {
+    (typing: boolean, updatedAt = new Date().toISOString(), options?: { persist?: boolean }) => {
+      const persist = options?.persist ?? true;
       const currentRoom = roomSnapshotRef.current;
       const currentUser = userId;
       const channel = roomChannelRef.current;
@@ -1070,7 +1056,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       typingIsActiveRef.current = typing;
 
-      void persistRoomTyping(currentRoom, typing ? currentUser : null, updatedAt).catch(() => undefined);
+      // Το heartbeat περνά persist:false → μόνο broadcast, χωρίς DB write
+      // (λιγότερα writes, χωρίς stale-ordering races στο typing_user_id).
+      if (persist) {
+        void persistRoomTyping(currentRoom, typing ? currentUser : null, updatedAt).catch(() => undefined);
+      }
 
       setRoom((current) => {
         if (!current || current.id !== currentRoom.id) {
