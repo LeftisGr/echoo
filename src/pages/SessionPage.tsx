@@ -1288,18 +1288,18 @@ const SessionPage = () => {
     return mine.filter((i) => theirs.includes(i));
   }, [room?.partner?.interests, profile?.interests]);
 
-  // TEMP DIAGNOSTIC (unconditional — τρέχει και σε production): δες partner + interests.
+  // TEMP DIAGNOSTIC (unconditional): πλήρεις τιμές, χωρίς truncation.
   useEffect(() => {
     if (!room) return;
-    console.log("[ECHOO-DIAG shared-interest]", {
-      myId: profile?.id,
-      myMode: profile?.profileMode,
-      myInterests: profile?.interests,
-      partnerId: room.partner?.id ?? null,
-      partnerLoaded: Boolean(room.partner),
-      partnerInterests: room.partner?.interests ?? null,
-      commonInterests,
-    });
+    console.log(
+      "[ECHOO-DIAG shared-interest]",
+      "me=", profile?.id,
+      "| myInterests=", JSON.stringify(profile?.interests ?? []),
+      "| partnerId=", room.partner?.id ?? null,
+      "| partnerLoaded=", Boolean(room.partner),
+      "| partnerInterests=", JSON.stringify(room.partner?.interests ?? null),
+      "| common=", JSON.stringify(commonInterests),
+    );
   }, [room?.partner?.id, room?.partner?.interests, profile?.id, profile?.interests, profile?.profileMode, room, commonInterests]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 

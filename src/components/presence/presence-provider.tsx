@@ -1956,6 +1956,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
     const loadedPartner = partnerId ? await loadProfile(partnerId) : null;
     const partnerProfile = loadedPartner ? ensureProfileAvatar(loadedPartner) : null;
+    console.log(
+      "[ECHOO-DIAG hydratePartner]",
+      "me=", currentUserId,
+      "| partnerId=", partnerId,
+      "| loadedPartner=", Boolean(loadedPartner),
+      "| partnerInterests=", JSON.stringify(loadedPartner?.interests ?? null),
+    );
 
     setRoom({
       ...nextRoom,
