@@ -110,6 +110,9 @@ function requestApproximatePosition() {
 
 const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"] as const;
 
+// TEMP build marker — αν ΔΕΝ το δεις στο console, τρέχεις stale build (οι αλλαγές δεν είναι live).
+console.log("[ECHOO-DIAG] SessionPage build marker v-typing-fix-1");
+
 const SessionPage = () => {
 
   const navigate = useNavigate();
@@ -1285,18 +1288,19 @@ const SessionPage = () => {
     return mine.filter((i) => theirs.includes(i));
   }, [room?.partner?.interests, profile?.interests]);
 
-  // TEMP DIAGNOSTIC (dev only): δες αν φορτώνεται το partner + interests σε κάθε πλευρά.
+  // TEMP DIAGNOSTIC (unconditional — τρέχει και σε production): δες partner + interests.
   useEffect(() => {
-    if (!import.meta.env.DEV || !room) return;
-    console.log("[shared-interest]", {
+    if (!room) return;
+    console.log("[ECHOO-DIAG shared-interest]", {
       myId: profile?.id,
       myMode: profile?.profileMode,
       myInterests: profile?.interests,
       partnerId: room.partner?.id ?? null,
       partnerLoaded: Boolean(room.partner),
       partnerInterests: room.partner?.interests ?? null,
+      commonInterests,
     });
-  }, [room?.partner?.id, room?.partner?.interests, profile?.id, profile?.interests, profile?.profileMode, room]);
+  }, [room?.partner?.id, room?.partner?.interests, profile?.id, profile?.interests, profile?.profileMode, room, commonInterests]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 
   const visibleMessages = roomMessages;

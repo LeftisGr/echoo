@@ -1029,6 +1029,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const syncTypingIndicatorFromRoom = useCallback(() => {
     const currentRoom = roomSnapshotRef.current;
 
+    console.log("[ECHOO-DIAG sync]", {
+      me: userId,
+      status: currentRoom?.status,
+      typingUserId: currentRoom?.typingUserId ?? null,
+      typingUpdatedAt: currentRoom?.typingUpdatedAt ?? null,
+    });
+
     if (!currentRoom || currentRoom.status !== "active") {
       clearTypingIndicator("room-sync-clear");
       return;
@@ -1727,6 +1734,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           const latestRoom = await loadRoomById(room.id);
+          console.log("[ECHOO-DIAG poll]", { roomId: room.id, latestTypingUserId: latestRoom?.typingUserId ?? null });
           if (latestRoom) {
             setRoom((current) => {
               if (!current || current.id !== room.id) {
