@@ -747,7 +747,7 @@ const SessionPage = () => {
 
     shouldForceScrollRef.current = false;
     return () => window.cancelAnimationFrame(frame);
-  }, [room?.messages.length, recentMessageId]);
+  }, [room?.messages.length, recentMessageId, headerCollapsed]);
 
   useEffect(() => () => stopVoiceChat(), [stopVoiceChat]);
 
@@ -765,8 +765,10 @@ const SessionPage = () => {
     isNearBottomRef.current = true;
 
     const frame = window.requestAnimationFrame(() => {
-      node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
-      shouldForceScrollRef.current = false;
+      setTimeout(() => {
+        node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+        shouldForceScrollRef.current = false;
+      }, 50);
     });
 
     return () => window.cancelAnimationFrame(frame);
