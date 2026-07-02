@@ -881,6 +881,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingIndicatorTimeoutRef = useRef<number | null>(null);
   const typingIsActiveRef = useRef(false);
+  const lastTypingStopAtRef = useRef<number>(0);
   const mediaUploadCooldownRef = useRef(0);
 
   const mediaUploadCountRef = useRef(0);
@@ -1019,6 +1020,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       typingIndicatorTimeoutRef.current = null;
     }
 
+    lastTypingStopAtRef.current = Date.now();
     typingIsActiveRef.current = false;
     setTypingIndicator(null);
 
@@ -1034,6 +1036,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     if (!currentRoom.typingUserId || currentRoom.typingUserId === userId) {
       setTypingIndicator(null);
+      return;
+    }
+
+    // Grace period: αγνόησε room updates αμέσως μετά από explicit stop
+    if (Date.now() - lastTypingStopAtRef.current < 1500) {
       return;
     }
 
