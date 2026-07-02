@@ -2199,7 +2199,7 @@ if (activeRoom.userA === currentUserId) {
          typingIndicatorTimeoutRef.current = window.setTimeout(() => {
          setTypingIndicator(null);
         typingIndicatorTimeoutRef.current = null;
-        }, 5000);
+        }, 4000);
       })
       .on("broadcast", { event: "typing:stop" }, (payload) => {
         const nextTyping = ((payload as { payload?: unknown })?.payload ?? payload) as {

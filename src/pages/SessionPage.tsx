@@ -205,6 +205,24 @@ const SessionPage = () => {
     return () => vv.removeEventListener("resize", handler);
   }, []);
 
+  // Όταν αλλάζει το visualViewport (keyboard open/close), κράτα το chat κολλημένο
+  // στο bottom αν ο χρήστης ήταν ήδη κοντά κάτω.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const handler = () => {
+      const node = chatScrollRef.current;
+      if (!node) return;
+      if (isNearBottomRef.current) {
+        window.requestAnimationFrame(() => {
+          node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+        });
+      }
+    };
+    vv.addEventListener("resize", handler);
+    return () => vv.removeEventListener("resize", handler);
+  }, []);
+
   const pttPointerIdRef = useRef<number | null>(null);
   const isPressingRef = useRef(false);
   const pttReleaseTimeoutRef = useRef<number | null>(null);
@@ -839,8 +857,15 @@ const SessionPage = () => {
       window.clearInterval(typingHeartbeatRef.current);
     }
     typingHeartbeatRef.current = window.setInterval(() => {
+      // Διπλός έλεγχος: μόνο αν ακόμα typing ΚΑΙ το draft δεν είναι κενό
       if (typingActiveRef.current) {
         sendTypingState(true, new Date().toISOString());
+      } else {
+        // Ασφάλεια: αν κάπως έμεινε ζωντανό, σβήσ' το
+        if (typingHeartbeatRef.current !== null) {
+          window.clearInterval(typingHeartbeatRef.current);
+          typingHeartbeatRef.current = null;
+        }
       }
     }, 3000);
 
