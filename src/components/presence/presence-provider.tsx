@@ -1029,18 +1029,28 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const syncTypingIndicatorFromRoom = useCallback(() => {
     const currentRoom = roomSnapshotRef.current;
 
-    // ONLY-CLEAR: αυτό το sync ΠΟΤΕ δεν ανάβει τον indicator από DB state.
-    // Το "show" το οδηγεί αποκλειστικά το broadcast `typing:start` (με το failsafe του).
-    // Έτσι stale/καθυστερημένα postgres_changes δεν μπορούν να ξαναανάψουν τον indicator.
     if (!currentRoom || currentRoom.status !== "active") {
       clearTypingIndicator("room-sync-clear");
       return;
     }
 
-    // Αν η DB λέει ότι δεν γράφει κανείς (ή γράφω εγώ), σβήσε τον indicator.
     if (!currentRoom.typingUserId || currentRoom.typingUserId === userId) {
       setTypingIndicator(null);
+      return;
     }
+
+    const updatedAt = currentRoom.typingUpdatedAt ?? new Date().toISOString();
+    if (Date.now() - new Date(updatedAt).getTime() > 8000) {
+      clearTypingIndicator("room-sync-stale");
+      return;
+    }
+
+    setTypingIndicator({
+      roomId: currentRoom.id,
+      senderId: currentRoom.typingUserId,
+      displayName: currentRoom.partner?.username ?? "Someone",
+      updatedAt,
+    });
   }, [clearTypingIndicator, userId]);
 
   const sendTypingState = useCallback(
@@ -1731,8 +1741,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
                 rtcConnectionId: latestRoom.rtcConnectionId ?? current.rtcConnectionId,
                 rtcUpdatedAt: latestRoom.rtcUpdatedAt ?? current.rtcUpdatedAt,
                 voiceUnlockedAt: latestRoom.voiceUnlockedAt ?? current.voiceUnlockedAt,
-                typingUserId: latestRoom.typingUserId ?? current.typingUserId,
-                typingUpdatedAt: latestRoom.typingUpdatedAt ?? current.typingUpdatedAt,
+                typingUserId: latestRoom.typingUserId,
+                typingUpdatedAt: latestRoom.typingUpdatedAt,
                 status: latestRoom.endedAt ? "ended" : "active",
               };
             });

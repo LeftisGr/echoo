@@ -859,8 +859,7 @@ const SessionPage = () => {
     typingHeartbeatRef.current = window.setInterval(() => {
       // Διπλός έλεγχος: μόνο αν ακόμα typing ΚΑΙ το draft δεν είναι κενό
       if (typingActiveRef.current) {
-        // Μόνο broadcast (persist:false) — κρατά τον indicator ζωντανό χωρίς DB writes
-        sendTypingState(true, new Date().toISOString(), { persist: false });
+        sendTypingState(true, new Date().toISOString());
       } else {
         // Ασφάλεια: αν κάπως έμεινε ζωντανό, σβήσ' το
         if (typingHeartbeatRef.current !== null) {
@@ -1285,6 +1284,19 @@ const SessionPage = () => {
     if (!mine.length || !theirs.length) return [];
     return mine.filter((i) => theirs.includes(i));
   }, [room?.partner?.interests, profile?.interests]);
+
+  // TEMP DIAGNOSTIC (dev only): δες αν φορτώνεται το partner + interests σε κάθε πλευρά.
+  useEffect(() => {
+    if (!import.meta.env.DEV || !room) return;
+    console.log("[shared-interest]", {
+      myId: profile?.id,
+      myMode: profile?.profileMode,
+      myInterests: profile?.interests,
+      partnerId: room.partner?.id ?? null,
+      partnerLoaded: Boolean(room.partner),
+      partnerInterests: room.partner?.interests ?? null,
+    });
+  }, [room?.partner?.id, room?.partner?.interests, profile?.id, profile?.interests, profile?.profileMode, room]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 
   const visibleMessages = roomMessages;
