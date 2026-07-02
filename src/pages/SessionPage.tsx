@@ -110,9 +110,6 @@ function requestApproximatePosition() {
 
 const reactionOptions = ["👍", "❤️", "😂", "😮", "😢", "😡"] as const;
 
-// TEMP build marker — αν ΔΕΝ το δεις στο console, τρέχεις stale build (οι αλλαγές δεν είναι live).
-console.log("[ECHOO-DIAG] SessionPage build marker v-typing-fix-1");
-
 const SessionPage = () => {
 
   const navigate = useNavigate();
@@ -1288,19 +1285,6 @@ const SessionPage = () => {
     return mine.filter((i) => theirs.includes(i));
   }, [room?.partner?.interests, profile?.interests]);
 
-  // TEMP DIAGNOSTIC (unconditional): πλήρεις τιμές, χωρίς truncation.
-  useEffect(() => {
-    if (!room) return;
-    console.log(
-      "[ECHOO-DIAG shared-interest]",
-      "me=", profile?.id,
-      "| myInterests=", JSON.stringify(profile?.interests ?? []),
-      "| partnerId=", room.partner?.id ?? null,
-      "| partnerLoaded=", Boolean(room.partner),
-      "| partnerInterests=", JSON.stringify(room.partner?.interests ?? null),
-      "| common=", JSON.stringify(commonInterests),
-    );
-  }, [room?.partner?.id, room?.partner?.interests, profile?.id, profile?.interests, profile?.profileMode, room, commonInterests]);
   const latestSystemMessage = [...roomMessages].reverse().find((message) => message.type === "system")?.content;
 
   const visibleMessages = roomMessages;

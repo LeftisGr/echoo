@@ -1029,13 +1029,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const syncTypingIndicatorFromRoom = useCallback(() => {
     const currentRoom = roomSnapshotRef.current;
 
-    console.log("[ECHOO-DIAG sync]", {
-      me: userId,
-      status: currentRoom?.status,
-      typingUserId: currentRoom?.typingUserId ?? null,
-      typingUpdatedAt: currentRoom?.typingUpdatedAt ?? null,
-    });
-
     if (!currentRoom || currentRoom.status !== "active") {
       clearTypingIndicator("room-sync-clear");
       return;
@@ -1734,7 +1727,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           const latestRoom = await loadRoomById(room.id);
-          console.log("[ECHOO-DIAG poll]", { roomId: room.id, latestTypingUserId: latestRoom?.typingUserId ?? null });
           if (latestRoom) {
             setRoom((current) => {
               if (!current || current.id !== room.id) {
@@ -1956,13 +1948,6 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     const partnerId = nextRoom.userA === currentUserId ? nextRoom.userB : nextRoom.userA;
     const loadedPartner = partnerId ? await loadProfile(partnerId) : null;
     const partnerProfile = loadedPartner ? ensureProfileAvatar(loadedPartner) : null;
-    console.log(
-      "[ECHOO-DIAG hydratePartner]",
-      "me=", currentUserId,
-      "| partnerId=", partnerId,
-      "| loadedPartner=", Boolean(loadedPartner),
-      "| partnerInterests=", JSON.stringify(loadedPartner?.interests ?? null),
-    );
 
     setRoom({
       ...nextRoom,
