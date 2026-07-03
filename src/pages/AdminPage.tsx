@@ -317,38 +317,46 @@ const AdminPage = () => {
         supabase.rpc("get_admin_room_stats"),
       ]);
 
-      if (reportsResult.error) throw reportsResult.error;
-      if (errorsResult.error) throw errorsResult.error;
-      if (moderationResult.error) throw moderationResult.error;
-      if (suspensionsResult.error) throw suspensionsResult.error;
-      if (bansResult.error) throw bansResult.error;
-      if (totalUsersResult.error) throw totalUsersResult.error;
-      if (newTodayResult.error) throw newTodayResult.error;
-      if (sevenDayProfilesResult.error) throw sevenDayProfilesResult.error;
-
       if (!isMountedRef.current) {
         return;
       }
 
-      setRecentReports((reportsResult.data ?? []) as ReportRow[]);
-      setRecentErrors((errorsResult.data ?? []) as ErrorLogRow[]);
-      setRecentModeration((moderationResult.data ?? []) as ModerationLogRow[]);
+      // Κάθε query φορτώνει ανεξάρτητα: αν ένα αποτύχει (πχ RLS/λήξη session),
+      // log + κενό/default αντί να καταρρεύσει όλο το panel.
+      if (reportsResult.error) console.warn("[admin] reports failed:", reportsResult.error.message);
+      setRecentReports(reportsResult.error ? [] : ((reportsResult.data ?? []) as ReportRow[]));
+
+      if (errorsResult.error) console.warn("[admin] errors failed:", errorsResult.error.message);
+      setRecentErrors(errorsResult.error ? [] : ((errorsResult.data ?? []) as ErrorLogRow[]));
+
+      if (moderationResult.error) console.warn("[admin] moderation failed:", moderationResult.error.message);
+      setRecentModeration(moderationResult.error ? [] : ((moderationResult.data ?? []) as ModerationLogRow[]));
+
       setAnalyticsLiveData(!analyticsResult.error);
       if (analyticsResult.error) console.warn("[admin] Analytics query failed:", analyticsResult.error.message);
       setAnalyticsEvents(analyticsResult.error ? [] : ((analyticsResult.data ?? []) as AnalyticsEventRow[]));
-      setRecentSuspensions((suspensionsResult.data ?? []) as UserRestrictionRow[]);
 
-      setRecentBans((bansResult.data ?? []) as UserRestrictionRow[]);
-      setTotalUsersCount(totalUsersResult.count ?? 0);
-      setNewTodayCount(newTodayResult.count ?? 0);
-      const sevenDayProfiles = (sevenDayProfilesResult.data ?? []) as Array<{ profile_mode: string | null }>;
+      if (suspensionsResult.error) console.warn("[admin] suspensions failed:", suspensionsResult.error.message);
+      setRecentSuspensions(suspensionsResult.error ? [] : ((suspensionsResult.data ?? []) as UserRestrictionRow[]));
+
+      if (bansResult.error) console.warn("[admin] bans failed:", bansResult.error.message);
+      setRecentBans(bansResult.error ? [] : ((bansResult.data ?? []) as UserRestrictionRow[]));
+
+      if (totalUsersResult.error) console.warn("[admin] totalUsers failed:", totalUsersResult.error.message);
+      setTotalUsersCount(totalUsersResult.error ? 0 : (totalUsersResult.count ?? 0));
+
+      if (newTodayResult.error) console.warn("[admin] newToday failed:", newTodayResult.error.message);
+      setNewTodayCount(newTodayResult.error ? 0 : (newTodayResult.count ?? 0));
+
+      if (sevenDayProfilesResult.error) console.warn("[admin] sevenDayProfiles failed:", sevenDayProfilesResult.error.message);
+      const sevenDayProfiles = (sevenDayProfilesResult.error ? [] : (sevenDayProfilesResult.data ?? [])) as Array<{ profile_mode: string | null }>;
       setRegisteredSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode === "registered").length);
       setGuestSevenDayCount(sevenDayProfiles.filter((profile) => profile.profile_mode !== "registered").length);
-      
+
+      if (roomStatsResult.error) console.warn("[admin] roomStats failed:", roomStatsResult.error.message);
       if (roomStatsResult.data?.[0]) {
-  
-  setRoomStats(roomStatsResult.data[0]);
-}
+        setRoomStats(roomStatsResult.data[0]);
+      }
     } catch (error) {
 
       if (!isMountedRef.current) {
