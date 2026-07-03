@@ -298,7 +298,7 @@ const AdminPage = () => {
           .select("id, event_type, room_id, anonymized_user_id, properties, created_at")
           .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
           .order("created_at", { ascending: false })
-          .limit(100),
+          .limit(5000),
 
         supabase
           .from("user_suspensions")
@@ -701,13 +701,16 @@ const AdminPage = () => {
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().slice(0, 10);
+    // Τοπική ημερομηνία (Ελλάδας), όχι UTC
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
 
   const chartDataFromEvents = last7Days.map((dateStr) => {
-    const dayEvents = analyticsEvents.filter((e) =>
-      e.created_at.slice(0, 10) === dateStr
-    );
+    const dayEvents = analyticsEvents.filter((e) => {
+      const localDate = new Date(e.created_at);
+      const localStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")}`;
+      return localStr === dateStr;
+    });
     return {
       day: new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }),
       sessions: dayEvents.filter((e) => e.event_type === "room_created").length,
