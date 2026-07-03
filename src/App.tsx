@@ -318,19 +318,51 @@ const router = createBrowserRouter(
   ),
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <PwaProvider>
-        <PwaBootstrap />
-        <PresenceProvider>
-          <RouterProvider router={router} />
-          <Toaster />
-        </PresenceProvider>
+const App = () => {
+  // Auto-reload όταν αποτυγχάνει το fetch ενός lazy chunk μετά από deploy
+  // (αλλάζουν τα hashes και ο ανοιχτός client ζητά chunk που δεν υπάρχει πια).
+  useEffect(() => {
+    const handler = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const msg =
+        (event as PromiseRejectionEvent)?.reason?.message ||
+        (event as ErrorEvent)?.message ||
+        "";
+      if (
+        msg.includes("Failed to fetch dynamically imported module") ||
+        msg.includes("Importing a module script failed") ||
+        msg.includes("error loading dynamically imported module")
+      ) {
+        const KEY = "echoo-chunk-reload";
+        const last = Number(sessionStorage.getItem(KEY) || "0");
+        // Guard: max 1 reload ανά 10s (αποφυγή infinite loop)
+        if (Date.now() - last > 10000) {
+          sessionStorage.setItem(KEY, String(Date.now()));
+          window.location.reload();
+        }
+      }
+    };
+    window.addEventListener("error", handler);
+    window.addEventListener("unhandledrejection", handler);
+    return () => {
+      window.removeEventListener("error", handler);
+      window.removeEventListener("unhandledrejection", handler);
+    };
+  }, []);
 
-      </PwaProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <PwaProvider>
+          <PwaBootstrap />
+          <PresenceProvider>
+            <RouterProvider router={router} />
+            <Toaster />
+          </PresenceProvider>
+
+        </PwaProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
