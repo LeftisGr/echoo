@@ -803,6 +803,7 @@ const AdminPage = () => {
   );
 
   const adminRefreshTimeoutRef = useRef<number | null>(null);
+  const isUserInteractingRef = useRef(false);
 
   const refreshAdminLists = useCallback(() => {
     void loadAdminData();
@@ -812,6 +813,9 @@ const AdminPage = () => {
   }, [loadActiveRooms, loadAdminData, loadRoomFeedback, loadSupporters]);
 
   const scheduleAdminRefresh = useCallback(() => {
+    if (!isAdmin) return;
+    if (isUserInteractingRef.current) return; // skip όσο ο χρήστης πληκτρολογεί
+
     if (adminRefreshTimeoutRef.current !== null) {
       window.clearTimeout(adminRefreshTimeoutRef.current);
     }
@@ -819,7 +823,7 @@ const AdminPage = () => {
     adminRefreshTimeoutRef.current = window.setTimeout(() => {
       refreshAdminLists();
     }, 400);
-  }, [refreshAdminLists]);
+  }, [isAdmin, refreshAdminLists]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -858,8 +862,9 @@ const AdminPage = () => {
 
     refreshAdminLists();
     const interval = window.setInterval(() => {
+      if (isUserInteractingRef.current) return; // skip όσο ο χρήστης πληκτρολογεί
       refreshAdminLists();
-    }, 12000);
+    }, 30000);
 
     return () => window.clearInterval(interval);
   }, [isAdmin, refreshAdminLists]);
@@ -877,7 +882,6 @@ const AdminPage = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "user_suspensions" }, scheduleAdminRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_bans" }, scheduleAdminRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_feedback" }, scheduleAdminRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, scheduleAdminRefresh)
       .subscribe();
 
     return () => {
@@ -1121,6 +1125,8 @@ const AdminPage = () => {
               <input
                 value={supporterSearch}
                 onChange={(event) => updatePaginationParams({ usersSearch: event.target.value, usersPage: 1 })}
+                onFocus={() => { isUserInteractingRef.current = true; }}
+                onBlur={() => { setTimeout(() => { isUserInteractingRef.current = false; }, 2000); }}
                 placeholder={language === "en" ? "Search by email or username" : "Αναζήτηση με email ή username"}
                 className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-rose-300/20 focus:bg-white/10"
               />
@@ -1669,6 +1675,8 @@ const AdminPage = () => {
                 <input
                   value={userMgmtSearch}
                   onChange={(event) => setUserMgmtSearch(event.target.value)}
+                  onFocus={() => { isUserInteractingRef.current = true; }}
+                  onBlur={() => { setTimeout(() => { isUserInteractingRef.current = false; }, 2000); }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void searchUsers(1);
                   }}
@@ -2171,6 +2179,8 @@ const AdminPage = () => {
                   <input
                     value={roomsSearch}
                     onChange={(event) => updatePaginationParams({ roomsSearch: event.target.value, roomsPage: 1 })}
+                    onFocus={() => { isUserInteractingRef.current = true; }}
+                    onBlur={() => { setTimeout(() => { isUserInteractingRef.current = false; }, 2000); }}
                     placeholder={language === "en" ? "Search by room or user ID" : "Αναζήτηση με room ή user ID"}
                     className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-cyan-300/20 focus:bg-white/10"
                   />
