@@ -41,6 +41,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
+import { getPlaybackUrl } from "@/lib/broken-telephone";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -140,6 +141,16 @@ interface AdminUserRow {
 }
 
 type RestrictAction = "suspend" | "temp_ban" | "perm_ban" | "unban" | "unsuspend";
+
+interface BrokenTelephoneAdminRow {
+  id: string;
+  audio_path: string;
+  audio_bucket: string;
+  duration_seconds?: number | null;
+  created_at: string;
+  expires_at: string;
+  url?: string | null;
+}
 
 interface RoomFeedbackRow {
   id: string;
@@ -271,6 +282,11 @@ const AdminPage = () => {
   // Client-side pagination για recent reports (5) & recent errors (10)
   const [reportsPage, setReportsPage] = useState(1);
   const [errorsPage, setErrorsPage] = useState(1);
+
+  // Broken Telephone (admin)
+  const [btRows, setBtRows] = useState<BrokenTelephoneAdminRow[]>([]);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btBusyId, setBtBusyId] = useState<string | null>(null);
   const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
   const [activeRoomsTotalCount, setActiveRoomsTotalCount] = useState(0);
   const [activeRoomsLoading, setActiveRoomsLoading] = useState(false);
@@ -672,6 +688,45 @@ const AdminPage = () => {
     [language, loadAdminData],
   );
 
+  const loadBrokenTelephone = useCallback(async () => {
+    setBtLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_list_broken_telephone");
+      if (error) throw error;
+      const rows = (Array.isArray(data) ? data : []) as BrokenTelephoneAdminRow[];
+      const withUrls = await Promise.all(
+        rows.map(async (row) => ({ ...row, url: await getPlaybackUrl(row.audio_path, row.audio_bucket) })),
+      );
+      if (!isMountedRef.current) return;
+      setBtRows(withUrls);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      console.warn("[admin] broken_telephone failed:", error instanceof Error ? error.message : error);
+      setBtRows([]);
+    } finally {
+      if (isMountedRef.current) setBtLoading(false);
+    }
+  }, []);
+
+  const expireBrokenTelephoneMessage = useCallback(
+    async (id: string) => {
+      setBtBusyId(id);
+      try {
+        const { error } = await supabase.rpc("admin_expire_broken_telephone", { p_id: id });
+        if (error) throw error;
+        if (isMountedRef.current) {
+          setBtRows((current) => current.filter((row) => row.id !== id));
+        }
+        toast.success(language === "en" ? "Message expired." : "Το μήνυμα έληξε.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : language === "en" ? "Expire failed." : "Η λήξη απέτυχε.");
+      } finally {
+        if (isMountedRef.current) setBtBusyId(null);
+      }
+    },
+    [language],
+  );
+
   const adminRefreshTimeoutRef = useRef<number | null>(null);
 
   const refreshAdminLists = useCallback(() => {
@@ -714,6 +769,12 @@ const AdminPage = () => {
       void loadRoomFeedback();
     }
   }, [isAdmin, loadRoomFeedback]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      void loadBrokenTelephone();
+    }
+  }, [isAdmin, loadBrokenTelephone]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -1653,6 +1714,78 @@ const AdminPage = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          <Surface className="space-y-5 border-white/10 bg-[#0d1424]/80 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/40">Broken Telephone</p>
+                <p className="mt-1 text-sm text-white/55">
+                  {language === "en"
+                    ? "Active anonymous voice messages. Listen and expire any that break the rules."
+                    : "Ενεργά ανώνυμα φωνητικά. Άκουσέ τα και λήξε όποιο παραβιάζει τους κανόνες."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                disabled={btLoading}
+                onClick={() => void loadBrokenTelephone()}
+              >
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                {language === "en" ? "Refresh" : "Ανανέωση"}
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {btLoading ? (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "Loading messages..." : "Φορτώνουμε τα μηνύματα..."}
+                </div>
+              ) : btRows.length ? (
+                btRows.map((row) => {
+                  const rowBusy = btBusyId === row.id;
+                  return (
+                    <div key={row.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/40">
+                        <span>{language === "en" ? "created" : "δημ."} {new Date(row.created_at).toLocaleString("el-GR")}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 normal-case tracking-normal">
+                          {language === "en" ? "expires" : "λήγει"} {new Date(row.expires_at).toLocaleString("el-GR")}
+                        </span>
+                        {typeof row.duration_seconds === "number" && (
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 normal-case tracking-normal">
+                            {row.duration_seconds}s
+                          </span>
+                        )}
+                      </div>
+
+                      {row.url ? (
+                        <audio controls src={row.url} className="mt-3 w-full" />
+                      ) : (
+                        <p className="mt-3 text-sm text-white/45">{language === "en" ? "Audio unavailable." : "Ο ήχος δεν είναι διαθέσιμος."}</p>
+                      )}
+
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => void expireBrokenTelephoneMessage(row.id)}
+                        >
+                          {rowBusy ? (language === "en" ? "Expiring..." : "Λήγει...") : (language === "en" ? "Expire now" : "Λήξη τώρα")}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "No active messages" : "Κανένα ενεργό μήνυμα"}
+                </div>
+              )}
+            </div>
+          </Surface>
 
           <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
             <Surface className="space-y-5 p-5">
