@@ -28,6 +28,16 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { usePresence } from "@/components/presence/presence-provider";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { cleanupOperationalLogs } from "@/lib/operational-logs";
@@ -115,6 +125,21 @@ interface SupporterRow {
   supporter_badge: boolean;
   updated_at: string;
 }
+
+// admin_list_profiles επιστρέφει σίγουρα id/username/email/supporter_badge/updated_at.
+// profile_mode/role/created_at είναι optional — δείχνονται αν υπάρχουν, αλλιώς "—".
+interface AdminUserRow {
+  id: string;
+  username: string;
+  email: string | null;
+  supporter_badge?: boolean;
+  updated_at?: string;
+  profile_mode?: string | null;
+  role?: string | null;
+  created_at?: string | null;
+}
+
+type RestrictAction = "suspend" | "temp_ban" | "perm_ban" | "unban" | "unsuspend";
 
 interface RoomFeedbackRow {
   id: string;
@@ -232,6 +257,20 @@ const AdminPage = () => {
   const [supporterLoading, setSupporterLoading] = useState(false);
   const [supporterBusyId, setSupporterBusyId] = useState<string | null>(null);
   const [supporterSearchError, setSupporterSearchError] = useState<string | null>(null);
+
+  // User Management (manual moderation)
+  const [userMgmtSearch, setUserMgmtSearch] = useState("");
+  const [userMgmtResults, setUserMgmtResults] = useState<AdminUserRow[]>([]);
+  const [userMgmtLoading, setUserMgmtLoading] = useState(false);
+  const [userMgmtBusyKey, setUserMgmtBusyKey] = useState<string | null>(null);
+  const [userMgmtError, setUserMgmtError] = useState<string | null>(null);
+  const [userMgmtPage, setUserMgmtPage] = useState(1);
+  const [userMgmtTotal, setUserMgmtTotal] = useState(0);
+  const [permBanTarget, setPermBanTarget] = useState<AdminUserRow | null>(null);
+
+  // Client-side pagination για recent reports (5) & recent errors (10)
+  const [reportsPage, setReportsPage] = useState(1);
+  const [errorsPage, setErrorsPage] = useState(1);
   const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
   const [activeRoomsTotalCount, setActiveRoomsTotalCount] = useState(0);
   const [activeRoomsLoading, setActiveRoomsLoading] = useState(false);
@@ -584,6 +623,55 @@ const AdminPage = () => {
     [language, profile?.id, updateProfile],
   );
 
+  const searchUsers = useCallback(async (page = 1) => {
+    setUserMgmtLoading(true);
+    setUserMgmtError(null);
+    try {
+      const { data, error } = await supabase.rpc("admin_list_profiles", {
+        p_query: userMgmtSearch.trim(),
+        p_limit: 10,
+        p_offset: (page - 1) * 10,
+      });
+      if (error) throw error;
+      const rows = (Array.isArray(data) ? data : []) as Array<AdminUserRow & { total_count?: number }>;
+      if (!isMountedRef.current) return;
+      setUserMgmtResults(rows.map(({ total_count, ...row }) => row));
+      setUserMgmtTotal(rows[0]?.total_count ?? 0);
+      setUserMgmtPage(page);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      const message = error instanceof Error ? error.message : language === "en" ? "User search failed." : "Η αναζήτηση χρήστη απέτυχε.";
+      setUserMgmtError(message);
+      toast.error(message);
+    } finally {
+      if (isMountedRef.current) setUserMgmtLoading(false);
+    }
+  }, [language, userMgmtSearch]);
+
+  const restrictUser = useCallback(
+    async (userId: string, action: RestrictAction) => {
+      setUserMgmtBusyKey(userId + action);
+      try {
+        const durationDays = action === "suspend" ? 7 : action === "temp_ban" ? 30 : null;
+        const { error } = await supabase.rpc("admin_restrict_user", {
+          p_user_id: userId,
+          p_action: action,
+          p_reason: "manual admin action",
+          p_duration_days: durationDays,
+        });
+        if (error) throw error;
+        toast.success(language === "en" ? "Action applied." : "Η ενέργεια εφαρμόστηκε.");
+        // Refresh bans/suspensions λίστες (silent, χωρίς skeleton flash)
+        await loadAdminData(true);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : language === "en" ? "Action failed." : "Η ενέργεια απέτυχε.");
+      } finally {
+        if (isMountedRef.current) setUserMgmtBusyKey(null);
+      }
+    },
+    [language, loadAdminData],
+  );
+
   const adminRefreshTimeoutRef = useRef<number | null>(null);
 
   const refreshAdminLists = useCallback(() => {
@@ -743,6 +831,18 @@ const AdminPage = () => {
     .map(([userId, count]) => ({ userId, count }))
     .sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
     .slice(0, 5);
+
+  // Client-side pagination slices
+  const REPORTS_PAGE_SIZE = 5;
+  const ERRORS_PAGE_SIZE = 10;
+  const reportsPageCount = Math.max(1, Math.ceil(recentReports.length / REPORTS_PAGE_SIZE));
+  const safeReportsPage = Math.min(reportsPage, reportsPageCount);
+  const pagedReports = recentReports.slice((safeReportsPage - 1) * REPORTS_PAGE_SIZE, safeReportsPage * REPORTS_PAGE_SIZE);
+  const errorsPageCount = Math.max(1, Math.ceil(recentErrors.length / ERRORS_PAGE_SIZE));
+  const safeErrorsPage = Math.min(errorsPage, errorsPageCount);
+  const pagedErrors = recentErrors.slice((safeErrorsPage - 1) * ERRORS_PAGE_SIZE, safeErrorsPage * ERRORS_PAGE_SIZE);
+  // User Management (server-side) page count
+  const userMgmtPageCount = Math.max(1, Math.ceil(userMgmtTotal / 10));
 
   const usersAtThreshold = topReportedUsers.filter((item) => item.count >= 5).length;
   const failedUploadsCount = analyticsByType.upload_failed ?? 0;
@@ -1244,20 +1344,30 @@ const AdminPage = () => {
                 {loadingData ? (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "Reading error logs..." : "Διαβάζουμε τα error logs..."}</div>
                 ) : recentErrors.length ? (
-                  recentErrors.map((errorRow) => (
-                    <div key={errorRow.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-                      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
-                        <span>{errorRow.event_type}</span>
-                        <span>{new Date(errorRow.created_at).toLocaleString()}</span>
+                  <>
+                    {pagedErrors.map((errorRow) => (
+                      <div key={errorRow.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-white/40">
+                          <span>{errorRow.event_type}</span>
+                          <span>{new Date(errorRow.created_at).toLocaleString()}</span>
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-white">{errorRow.error_message}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.severity}</span>
+                          {errorRow.error_code && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.error_code}</span>}
+                          {errorRow.room_id && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">room {errorRow.room_id.slice(0, 8)}</span>}
+                        </div>
                       </div>
-                      <p className="mt-2 text-sm font-medium text-white">{errorRow.error_message}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/55">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.severity}</span>
-                        {errorRow.error_code && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{errorRow.error_code}</span>}
-                        {errorRow.room_id && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">room {errorRow.room_id.slice(0, 8)}</span>}
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                    {errorsPageCount > 1 && (
+                      <PaginationControls
+                        page={safeErrorsPage}
+                        pageCount={errorsPageCount}
+                        onPrevious={() => setErrorsPage(Math.max(1, safeErrorsPage - 1))}
+                        onNext={() => setErrorsPage(Math.min(errorsPageCount, safeErrorsPage + 1))}
+                      />
+                    )}
+                  </>
                 ) : (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No recent errors." : "Δεν υπάρχουν πρόσφατα errors."}</div>
                 )}
@@ -1378,6 +1488,172 @@ const AdminPage = () => {
             </Surface>
           </div>
 
+          <Surface className="space-y-5 border-white/10 bg-[#0d1424]/80 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/40">
+                  {language === "en" ? "User Management" : "Διαχείριση χρηστών"}
+                </p>
+                <p className="mt-1 text-sm text-white/55">
+                  {language === "en"
+                    ? "Search a user and apply moderation actions directly, without a report."
+                    : "Αναζήτησε έναν χρήστη και εφάρμοσε ενέργειες moderation απευθείας, χωρίς αναφορά."}
+                </p>
+              </div>
+              <Badge className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60 hover:bg-white/5">
+                <Shield className="mr-1 h-3.5 w-3.5" />
+                {language === "en" ? "Manual" : "Χειροκίνητα"}
+              </Badge>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <input
+                  value={userMgmtSearch}
+                  onChange={(event) => setUserMgmtSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void searchUsers(1);
+                  }}
+                  placeholder={language === "en" ? "Search by email or username" : "Αναζήτηση με email ή username"}
+                  className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-white/20 focus:bg-white/10"
+                />
+              </div>
+              <Button
+                type="button"
+                className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
+                disabled={userMgmtLoading}
+                onClick={() => void searchUsers(1)}
+              >
+                {userMgmtLoading ? (language === "en" ? "Searching..." : "Αναζήτηση...") : (language === "en" ? "Search" : "Αναζήτηση")}
+              </Button>
+            </div>
+
+            {userMgmtError && (
+              <div className="rounded-[20px] border border-rose-300/15 bg-rose-500/10 p-4 text-sm text-rose-50">{userMgmtError}</div>
+            )}
+
+            <div className="space-y-3">
+              {userMgmtLoading ? (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "Searching users..." : "Αναζητούμε χρήστες..."}
+                </div>
+              ) : userMgmtResults.length ? (
+                userMgmtResults.map((row) => {
+                  const rowBusy = Boolean(userMgmtBusyKey && userMgmtBusyKey.startsWith(row.id));
+                  return (
+                    <div key={row.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <p className="truncate text-base font-medium text-white">{row.username}</p>
+                          <p className="break-all text-sm text-white/55">{row.email ?? (language === "en" ? "No email" : "Χωρίς email")}</p>
+                          <div className="flex flex-wrap gap-2 pt-1 text-xs text-white/55">
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">id {row.id.slice(0, 8)}</span>
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "mode" : "λειτ."} {row.profile_mode ?? "—"}</span>
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "role" : "ρόλος"} {row.role ?? "—"}</span>
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                              {row.created_at ? new Date(row.created_at).toLocaleDateString() : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-sky-300/15 bg-sky-500/10 text-sky-50 hover:bg-sky-500/15 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => void restrictUser(row.id, "suspend")}
+                        >
+                          {language === "en" ? "Suspend 7d" : "Suspend 7μ"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => void restrictUser(row.id, "temp_ban")}
+                        >
+                          {language === "en" ? "Ban 30d" : "Ban 30μ"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => setPermBanTarget(row)}
+                        >
+                          <Shield className="mr-2 h-4 w-4" />
+                          {language === "en" ? "Permanent Ban" : "Μόνιμο Ban"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => void restrictUser(row.id, "unban")}
+                        >
+                          {language === "en" ? "Unban" : "Άρση ban"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-full border-emerald-300/15 bg-transparent text-emerald-50 hover:bg-emerald-500/10 hover:text-white"
+                          disabled={rowBusy}
+                          onClick={() => void restrictUser(row.id, "unsuspend")}
+                        >
+                          {language === "en" ? "Unsuspend" : "Άρση suspend"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "Search by email or username to manage a user." : "Αναζήτησε με email ή username για να διαχειριστείς έναν χρήστη."}
+                </div>
+              )}
+
+              {userMgmtResults.length > 0 && userMgmtPageCount > 1 && (
+                <PaginationControls
+                  page={userMgmtPage}
+                  pageCount={userMgmtPageCount}
+                  onPrevious={() => void searchUsers(Math.max(1, userMgmtPage - 1))}
+                  onNext={() => void searchUsers(Math.min(userMgmtPageCount, userMgmtPage + 1))}
+                />
+              )}
+            </div>
+          </Surface>
+
+          <AlertDialog open={permBanTarget !== null} onOpenChange={(open) => { if (!open) setPermBanTarget(null); }}>
+            <AlertDialogContent className="border-rose-400/20 bg-[#0f1424] text-white">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{language === "en" ? "Permanently ban this user?" : "Μόνιμο ban αυτού του χρήστη;"}</AlertDialogTitle>
+                <AlertDialogDescription className="text-white/55">
+                  {language === "en"
+                    ? `This permanently bans ${permBanTarget?.username ?? "this user"}. This action can be reversed with Unban.`
+                    : `Αυτό κάνει μόνιμο ban τον/την ${permBanTarget?.username ?? "χρήστη"}. Μπορεί να αναιρεθεί με Άρση ban.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                  {language === "en" ? "Cancel" : "Ακύρωση"}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                  onClick={() => {
+                    const target = permBanTarget;
+                    setPermBanTarget(null);
+                    if (target) void restrictUser(target.id, "perm_ban");
+                  }}
+                >
+                  {language === "en" ? "Permanent Ban" : "Μόνιμο Ban"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <div className="grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
             <Surface className="space-y-5 p-5">
               <div className="flex items-center justify-between gap-3">
@@ -1410,7 +1686,8 @@ const AdminPage = () => {
                     </div>
                   </div>
                 ) : recentReports.length ? (
-                  recentReports.map((report) => {
+                  <>
+                  {pagedReports.map((report) => {
                     const statusTone =
                       report.status === "dismissed"
                         ? "border-white/10 bg-white/5 text-white/55"
@@ -1457,7 +1734,16 @@ const AdminPage = () => {
                         </div>
                       </div>
                     );
-                  })
+                  })}
+                  {reportsPageCount > 1 && (
+                    <PaginationControls
+                      page={safeReportsPage}
+                      pageCount={reportsPageCount}
+                      onPrevious={() => setReportsPage(Math.max(1, safeReportsPage - 1))}
+                      onNext={() => setReportsPage(Math.min(reportsPageCount, safeReportsPage + 1))}
+                    />
+                  )}
+                  </>
                 ) : (
                   <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">{language === "en" ? "No recent reports yet." : "Δεν υπάρχουν ακόμα πρόσφατες αναφορές."}</div>
                 )}
