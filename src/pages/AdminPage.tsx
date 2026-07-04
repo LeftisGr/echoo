@@ -142,6 +142,26 @@ interface AdminUserRow {
 
 type RestrictAction = "suspend" | "temp_ban" | "perm_ban" | "unban" | "unsuspend";
 
+interface UserOverview {
+  found: boolean;
+  profile: {
+    id: string;
+    username: string;
+    role: string | null;
+    profile_mode: string | null;
+    gender: string | null;
+    language: string | null;
+    interests: string[] | null;
+    created_at: string | null;
+  } | null;
+  rooms_count: number;
+  last_room_at: string | null;
+  reports_against: number;
+  reports_by: number;
+  is_banned: boolean;
+  is_suspended: boolean;
+}
+
 interface BrokenTelephoneAdminRow {
   id: string;
   audio_path: string;
@@ -230,6 +250,7 @@ const AdminPage = () => {
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
 
   const [loadingData, setLoadingData] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [cleanupStatus, setCleanupStatus] = useState<{ analyticsDeleted: number; errorsDeleted: number; moderationDeleted: number } | null>(null);
   const [analyticsLiveData, setAnalyticsLiveData] = useState(true);
@@ -278,6 +299,11 @@ const AdminPage = () => {
   const [userMgmtPage, setUserMgmtPage] = useState(1);
   const [userMgmtTotal, setUserMgmtTotal] = useState(0);
   const [permBanTarget, setPermBanTarget] = useState<AdminUserRow | null>(null);
+  const [overviewUserId, setOverviewUserId] = useState<string | null>(null);
+  const [overviewData, setOverviewData] = useState<UserOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [confirmingPermBan, setConfirmingPermBan] = useState(false);
+  const confirmPermBanTimeoutRef = useRef<number | null>(null);
 
   // Client-side pagination για recent reports (5) & recent errors (10)
   const [reportsPage, setReportsPage] = useState(1);
@@ -412,6 +438,8 @@ const AdminPage = () => {
       if (roomStatsResult.data?.[0]) {
         setRoomStats(roomStatsResult.data[0]);
       }
+
+      setLastUpdatedAt(new Date());
     } catch (error) {
 
       if (!isMountedRef.current) {
@@ -688,6 +716,53 @@ const AdminPage = () => {
     [language, loadAdminData],
   );
 
+  const loadUserOverview = useCallback(async (userId: string) => {
+    setOverviewLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_get_user_overview", { p_user_id: userId });
+      if (error) throw error;
+      if (!isMountedRef.current) return;
+      setOverviewData((data ?? null) as UserOverview | null);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      setOverviewData(null);
+      toast.error(error instanceof Error ? error.message : language === "en" ? "Failed to load user overview." : "Αποτυχία φόρτωσης επισκόπησης χρήστη.");
+    } finally {
+      if (isMountedRef.current) setOverviewLoading(false);
+    }
+  }, [language]);
+
+  const openUserOverview = useCallback((userId: string) => {
+    setOverviewUserId(userId);
+    setOverviewData(null);
+    void loadUserOverview(userId);
+  }, [loadUserOverview]);
+
+  const overviewRestrict = useCallback(async (action: RestrictAction) => {
+    if (!overviewUserId) return;
+    await restrictUser(overviewUserId, action);
+    if (isMountedRef.current) void loadUserOverview(overviewUserId);
+  }, [overviewUserId, restrictUser, loadUserOverview]);
+
+  const handlePermBanClick = useCallback(() => {
+    if (confirmPermBanTimeoutRef.current !== null) {
+      window.clearTimeout(confirmPermBanTimeoutRef.current);
+      confirmPermBanTimeoutRef.current = null;
+    }
+    if (confirmingPermBan) {
+      // Δεύτερο κλικ → εκτέλεση
+      setConfirmingPermBan(false);
+      void overviewRestrict("perm_ban");
+      return;
+    }
+    // Πρώτο κλικ → ζήτα επιβεβαίωση, auto-reset σε 3s
+    setConfirmingPermBan(true);
+    confirmPermBanTimeoutRef.current = window.setTimeout(() => {
+      setConfirmingPermBan(false);
+      confirmPermBanTimeoutRef.current = null;
+    }, 3000);
+  }, [confirmingPermBan, overviewRestrict]);
+
   const loadBrokenTelephone = useCallback(async () => {
     setBtLoading(true);
     try {
@@ -947,6 +1022,27 @@ const AdminPage = () => {
               : "Ένα ήσυχο dashboard για metrics, υγεία της ουράς και σήματα ασφάλειας."
           }
         />
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-white/45">
+            {lastUpdatedAt
+              ? `${language === "en" ? "Updated" : "Ανανεώθηκε"} ${lastUpdatedAt.toLocaleTimeString("el-GR")}`
+              : language === "en" ? "Not updated yet" : "Δεν έχει ανανεωθεί ακόμη"}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 rounded-full border-white/15 bg-white/5 px-3 text-xs text-white hover:bg-white/10 hover:text-white"
+            disabled={loadingData}
+            onClick={() => {
+              void loadAdminData();
+              void loadActiveRooms();
+            }}
+          >
+            <RefreshCcw className={cn("mr-2 h-3.5 w-3.5", loadingData && "animate-spin")} />
+            {language === "en" ? "Refresh" : "Ανανέωση"}
+          </Button>
+        </div>
 
         <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
           <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/50">
@@ -1605,7 +1701,15 @@ const AdminPage = () => {
                   return (
                     <div key={row.id} className="rounded-[20px] border border-white/10 bg-white/5 p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0 space-y-1">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openUserOverview(row.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") openUserOverview(row.id);
+                          }}
+                          className="min-w-0 flex-1 cursor-pointer space-y-1 rounded-[16px] p-1 transition hover:bg-white/5"
+                        >
                           <p className="truncate text-base font-medium text-white">{row.username}</p>
                           <p className="break-all text-sm text-white/55">{row.email ?? (language === "en" ? "No email" : "Χωρίς email")}</p>
                           <div className="flex flex-wrap gap-2 pt-1 text-xs text-white/55">
@@ -1714,6 +1818,172 @@ const AdminPage = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          <Dialog
+            open={overviewUserId !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setOverviewUserId(null);
+                setOverviewData(null);
+                setConfirmingPermBan(false);
+                if (confirmPermBanTimeoutRef.current !== null) {
+                  window.clearTimeout(confirmPermBanTimeoutRef.current);
+                  confirmPermBanTimeoutRef.current = null;
+                }
+              }
+            }}
+          >
+            <DialogContent className="max-w-lg border-white/10 bg-[#0f1424] text-white">
+              <DialogHeader>
+                <DialogTitle className="flex flex-wrap items-center gap-2">
+                  <span className="truncate">
+                    {overviewData?.profile?.username ?? (language === "en" ? "User overview" : "Επισκόπηση χρήστη")}
+                  </span>
+                  {overviewData?.found && (
+                    overviewData.is_banned ? (
+                      <Badge className="rounded-full border border-rose-300/20 bg-rose-500/10 px-3 py-1 text-[11px] text-rose-50 hover:bg-rose-500/10">
+                        {language === "en" ? "Banned" : "Banned"}
+                      </Badge>
+                    ) : overviewData.is_suspended ? (
+                      <Badge className="rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-50 hover:bg-amber-500/10">
+                        {language === "en" ? "Suspended" : "Suspended"}
+                      </Badge>
+                    ) : (
+                      <Badge className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-50 hover:bg-emerald-500/10">
+                        OK
+                      </Badge>
+                    )
+                  )}
+                </DialogTitle>
+                <DialogDescription className="break-all text-white/45">
+                  {overviewData?.profile?.id ?? overviewUserId}
+                </DialogDescription>
+              </DialogHeader>
+
+              {overviewLoading ? (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "Loading overview..." : "Φορτώνουμε την επισκόπηση..."}
+                </div>
+              ) : !overviewData || !overviewData.found || !overviewData.profile ? (
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                  {language === "en" ? "User not found." : "Ο χρήστης δεν βρέθηκε."}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {[
+                      { label: language === "en" ? "Mode" : "Λειτουργία", value: overviewData.profile.profile_mode ?? "—" },
+                      { label: language === "en" ? "Role" : "Ρόλος", value: overviewData.profile.role ?? "—" },
+                      { label: language === "en" ? "Gender" : "Φύλο", value: overviewData.profile.gender ?? "—" },
+                      { label: language === "en" ? "Language" : "Γλώσσα", value: overviewData.profile.language ?? "—" },
+                      { label: language === "en" ? "Joined" : "Εγγραφή", value: overviewData.profile.created_at ? new Date(overviewData.profile.created_at).toLocaleDateString("el-GR") : "—" },
+                    ].map((field) => (
+                      <div key={field.label} className="rounded-[16px] border border-white/10 bg-black/20 p-3">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{field.label}</p>
+                        <p className="mt-1 truncate text-white/85">{field.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Interests" : "Ενδιαφέροντα"}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {overviewData.profile.interests && overviewData.profile.interests.length > 0 ? (
+                        overviewData.profile.interests.map((interest) => (
+                          <span key={interest} className="rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1 text-xs text-violet-50">
+                            {interest}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-white/45">—</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-[16px] border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Rooms" : "Rooms"}</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{overviewData.rooms_count}</p>
+                    </div>
+                    <div className="rounded-[16px] border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Last room" : "Τελευταίο room"}</p>
+                      <p className="mt-1 text-sm text-white/85">{overviewData.last_room_at ? new Date(overviewData.last_room_at).toLocaleString("el-GR") : "—"}</p>
+                    </div>
+                    <div className="rounded-[16px] border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Reports against" : "Αναφορές κατά"}</p>
+                      <p className={cn("mt-1 text-lg font-semibold", overviewData.reports_against >= 3 ? "text-rose-300" : "text-white")}>{overviewData.reports_against}</p>
+                    </div>
+                    <div className="rounded-[16px] border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/35">{language === "en" ? "Reports by" : "Αναφορές από"}</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{overviewData.reports_by}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                    {(() => {
+                      const busy = Boolean(userMgmtBusyKey && overviewUserId && userMgmtBusyKey.startsWith(overviewUserId));
+                      return (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-sky-300/15 bg-sky-500/10 text-sky-50 hover:bg-sky-500/15 hover:text-white"
+                            disabled={busy}
+                            onClick={() => void overviewRestrict("suspend")}
+                          >
+                            {language === "en" ? "Suspend 7d" : "Suspend 7μ"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15 hover:text-white"
+                            disabled={busy}
+                            onClick={() => void overviewRestrict("temp_ban")}
+                          >
+                            {language === "en" ? "Ban 30d" : "Ban 30μ"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "h-10 rounded-full transition",
+                              confirmingPermBan
+                                ? "border-rose-400/40 bg-rose-600/30 text-white hover:bg-rose-600/40"
+                                : "border-rose-300/15 bg-rose-500/10 text-rose-50 hover:bg-rose-500/15 hover:text-white",
+                            )}
+                            disabled={busy}
+                            onClick={handlePermBanClick}
+                          >
+                            {confirmingPermBan
+                              ? (language === "en" ? "Sure? Tap again" : "Σίγουρα; Πάτα ξανά")
+                              : (language === "en" ? "Permanent Ban" : "Μόνιμο Ban")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-emerald-300/15 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/15 hover:text-white"
+                            disabled={busy}
+                            onClick={() => void overviewRestrict("unban")}
+                          >
+                            {language === "en" ? "Unban" : "Άρση ban"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-full border-emerald-300/15 bg-transparent text-emerald-50 hover:bg-emerald-500/10 hover:text-white"
+                            disabled={busy}
+                            onClick={() => void overviewRestrict("unsuspend")}
+                          >
+                            {language === "en" ? "Unsuspend" : "Άρση suspend"}
+                          </Button>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Surface className="space-y-5 border-white/10 bg-[#0d1424]/80 p-5">
             <div className="flex items-start justify-between gap-4">
