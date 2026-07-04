@@ -974,7 +974,7 @@ const AdminPage = () => {
 
   // Client-side pagination slices
   const REPORTS_PAGE_SIZE = 5;
-  const ERRORS_PAGE_SIZE = 10;
+  const ERRORS_PAGE_SIZE = 5;
   const reportsPageCount = Math.max(1, Math.ceil(recentReports.length / REPORTS_PAGE_SIZE));
   const safeReportsPage = Math.min(reportsPage, reportsPageCount);
   const pagedReports = recentReports.slice((safeReportsPage - 1) * REPORTS_PAGE_SIZE, safeReportsPage * REPORTS_PAGE_SIZE);
