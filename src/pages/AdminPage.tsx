@@ -257,7 +257,7 @@ const AdminPage = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const supporterPage = parsePaginationValue(searchParams.get("usersPage"), 1);
-  const supporterPageSize = parsePaginationValue(searchParams.get("usersPageSize"), 10);
+  const supporterPageSize = 5; // σταθερό 5 ανά σελίδα
   const supporterSearch = searchParams.get("usersSearch") ?? "";
   const roomsPage = parsePaginationValue(searchParams.get("roomsPage"), 1);
   const roomsPageSize = parsePaginationValue(searchParams.get("roomsPageSize"), 10);
@@ -1132,21 +1132,6 @@ const AdminPage = () => {
               />
             </div>
             <div className="flex items-center gap-3">
-              <Select
-                value={String(supporterPageSize)}
-                onValueChange={(value) => updatePaginationParams({ usersPageSize: Number(value), usersPage: 1 })}
-              >
-                <SelectTrigger className="h-11 w-24 rounded-full border-white/10 bg-white/5 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {paginationPageSizes.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Button
                 type="button"
                 className="h-11 rounded-full bg-violet-500 text-white hover:bg-violet-400"
