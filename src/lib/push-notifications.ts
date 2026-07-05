@@ -92,12 +92,16 @@ export async function refreshPushSubscription(userId: string): Promise<boolean> 
     });
 
     const json = subscription.toJSON();
-    const { error } = await supabase.from("push_subscriptions").upsert({
+
+    // Καθάρισε ΟΛΑ τα παλιά subscriptions αυτού του χρήστη πριν βάλεις το νέο
+    await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+
+    const { error } = await supabase.from("push_subscriptions").insert({
       user_id: userId,
       endpoint: subscription.endpoint,
       p256dh: json.keys?.p256dh ?? "",
       auth: json.keys?.auth ?? "",
-    }, { onConflict: "user_id,endpoint" });
+    });
 
     return !error;
   } catch {
