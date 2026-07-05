@@ -1806,11 +1806,8 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     // Admin alert: ειδοποίησε τους admins όταν μπαίνει κάποιος (cold start strategy).
     // Fire-and-forget ώστε να μη μπλοκάρει το login flow.
     void (async () => {
-      // Πάρε όλους τους admins (role = 'admin' — υπάρχον field στον profiles πίνακα)
-      const { data: admins } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("role", "admin");
+      // Πάρε όλους τους admins μέσω RPC (bypass RLS — δουλεύει και για μη-admin χρήστες)
+      const { data: admins } = await supabase.rpc("get_admin_user_ids");
 
       if (!admins || admins.length === 0) {
         return;
