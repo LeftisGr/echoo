@@ -70,3 +70,37 @@ export async function unsubscribeFromPush(userId: string): Promise<boolean> {
     return false;
   }
 }
+
+// Ανανεώνει το push subscription: καθαρίζει το παλιό (μπορεί να είναι expired)
+// και δημιουργεί φρέσκο, ώστε τα subscriptions να μη "πεθαίνουν" σιωπηλά.
+export async function refreshPushSubscription(userId: string): Promise<boolean> {
+  if (!isPushSupported()) return false;
+  try {
+    if (Notification.permission !== "granted") return false;
+    const registration = await navigator.serviceWorker.ready;
+
+    // Καθάρισε το παλιό (μπορεί να είναι expired)
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      try { await existing.unsubscribe(); } catch { /* ignore */ }
+    }
+
+    // Φρέσκο subscription
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    const json = subscription.toJSON();
+    const { error } = await supabase.from("push_subscriptions").upsert({
+      user_id: userId,
+      endpoint: subscription.endpoint,
+      p256dh: json.keys?.p256dh ?? "",
+      auth: json.keys?.auth ?? "",
+    }, { onConflict: "user_id,endpoint" });
+
+    return !error;
+  } catch {
+    return false;
+  }
+}

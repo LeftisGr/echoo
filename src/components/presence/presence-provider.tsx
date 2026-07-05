@@ -43,6 +43,7 @@ import { cleanupExpiredEphemeralContent } from "@/lib/content-api";
 import { createFeatureGateSnapshot, FeatureGateKey } from "@/lib/feature-gates";
 import { EPHEMERAL_CONTENT_CLEANUP_INTERVAL_MS, getEphemeralContentExpiresAt } from "@/lib/ephemeral-content";
 import { logAnalyticsEvent, logErrorEvent } from "@/lib/operational-logs";
+import { refreshPushSubscription } from "@/lib/push-notifications";
 import { playSoundFeedback } from "@/lib/sound-feedback";
 
 import {
@@ -1795,6 +1796,12 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       }
     }
     const loadedProfile = await loadProfile(currentUserId);
+
+    // Ανανέωσε το push subscription σε κάθε login (fire-and-forget) ώστε να μη
+    // "πεθαίνει" σιωπηλά από expiry. Μόνο αν ο χρήστης έχει ήδη notifications ενεργά.
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      void refreshPushSubscription(currentUserId).catch(() => undefined);
+    }
 
     // Admin alert: ειδοποίησε τους admins όταν μπαίνει κάποιος (cold start strategy).
     // Fire-and-forget ώστε να μη μπλοκάρει το login flow.
