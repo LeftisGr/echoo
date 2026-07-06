@@ -1,5 +1,5 @@
 import { ArrowRight, Clock3, LogOut, MessageCircle, Mic, ShieldCheck, Sparkles, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,12 @@ import { SundayQuietHoursBanner } from "@/components/presence/sunday-quiet-hours
 import { usePresence } from "@/components/presence/presence-provider";
 
 const Index = () => {
-  const { adminMetrics, language } = usePresence();
+  const { adminMetrics, language, authenticated } = usePresence();
+
+  // Logged-in χρήστες δεν χρειάζονται το marketing landing — πάνε κατευθείαν στο dashboard.
+  if (authenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const steps = [
     {

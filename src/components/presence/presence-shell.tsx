@@ -272,12 +272,14 @@ export function PageShell({
   className?: string;
   showStickyBottomBar?: boolean;
 }) {
+  const { authenticated } = usePresence();
+
   return (
     <HowEchooWorksProvider>
       <div className="min-h-[var(--app-height,100vh)] overflow-x-hidden bg-background text-foreground">
         <div className="mx-auto flex min-h-[var(--app-height,100vh)] w-full max-w-6xl flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-[calc(env(safe-area-inset-top,0px)+1rem)] sm:px-6 lg:pb-28 lg:px-8">
           <header className="mb-6 flex items-center justify-between gap-4">
-            <Link to="/" className="shrink-0">
+            <Link to={authenticated ? "/dashboard" : "/"} className="shrink-0">
               <PresenceLogo />
             </Link>
             <div className="flex items-center gap-2">
@@ -344,7 +346,7 @@ export function StickyBottomBar() {
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/92 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl">
       <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3">
         <Button asChild variant="ghost" className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10 hover:text-white">
-          <Link to="/" aria-label={copy.nav.home} title={copy.nav.home}>
+          <Link to={authenticated ? "/dashboard" : "/"} aria-label={copy.nav.home} title={copy.nav.home}>
             <Home className="h-4 w-4" />
             <span className="ml-2 hidden sm:inline">{copy.nav.home}</span>
           </Link>
