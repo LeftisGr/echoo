@@ -63,7 +63,7 @@ const { data: subs, error } = await subsQuery;
       );
       sent++;
     } catch (err: any) {
-      if (err?.statusCode === 410) {
+      if (err?.statusCode === 410 || err?.statusCode === 404) {
         await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
       }
     }
