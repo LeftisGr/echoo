@@ -398,6 +398,7 @@ function createUnavailableAdminOperationalMetrics(): AdminOperationalMetrics {
     activeRooms: null,
     usersSearching: null,
     activeVoiceSessions: null,
+    roomsToday: null,
     lastUpdatedAt: null,
     sourceState: "unavailable",
   };
@@ -2654,7 +2655,7 @@ if (activeRoom.userA === currentUserId) {
         ? await supabase.from("profiles").select("id, profile_mode").in("id", onlineIds)
         : { data: [], error: null };
 
-      const [activeRoomsResult, searchingResult, activeVoiceResult] = await Promise.all([
+      const [activeRoomsResult, searchingResult, activeVoiceResult, roomsTodayResult] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).is("ended_at", null),
         supabase.from("queue").select("user_id", { count: "exact", head: true }).eq("active", true),
         supabase
@@ -2663,6 +2664,10 @@ if (activeRoom.userA === currentUserId) {
           .is("ended_at", null)
           .eq("voice_enabled", true)
           .in("rtc_state", ["connecting", "connected", "reconnecting"]),
+        supabase
+          .from("rooms")
+          .select("id", { count: "exact", head: true })
+          .gte("started_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
       ]);
 
       const onlineProfiles = Array.isArray(onlineProfilesResult.data) ? (onlineProfilesResult.data as Array<{ id: string; profile_mode: string | null }>) : [];
@@ -2677,6 +2682,7 @@ if (activeRoom.userA === currentUserId) {
         activeRooms: activeRoomsResult.error ? null : activeRoomsResult.count ?? 0,
         usersSearching: searchingResult.error ? null : searchingResult.count ?? 0,
         activeVoiceSessions: activeVoiceResult.error ? null : activeVoiceResult.count ?? 0,
+        roomsToday: roomsTodayResult.error ? null : roomsTodayResult.count ?? 0,
         lastUpdatedAt,
         sourceState,
       });

@@ -159,6 +159,7 @@ export interface AdminOperationalMetrics {
   activeRooms: number | null;
   usersSearching: number | null;
   activeVoiceSessions: number | null;
+  roomsToday: number | null;
   lastUpdatedAt: string | null;
   sourceState: "live" | "connecting" | "unavailable";
 }

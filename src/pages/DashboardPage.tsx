@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { ArrowRight, Clock3, Home, Settings, Shield, UserRound } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
@@ -5,11 +7,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, SectionTitle, Surface } from "@/components/presence/presence-shell";
 import { CalmStateCard } from "@/components/presence/calm-state-card";
+import { SundayQuietHoursBanner } from "@/components/presence/sunday-quiet-hours-banner";
 import { usePresence } from "@/components/presence/presence-provider";
+import { cn } from "@/lib/utils";
+
+const MOOD_STORAGE_KEY = "echoo-mood";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { authenticated, profile, copy, language, adminMetrics, startQueue, online, accountRestriction } = usePresence();
+
+  // Mood micro-commitment (διακοσμητικό — persist σε localStorage με σταθερό id,
+  // ώστε να μένει η επιλογή και να είναι διαθέσιμο για μελλοντικό matchmaking).
+  const [selectedMood, setSelectedMood] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(MOOD_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const selectMood = (id: string) => {
+    setSelectedMood((current) => {
+      const next = current === id ? null : id;
+      try {
+        if (next) window.localStorage.setItem(MOOD_STORAGE_KEY, next);
+        else window.localStorage.removeItem(MOOD_STORAGE_KEY);
+      } catch {
+        // ignore storage issues
+      }
+      return next;
+    });
+  };
+
+  const moodOptions = [
+    { id: "chill", emoji: "😌", label: language === "en" ? "chill" : "χαλαρά" },
+    { id: "talk", emoji: "💬", label: language === "en" ? "to talk" : "για κουβέντα" },
+    { id: "deep", emoji: "🌙", label: language === "en" ? "something deep" : "κάτι βαθύ" },
+  ];
 
   const roleLabel = profile?.role === "admin" ? (language === "en" ? "Admin" : "Admin") : language === "en" ? "Member" : "Μέλος";
 
@@ -73,6 +108,8 @@ const DashboardPage = () => {
   return (
 
     <PageShell className="space-y-6">
+      <SundayQuietHoursBanner />
+
       <Surface className="space-y-6 p-6 sm:p-8">
         <SectionTitle title={copy.dashboard.title} body={copy.dashboard.body} />
         <div className="flex flex-wrap gap-3">
@@ -131,6 +168,34 @@ const DashboardPage = () => {
           <InfoCard label={copy.dashboard.filters} value={`${language === "en" ? "Saved" : "Αποθηκευμένα"}`} />
           <InfoCard label={language === "en" ? "Text first" : "Πρώτα text"} value={copy.session.textNote} />
 
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-white/40">
+            {language === "en" ? "Tonight I'm feeling (optional)" : "Απόψε νιώθω (προαιρετικό)"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {moodOptions.map((mood) => {
+              const active = selectedMood === mood.id;
+              return (
+                <button
+                  key={mood.id}
+                  type="button"
+                  onClick={() => selectMood(mood.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm transition",
+                    active
+                      ? "border-violet-300/25 bg-violet-500/15 text-violet-50"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white",
+                  )}
+                >
+                  <span className="mr-1.5" aria-hidden="true">{mood.emoji}</span>
+                  {mood.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <Button

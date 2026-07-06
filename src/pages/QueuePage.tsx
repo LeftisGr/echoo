@@ -21,7 +21,7 @@ const totalQueueSeconds = loadingWindowSeconds + searchingWindowSeconds;
 
 const QueuePage = () => {
   const navigate = useNavigate();
-  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, accountRestriction, roomFlowError, userId } = usePresence();
+  const { authenticated, appReady, queue, room, matchTransition, cancelQueue, copy, language, online, adminMetrics, realAdminMetrics, accountRestriction, roomFlowError, userId } = usePresence();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -69,7 +69,7 @@ const QueuePage = () => {
     };
   }, [language, queue.active, room, matchTransition]);
 
-  // Broken Telephone trigger — 40 δευτερόλεπτα αναμονής
+  // Broken Telephone trigger — 18 δευτερόλεπτα αναμονής
   useEffect(() => {
   if (!queue.active || room || matchTransition || brokenTelephoneShownRef.current) return;
   
@@ -79,7 +79,7 @@ const QueuePage = () => {
       brokenTelephoneShownRef.current = true;
       setShowBrokenTelephone(true);
     }
-  }, 40000);
+  }, 18000);
   return () => window.clearTimeout(timeout);
 }, [queue.active, room, matchTransition]);
 
@@ -110,6 +110,12 @@ const QueuePage = () => {
 
   const estimatedWait = Math.max(queue.estimatedWaitSeconds, phase === "searching" ? secondsLeft : queue.estimatedWaitSeconds);
   const liveUsers = Math.max(adminMetrics.usersOnlineNow, 8);
+
+  // Social proof "κουβέντες σήμερα": deterministic βάση (ανά ώρα) + πραγματικό count
+  // (ίδιο πνεύμα με το onlineBase στο presence-provider).
+  const hourOfDay = new Date().getHours(); // ώρα Ελλάδας (local)
+  const conversationsBase = 2 + Math.floor(hourOfDay / 2); // αργά αυξανόμενη βάση μέσα στη μέρα
+  const displayedConversations = conversationsBase + (realAdminMetrics.roomsToday ?? 0);
   const currentPreferenceLabel = localizePreference(language, queue.filters.preference);
   const currentLanguageLabel = localizeLanguagePreference(language, queue.filters.language);
 
@@ -289,6 +295,11 @@ const QueuePage = () => {
                   {currentMessage}
                 </p>
                 <p className="text-sm leading-6 text-white/50">{statusNote}</p>
+                <p className="text-xs text-white/45">
+                  {language === "en"
+                    ? `${displayedConversations} conversations happened today`
+                    : `${displayedConversations} κουβέντες έγιναν σήμερα`}
+                </p>
               </div>
 
               {queueNotice && phase !== "match-found" && (

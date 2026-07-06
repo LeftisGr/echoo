@@ -56,12 +56,14 @@ export const ratingOptions: RatingScore[] = ["good", "neutral", "bad"];
 
 export const queueMessages = {
   en: [
+    "Most conversations start within 1–2 minutes...",
     "Listening for a quiet room...",
     "Finding a calmer conversation pace...",
     "Setting the room by language and tone...",
     "Your room is taking shape...",
   ],
   el: [
+    "Οι περισσότερες κουβέντες ξεκινούν μέσα σε 1–2 λεπτά...",
     "Ακούμε για ένα ήσυχο room...",
     "Βρίσκουμε έναν πιο ήρεμο ρυθμό κουβέντας...",
     "Ρυθμίζουμε το room με βάση γλώσσα και ύφος...",
