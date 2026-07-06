@@ -240,9 +240,10 @@ function PaginationControls({
 
 const AdminPage = () => {
 
-  const { authenticated, realAdminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode, presenceChannelState, presenceHeartbeatUpdatedAt } = usePresence();
+  const { authenticated, realAdminMetrics, isAdmin, profile, copy, language, updateProfile, guestMode, presenceChannelState, presenceHeartbeatUpdatedAt, onlineUsers } = usePresence();
 
   const [recentReports, setRecentReports] = useState<ReportRow[]>([]);
+  const [reportUserMap, setReportUserMap] = useState<Record<string, string>>({});
   const [recentErrors, setRecentErrors] = useState<ErrorLogRow[]>([]);
   const [recentModeration, setRecentModeration] = useState<ModerationLogRow[]>([]);
   const [recentSuspensions, setRecentSuspensions] = useState<UserRestrictionRow[]>([]);
@@ -304,6 +305,11 @@ const AdminPage = () => {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [confirmingPermBan, setConfirmingPermBan] = useState(false);
   const confirmPermBanTimeoutRef = useRef<number | null>(null);
+
+  // Online users dialog (Connected now)
+  const [onlineDialogOpen, setOnlineDialogOpen] = useState(false);
+  const [onlineUserMap, setOnlineUserMap] = useState<Record<string, string>>({});
+  const [onlineUsersLoading, setOnlineUsersLoading] = useState(false);
 
   // Client-side pagination για recent reports (5) & recent errors (10)
   const [reportsPage, setReportsPage] = useState(1);
@@ -405,7 +411,17 @@ const AdminPage = () => {
       // Κάθε query φορτώνει ανεξάρτητα: αν ένα αποτύχει (πχ RLS/λήξη session),
       // log + κενό/default αντί να καταρρεύσει όλο το panel.
       if (reportsResult.error) console.warn("[admin] reports failed:", reportsResult.error.message);
-      setRecentReports(reportsResult.error ? [] : ((reportsResult.data ?? []) as ReportRow[]));
+      const reportRows = reportsResult.error ? [] : ((reportsResult.data ?? []) as ReportRow[]);
+      setRecentReports(reportRows);
+
+      // Μάζεψε τα unique user IDs των reports και φέρε τα usernames για lookup στο render
+      const reportUserIds = Array.from(new Set(reportRows.flatMap((r) => [r.reporter_id, r.reported_user]).filter(Boolean)));
+      if (reportUserIds.length > 0) {
+        const { data: reportUsers } = await supabase.from("profiles").select("id, username").in("id", reportUserIds);
+        setReportUserMap(Object.fromEntries(((reportUsers ?? []) as Array<{ id: string; username: string }>).map((u) => [u.id, u.username])));
+      } else {
+        setReportUserMap({});
+      }
 
       if (errorsResult.error) console.warn("[admin] errors failed:", errorsResult.error.message);
       setRecentErrors(errorsResult.error ? [] : ((errorsResult.data ?? []) as ErrorLogRow[]));
@@ -737,6 +753,25 @@ const AdminPage = () => {
     setOverviewData(null);
     void loadUserOverview(userId);
   }, [loadUserOverview]);
+
+  const openOnlineDialog = useCallback(async () => {
+    setOnlineDialogOpen(true);
+    const ids = onlineUsers.map((u) => u.id);
+    if (ids.length === 0) {
+      setOnlineUserMap({});
+      return;
+    }
+    setOnlineUsersLoading(true);
+    try {
+      const { data } = await supabase.from("profiles").select("id, username").in("id", ids);
+      if (!isMountedRef.current) return;
+      setOnlineUserMap(Object.fromEntries(((data ?? []) as Array<{ id: string; username: string }>).map((u) => [u.id, u.username])));
+    } catch {
+      if (isMountedRef.current) setOnlineUserMap({});
+    } finally {
+      if (isMountedRef.current) setOnlineUsersLoading(false);
+    }
+  }, [onlineUsers]);
 
   const overviewRestrict = useCallback(async (action: RestrictAction) => {
     if (!overviewUserId) return;
@@ -1216,7 +1251,7 @@ const AdminPage = () => {
 
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard icon={Users} label="Connected now" value={formatMetricValue(realAdminMetrics.connectedNow)} />
+            <MetricCard icon={Users} label="Connected now" value={formatMetricValue(realAdminMetrics.connectedNow)} onClick={() => void openOnlineDialog()} />
             <MetricCard icon={UserMinus} label="Guests online" value={formatMetricValue(realAdminMetrics.guestsOnline)} />
             
             <MetricCard icon={UserPlus} label="Registered online" value={formatMetricValue(realAdminMetrics.registeredOnline)} />
@@ -1978,6 +2013,56 @@ const AdminPage = () => {
             </DialogContent>
           </Dialog>
 
+          <Dialog open={onlineDialogOpen} onOpenChange={(open) => { if (!open) setOnlineDialogOpen(false); }}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-[#0f1424] text-white sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {language === "en" ? "Connected now" : "Online τώρα"} · {onlineUsers.length}
+                </DialogTitle>
+                <DialogDescription className="text-white/45">
+                  {language === "en"
+                    ? "Users currently online. Tap one to open their detail."
+                    : "Χρήστες που είναι τώρα online. Πάτα έναν για λεπτομέρειες."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2">
+                {onlineUsers.length === 0 ? (
+                  <div className="rounded-[16px] border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                    {language === "en" ? "No one is online right now." : "Κανείς online αυτή τη στιγμή."}
+                  </div>
+                ) : (
+                  onlineUsers.map((user) => {
+                    const statusMeta = user.status === "room"
+                      ? { emoji: "💬", label: language === "en" ? "In room" : "Σε room" }
+                      : user.status === "searching"
+                        ? { emoji: "🔍", label: language === "en" ? "Searching" : "Ψάχνει" }
+                        : { emoji: "🟢", label: "Online" };
+                    return (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => {
+                          setOnlineDialogOpen(false);
+                          openUserOverview(user.id);
+                        }}
+                        className="flex w-full items-center justify-between gap-3 rounded-[16px] border border-white/10 bg-white/5 p-3 text-left transition hover:bg-white/10"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">
+                          {onlineUsersLoading ? "…" : (onlineUserMap[user.id] ?? user.id.slice(0, 8))}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                          <span aria-hidden="true">{statusMeta.emoji}</span>
+                          {statusMeta.label}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Surface className="space-y-5 border-white/10 bg-[#0d1424]/80 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -2104,8 +2189,8 @@ const AdminPage = () => {
                         </div>
                         <p className="mt-3 text-sm leading-6 text-white/75">{report.reason}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/50">
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reporter" : "Αναφέρων"} {report.reporter_id.slice(0, 8)}</span>
-                          <span className={cn("rounded-full border px-3 py-1", (reportCountsByUser[report.reported_user] ?? 0) >= 5 ? "border-rose-300/15 bg-rose-500/10 text-rose-50" : "border-white/10 bg-black/20")}>{language === "en" ? "Reported" : "Αναφερόμενος"} {report.reported_user.slice(0, 8)} · {reportCountsByUser[report.reported_user] ?? 0}</span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Reporter" : "Αναφέρων"} {reportUserMap[report.reporter_id] ?? report.reporter_id.slice(0, 8)}</span>
+                          <span className={cn("rounded-full border px-3 py-1", (reportCountsByUser[report.reported_user] ?? 0) >= 5 ? "border-rose-300/15 bg-rose-500/10 text-rose-50" : "border-white/10 bg-black/20")}>{language === "en" ? "Reported" : "Αναφερόμενος"} {reportUserMap[report.reported_user] ?? report.reported_user.slice(0, 8)} · {reportCountsByUser[report.reported_user] ?? 0}</span>
                           {report.moderation_action && <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">{language === "en" ? "Action" : "Ενέργεια"} {report.moderation_action}</span>}
                         </div>
 
@@ -2354,13 +2439,27 @@ function MetricCard({
   icon: Icon,
   label,
   value,
+  onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
+  onClick?: () => void;
 }) {
   return (
-    <Surface className="p-5">
+    <Surface
+      className={cn("p-5", onClick && "cursor-pointer transition hover:bg-white/[0.04]")}
+      {...(onClick
+        ? {
+            role: "button",
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (event: React.KeyboardEvent) => {
+              if (event.key === "Enter" || event.key === " ") onClick();
+            },
+          }
+        : {})}
+    >
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/15 text-violet-100">
         <Icon className="h-5 w-5" />
       </div>

@@ -99,8 +99,16 @@ interface RealtimePresenceStats {
   roomCount: number;
 }
 
+export type OnlinePresenceStatus = "online" | "searching" | "room";
+
+export interface OnlinePresenceUser {
+  id: string;
+  status: OnlinePresenceStatus;
+}
+
 interface RealtimePresenceSnapshot extends RealtimePresenceStats {
   onlineUserIds: string[];
+  onlineUsers: OnlinePresenceUser[];
 }
 
 interface RoomRecord {
@@ -162,6 +170,7 @@ interface PresenceContextValue {
   presenceChannelState: "connecting" | "live" | "unavailable";
   adminMetrics: AdminMetrics;
   realAdminMetrics: AdminOperationalMetrics;
+  onlineUsers: OnlinePresenceUser[];
   userId: string | null;
 
   isAdmin: boolean;
@@ -473,6 +482,7 @@ function derivePresenceSnapshot(state: Record<string, RealtimePresenceEntry[]>, 
     searchingCount: uniqueEntries.filter((entry) => entry.status === "searching").length,
     roomCount: uniqueEntries.filter((entry) => entry.status === "room").length,
     onlineUserIds: uniqueEntries.map((entry) => entry.userId),
+    onlineUsers: uniqueEntries.map((entry) => ({ id: entry.userId, status: entry.status })),
   };
 }
 
@@ -849,6 +859,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     roomCount: 0,
   });
   const [presenceOnlineUserIds, setPresenceOnlineUserIds] = useState<string[]>([]);
+  const [presenceOnlineUsers, setPresenceOnlineUsers] = useState<OnlinePresenceUser[]>([]);
   const [presenceMetricsReady, setPresenceMetricsReady] = useState(false);
   const [presenceMetricsUpdatedAt, setPresenceMetricsUpdatedAt] = useState<string | null>(null);
   const [presenceHeartbeatUpdatedAt, setPresenceHeartbeatUpdatedAt] = useState<string | null>(null);
@@ -1480,6 +1491,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
           roomCount: nextSnapshot.roomCount,
         });
         setPresenceOnlineUserIds(nextSnapshot.onlineUserIds);
+        setPresenceOnlineUsers(nextSnapshot.onlineUsers);
         setPresenceMetricsReady(true);
         setPresenceMetricsUpdatedAt(updatedAt);
       } catch {
@@ -3681,6 +3693,7 @@ if (activeRoom.userA === currentUserId) {
       presenceChannelState,
       adminMetrics,
       realAdminMetrics,
+      onlineUsers: presenceOnlineUsers,
       userId,
 
       isAdmin,
@@ -3754,6 +3767,7 @@ if (activeRoom.userA === currentUserId) {
       roomLoaded,
       roomFlowError,
       realAdminMetrics,
+      presenceOnlineUsers,
       serviceStatuses,
       userId,
 
