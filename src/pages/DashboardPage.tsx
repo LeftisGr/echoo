@@ -15,7 +15,12 @@ const MOOD_STORAGE_KEY = "echoo-mood";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { authenticated, profile, copy, language, adminMetrics, startQueue, online, accountRestriction } = usePresence();
+  const { authenticated, profile, copy, language, adminMetrics, realAdminMetrics, startQueue, online, accountRestriction } = usePresence();
+
+  // "Κουβέντες σήμερα" — ίδια deterministic λογική με το QueuePage.
+  const hourOfDay = new Date().getHours();
+  const conversationsBase = 2 + Math.floor(hourOfDay / 2);
+  const displayedConversations = conversationsBase + (realAdminMetrics.roomsToday ?? 0);
 
   // Mood micro-commitment (διακοσμητικό — persist σε localStorage με σταθερό id,
   // ώστε να μένει η επιλογή και να είναι διαθέσιμο για μελλοντικό matchmaking).
@@ -154,6 +159,13 @@ const DashboardPage = () => {
             </Button>
           </div>
   
+        </div>
+
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-50">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          {language === "en"
+            ? `${displayedConversations} conversations happened today`
+            : `${displayedConversations} κουβέντες έγιναν σήμερα`}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
