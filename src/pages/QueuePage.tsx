@@ -295,11 +295,12 @@ const QueuePage = () => {
                   {currentMessage}
                 </p>
                 <p className="text-sm leading-6 text-white/50">{statusNote}</p>
-                <p className="text-xs text-white/45">
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-50">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   {language === "en"
                     ? `${displayedConversations} conversations happened today`
                     : `${displayedConversations} κουβέντες έγιναν σήμερα`}
-                </p>
+                </div>
               </div>
 
               {queueNotice && phase !== "match-found" && (
