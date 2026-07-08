@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ThemeProvider } from "next-themes";
 import {
   AlertDialog,
@@ -357,6 +358,7 @@ const App = () => {
           <PresenceProvider>
             <RouterProvider router={router} />
             <Toaster />
+            <SpeedInsights />
           </PresenceProvider>
 
         </PwaProvider>
