@@ -18,6 +18,7 @@ import { CalmStateCard } from "@/components/presence/calm-state-card";
 import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash";
 import { PwaProvider } from "@/hooks/use-pwa-install";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Critical pages stay static for instant load.
 import Index from "@/pages/Index";
@@ -358,7 +359,7 @@ const App = () => {
             <RouterProvider router={router} />
             <Toaster />
           </PresenceProvider>
-
+          <SpeedInsights />
         </PwaProvider>
       </ThemeProvider>
     </QueryClientProvider>
