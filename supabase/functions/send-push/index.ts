@@ -37,6 +37,9 @@ function json(payload: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // TEMP deploy marker — αν ΔΕΝ το δεις στα Logs, τρέχει stale/παλιά έκδοση της function.
+  console.log("[send-push] MARKER build v-admin-rpc-2", { method: req.method });
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY")!;
