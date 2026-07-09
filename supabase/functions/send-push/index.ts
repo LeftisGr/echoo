@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY")!;
   const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY")!;
   const vapidSubject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@echoo.gr";
@@ -83,13 +82,10 @@ Deno.serve(async (req) => {
     tag = body.tag;
   } else {
     // ── Client call: πρέπει να είναι authenticated χρήστης (verify JWT).
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const jwt = authHeader.replace("Bearer ", "");
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser(jwt);
+    // Ίδιο pattern με το `content` function που δουλεύει: getUser(token) πάνω
+    // στον service-role client (δεν εξαρτάται από SUPABASE_ANON_KEY env).
+    const { data: userResult, error: authError } = await admin.auth.getUser(rawAuth);
+    const user = userResult?.user;
     if (authError || !user) {
       return json({ error: "unauthorized" }, 401);
     }
