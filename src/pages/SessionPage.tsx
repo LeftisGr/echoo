@@ -61,6 +61,29 @@ import {
 } from "@/lib/room-presence";
 
 import { getSessionPhaseCopy, SESSION_AUDIO_PHASE_SECONDS, SESSION_TEXT_PHASE_SECONDS, useSessionProgression } from "@/lib/session-progression";
+import { recordSafetyEvent } from "@/lib/presence-backend";
+import { toast } from "sonner";
+
+// Soft moderation: patterns που ελέγχονται σε normalized (χωρίς τόνους) lowercase κείμενο.
+// Δεν μπλοκάρει — μόνο warning στη 2η+ επανάληψη μέσα στο ίδιο room.
+const MODERATION_PATTERNS: RegExp[] = [
+  /pegging/,
+  /findom/,
+  /fetish/,
+  /e?mail\s*me/,
+  /telegram\s*me/,
+  /insta(gram)?\s*me/,
+  /μουνι/,
+  /πουτσ/,
+  /μαλακ/,
+  /κωλο/,
+  /γαμ(ω|ιε|ησ)/,
+];
+
+function matchesModeration(text: string): boolean {
+  const normalized = text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return MODERATION_PATTERNS.some((re) => re.test(normalized));
+}
 
 function getRoomDisplayName(roomId: string) {
   const suffix = roomId
@@ -240,6 +263,7 @@ const SessionPage = () => {
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingHeartbeatRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
+  const moderationHitsRef = useRef(0);
   const shouldForceScrollRef = useRef(true);
 
   const isNearBottomRef = useRef(true);
@@ -883,6 +907,11 @@ const SessionPage = () => {
   }, [stopTyping]);
 
   useEffect(() => () => stopTyping("unmount"), [stopTyping]);
+
+  // Μηδένισε τον moderation counter σε κάθε νέο room (per-room, όχι global).
+  useEffect(() => {
+    moderationHitsRef.current = 0;
+  }, [room?.id]);
 
   useEffect(() => {
     if (restoreTimeoutRef.current !== null) {
@@ -1605,6 +1634,31 @@ const SessionPage = () => {
     queueTypingStop();
   };
 
+  // Soft moderation: μέτρα flagged εξερχόμενα μηνύματα ΑΝΑ room. Στη 2η+ φορά → warning
+  // (χωρίς μπλοκάρισμα). Στα 5+ → κατέγραψε safety event. Ο counter μηδενίζει σε νέο room.
+  const checkOutgoingModeration = useCallback((text: string) => {
+    if (!matchesModeration(text)) {
+      return;
+    }
+    moderationHitsRef.current += 1;
+    const hits = moderationHitsRef.current;
+
+    if (hits >= 2) {
+      toast.warning(
+        language === "en"
+          ? "It looks like you're repeatedly posting personal requests. Please keep it respectful to the community."
+          : "Φαίνεται ότι δημοσιεύεις επαναλαμβανόμενα προσωπικά αιτήματα. Συνέχισε με σεβασμό προς την κοινότητα.",
+      );
+    }
+
+    if (hits >= 5) {
+      void recordSafetyEvent("text_send", room?.id ?? null, room?.partner?.id ?? null, {
+        moderation_flag: "repeated_flagged_content",
+        hits,
+      }).catch(() => undefined);
+    }
+  }, [language, room?.id, room?.partner?.id]);
+
   const renderReactionPicker = (messageId: string, isSelf: boolean) => (
 
     <div
@@ -2181,6 +2235,8 @@ const SessionPage = () => {
 
                   try {
                     const sent = await sendMessage(nextDraft);
+                    // Soft moderation check (δεν μπλοκάρει το ήδη-σταλμένο μήνυμα)
+                    checkOutgoingModeration(nextDraft);
                     if (sent) {
                       setDraft("");
                     } else {
