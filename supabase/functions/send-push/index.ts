@@ -94,9 +94,11 @@ Deno.serve(async (req) => {
     const lang = body.language === "en" ? "en" : "el";
 
     if (body.event_type === "admin_login_alert") {
-      // Ο server βρίσκει μόνος του τους admins (service role). Skip αν ο caller είναι admin.
-      const { data: admins } = await admin.from("profiles").select("id").eq("role", "admin");
-      const adminIds = (admins ?? []).map((a: { id: string }) => a.id);
+      // Ο server βρίσκει τους admins μέσω RPC (SECURITY DEFINER — αξιόπιστο, δεν
+      // επηρεάζεται από RLS στο profiles). Skip αν ο caller είναι admin.
+      const { data: admins, error: adminsError } = await admin.rpc("get_admin_user_ids");
+      const adminIds = (Array.isArray(admins) ? admins : []).map((a: { id: string }) => a.id);
+      console.log("[send-push] admins", { count: adminIds.length, error: adminsError?.message ?? null });
       if (adminIds.includes(user.id)) {
         return json({ sent: 0, skipped: "caller_is_admin" });
       }
@@ -138,6 +140,11 @@ Deno.serve(async (req) => {
   }
 
   const { data: subs, error } = await subsQuery;
+  console.log("[send-push] subs", {
+    targets: targetUserIds === "ALL" ? "ALL" : targetUserIds.length,
+    subsCount: subs?.length ?? 0,
+    subsError: error?.message ?? null,
+  });
   if (error || !subs?.length) return json({ sent: 0 });
 
   const notification = JSON.stringify({ title, body: msgBody, url, tag });
@@ -151,6 +158,7 @@ Deno.serve(async (req) => {
       );
       sent++;
     } catch (err: any) {
+      console.log("[send-push] webpush error", { statusCode: err?.statusCode ?? null, message: err?.message ?? String(err) });
       if (err?.statusCode === 410 || err?.statusCode === 404) {
         await admin.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
       }
