@@ -93,17 +93,26 @@ export async function refreshPushSubscription(userId: string): Promise<boolean> 
 
     const json = subscription.toJSON();
 
-    // Καθάρισε ΟΛΑ τα παλιά subscriptions αυτού του χρήστη πριν βάλεις το νέο
-    await supabase.from("push_subscriptions").delete().eq("user_id", userId);
-
-    const { error } = await supabase.from("push_subscriptions").insert({
+    // Μη-καταστροφικό: γράψε ΠΡΩΤΑ το νέο subscription (upsert, δεν σκάει σε conflict).
+    const { error } = await supabase.from("push_subscriptions").upsert({
       user_id: userId,
       endpoint: subscription.endpoint,
       p256dh: json.keys?.p256dh ?? "",
       auth: json.keys?.auth ?? "",
-    });
+    }, { onConflict: "user_id,endpoint" });
 
-    return !error;
+    if (error) {
+      // Αν απέτυχε το γράψιμο, ΜΗΝ σβήσεις τίποτα — κράτα ό,τι υπάρχει ήδη.
+      return false;
+    }
+
+    // Τώρα που το νέο μπήκε επιτυχώς, καθάρισε μόνο τα ΑΛΛΑ (παλιά/expired) endpoints.
+    await supabase.from("push_subscriptions")
+      .delete()
+      .eq("user_id", userId)
+      .neq("endpoint", subscription.endpoint);
+
+    return true;
   } catch {
     return false;
   }
