@@ -66,8 +66,6 @@ Deno.serve(async (req) => {
     rawAuth === serviceKey ||
     (!!cronSecret && req.headers.get("x-cron-secret") === cronSecret);
 
-  console.log("[send-push] req", { method: req.method, isCronCall, eventType: body.event_type, hasAuth: rawAuth.length > 0 });
-
   let targetUserIds: string[] | "ALL" = [];
   let title = "Echoo";
   let msgBody = "";
@@ -89,7 +87,6 @@ Deno.serve(async (req) => {
     // στον service-role client (δεν εξαρτάται από SUPABASE_ANON_KEY env).
     const { data: userResult, error: authError } = await admin.auth.getUser(rawAuth);
     const user = userResult?.user;
-    console.log("[send-push] auth", { userId: user?.id ?? null, authError: authError?.message ?? null });
     if (authError || !user) {
       return json({ error: "unauthorized" }, 401);
     }
@@ -141,11 +138,6 @@ Deno.serve(async (req) => {
   }
 
   const { data: subs, error } = await subsQuery;
-  console.log("[send-push] targets", {
-    targets: targetUserIds === "ALL" ? "ALL" : targetUserIds.length,
-    subsCount: subs?.length ?? 0,
-    subsError: error?.message ?? null,
-  });
   if (error || !subs?.length) return json({ sent: 0 });
 
   const notification = JSON.stringify({ title, body: msgBody, url, tag });
@@ -165,6 +157,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log("[send-push] done", { sent });
   return json({ sent });
 });
