@@ -97,8 +97,11 @@ Deno.serve(async (req) => {
       // Ο server βρίσκει τους admins μέσω RPC (SECURITY DEFINER — αξιόπιστο, δεν
       // επηρεάζεται από RLS στο profiles). Skip αν ο caller είναι admin.
       const { data: admins, error: adminsError } = await admin.rpc("get_admin_user_ids");
-      const adminIds = (Array.isArray(admins) ? admins : []).map((a: { id: string }) => a.id);
-      console.log("[send-push] admins", { count: adminIds.length, error: adminsError?.message ?? null });
+      // Το RPC μπορεί να γυρίζει είτε ["uuid", ...] είτε [{ id: "uuid" }, ...] — κάλυψε και τα δύο.
+      const adminIds = (Array.isArray(admins) ? admins : [])
+        .map((a: unknown) => (typeof a === "string" ? a : (a as { id?: string })?.id))
+        .filter((id): id is string => Boolean(id));
+      console.log("[send-push] admins", { count: adminIds.length, sample: adminIds[0] ?? null, error: adminsError?.message ?? null });
       if (adminIds.includes(user.id)) {
         return json({ sent: 0, skipped: "caller_is_admin" });
       }
