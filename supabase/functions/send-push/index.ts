@@ -37,9 +37,6 @@ function json(payload: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // TEMP deploy marker — αν ΔΕΝ το δεις στα Logs, τρέχει stale/παλιά έκδοση της function.
-  console.log("[send-push] MARKER build v-admin-rpc-2", { method: req.method });
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY")!;
@@ -104,7 +101,9 @@ Deno.serve(async (req) => {
       const adminIds = (Array.isArray(admins) ? admins : [])
         .map((a: unknown) => (typeof a === "string" ? a : (a as { id?: string })?.id))
         .filter((id): id is string => Boolean(id));
-      console.log("[send-push] admins", { count: adminIds.length, sample: adminIds[0] ?? null, error: adminsError?.message ?? null });
+      if (adminsError) {
+        return json({ sent: 0, error: "admin_lookup_failed" });
+      }
       if (adminIds.includes(user.id)) {
         return json({ sent: 0, skipped: "caller_is_admin" });
       }
@@ -146,11 +145,6 @@ Deno.serve(async (req) => {
   }
 
   const { data: subs, error } = await subsQuery;
-  console.log("[send-push] subs", {
-    targets: targetUserIds === "ALL" ? "ALL" : targetUserIds.length,
-    subsCount: subs?.length ?? 0,
-    subsError: error?.message ?? null,
-  });
   if (error || !subs?.length) return json({ sent: 0 });
 
   const notification = JSON.stringify({ title, body: msgBody, url, tag });
@@ -164,7 +158,6 @@ Deno.serve(async (req) => {
       );
       sent++;
     } catch (err: any) {
-      console.log("[send-push] webpush error", { statusCode: err?.statusCode ?? null, message: err?.message ?? String(err) });
       if (err?.statusCode === 410 || err?.statusCode === 404) {
         await admin.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
       }
