@@ -1817,20 +1817,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     }
 
     // Admin alert: ειδοποίησε τους admins όταν μπαίνει κάποιος (cold start strategy).
+    // Ο προσδιορισμός των admins + το skip-if-admin γίνονται server-side στη function.
     // Fire-and-forget ώστε να μη μπλοκάρει το login flow.
     void (async () => {
-      // Πάρε όλους τους admins μέσω RPC (bypass RLS — δουλεύει και για μη-admin χρήστες)
-      const { data: admins } = await supabase.rpc("get_admin_user_ids");
-
-      if (!admins || admins.length === 0) {
-        return;
-      }
-
-      // Skip αν ο τρέχων user είναι admin (μην ειδοποιείς τους admins για admin login)
-      if (admins.some((admin) => admin.id === currentUserId)) {
-        return;
-      }
-
       // Throttle: max 1 ειδοποίηση ανά χρήστη κάθε 10 λεπτά (αποφυγή spam από refreshes)
       const throttleKey = `echoo-admin-alert-${currentUserId}`;
       try {
@@ -1847,26 +1836,26 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         // ignore
       }
 
-      // Στείλε push σε κάθε admin
-      await Promise.all(
-        admins.map((admin) =>
-          fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-              "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-            },
-            body: JSON.stringify({
-              target_user_id: admin.id,
-              title: "Echoo 👀",
-              body: "Κάποιος μόλις μπήκε — μπες κι εσύ!",
-              url: "/queue",
-              tag: "admin-login-alert",
-            }),
-          }).catch(() => undefined),
-        ),
-      );
+      // Στείλε το πραγματικό access token του χρήστη (όχι το anon key) ώστε η
+      // function να επαληθεύσει ποιος καλεί. Στέλνουμε μόνο event_type — όχι targets.
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        return;
+      }
+
+      void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+          "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+        },
+        body: JSON.stringify({
+          event_type: "admin_login_alert",
+          language,
+        }),
+      }).catch(() => undefined);
     })().catch(() => undefined);
 
     const storedGuestProfile = readStoredGuestProfile();
@@ -2135,25 +2124,30 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         });
 
         playSoundFeedback("match", matchSoundEnabled);
-        // Push notification στον partner
-if (activeRoom.userA === currentUserId) {
-  const partnerId = activeRoom.userB;
-  void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-      "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
-    },
-    body: JSON.stringify({
-      target_user_id: partnerId,
-      title: "Echoo 📞",
-      body: language === "en" ? "Someone is waiting for you." : "Κάποιος σε περιμένει.",
-      url: `/session/${activeRoom.id}`,
-      tag: "match",
-    }),
-  }).catch(() => undefined);
-}
+        // Push notification στον partner. Στέλνουμε μόνο room_id + το πραγματικό
+        // access token — η function επαληθεύει συμμετοχή και βρίσκει τον partner.
+        if (activeRoom.userA === currentUserId) {
+          void (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const accessToken = session?.access_token;
+            if (!accessToken) {
+              return;
+            }
+            void fetch(`https://dfaevplpniphpgnljrpn.supabase.co/functions/v1/send-push`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessToken}`,
+                "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
+              },
+              body: JSON.stringify({
+                event_type: "match_found",
+                room_id: activeRoom.id,
+                language,
+              }),
+            }).catch(() => undefined);
+          })().catch(() => undefined);
+        }
         
         updateServiceStatus("matching", "healthy");
 
