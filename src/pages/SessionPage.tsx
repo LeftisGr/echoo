@@ -1634,8 +1634,10 @@ const SessionPage = () => {
     queueTypingStop();
   };
 
-  // Soft moderation: μέτρα flagged εξερχόμενα μηνύματα ΑΝΑ room. Στη 2η+ φορά → warning
-  // (χωρίς μπλοκάρισμα). Στα 5+ → κατέγραψε safety event. Ο counter μηδενίζει σε νέο room.
+  // Soft moderation με κλιμάκωση (per-room, μηδενίζει σε νέο room):
+  //   2–4 hits  → κίτρινη προειδοποίηση (toast.warning)
+  //   5–9 hits  → κόκκινη τελευταία προειδοποίηση (toast.error)
+  //   10 hits   → κλείσιμο του room (leaveRoom) + safety event
   const checkOutgoingModeration = useCallback((text: string) => {
     if (!matchesModeration(text)) {
       return;
@@ -1643,21 +1645,41 @@ const SessionPage = () => {
     moderationHitsRef.current += 1;
     const hits = moderationHitsRef.current;
 
-    if (hits >= 2) {
+    if (hits >= 10) {
+      const closeMsg = language === "en"
+        ? "This room was closed due to repeated violations of the community rules."
+        : "Το room έκλεισε λόγω επαναλαμβανόμενων παραβιάσεων των κανόνων της κοινότητας.";
+      toast.error(closeMsg);
+      void recordSafetyEvent("text_send", room?.id ?? null, room?.partner?.id ?? null, {
+        moderation_flag: "room_closed_repeated_violations",
+        hits,
+      }).catch(() => undefined);
+      leaveRoom(closeMsg);
+      return;
+    }
+
+    if (hits >= 5) {
+      // Κόκκινη — τελευταία προειδοποίηση
+      toast.error(
+        language === "en"
+          ? "Final warning: this content breaks the community rules. If it continues, the room will close."
+          : "Τελευταία προειδοποίηση: το περιεχόμενο παραβιάζει τους κανόνες της κοινότητας. Αν συνεχίσεις, το room θα κλείσει.",
+      );
+      if (hits === 5) {
+        void recordSafetyEvent("text_send", room?.id ?? null, room?.partner?.id ?? null, {
+          moderation_flag: "repeated_flagged_content",
+          hits,
+        }).catch(() => undefined);
+      }
+    } else if (hits >= 2) {
+      // Κίτρινη — ήπια προειδοποίηση
       toast.warning(
         language === "en"
           ? "It looks like you're repeatedly posting personal requests. Please keep it respectful to the community."
           : "Φαίνεται ότι δημοσιεύεις επαναλαμβανόμενα προσωπικά αιτήματα. Συνέχισε με σεβασμό προς την κοινότητα.",
       );
     }
-
-    if (hits >= 5) {
-      void recordSafetyEvent("text_send", room?.id ?? null, room?.partner?.id ?? null, {
-        moderation_flag: "repeated_flagged_content",
-        hits,
-      }).catch(() => undefined);
-    }
-  }, [language, room?.id, room?.partner?.id]);
+  }, [language, room?.id, room?.partner?.id, leaveRoom]);
 
   const renderReactionPicker = (messageId: string, isSelf: boolean) => (
 
