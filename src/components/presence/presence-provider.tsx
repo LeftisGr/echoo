@@ -1316,7 +1316,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeSession = async (sessionUser: AuthSessionUser | null) => {
+    const initializeSession = async (sessionUser: AuthSessionUser | null, accessToken: string | null = null) => {
       const isGuestSession = isGuestAuthSession(sessionUser);
       const authProvider = getAuthProvider(sessionUser);
 
@@ -1369,7 +1369,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       try {
         if (hydratedSessionUserIdRef.current !== sessionUser.id) {
           hydratedSessionUserIdRef.current = sessionUser.id;
-          await hydrateAuthenticatedUser(sessionUser.id, isGuestSession, sessionUser.email ?? null);
+          await hydrateAuthenticatedUser(sessionUser.id, isGuestSession, sessionUser.email ?? null, accessToken);
         }
 
       } catch {
@@ -1410,13 +1410,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      void initializeSession(session?.user ?? null);
+      void initializeSession(session?.user ?? null, session?.access_token ?? null);
     });
 
     void supabase.auth
       .getSession()
       .then(({ data }) => {
-        void initializeSession(data.session?.user ?? null);
+        void initializeSession(data.session?.user ?? null, data.session?.access_token ?? null);
       })
       .catch(() => {
         void initializeSession(null);
@@ -1790,7 +1790,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [reconnectEnabled, room?.id]);
 
-  async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession: boolean, email: string | null) {
+  async function hydrateAuthenticatedUser(currentUserId: string, isGuestSession: boolean, email: string | null, accessToken: string | null = null) {
 
     // Έλεγχος αν ήρθαμε από upgrade guest flow
     const upgradeGuestId = window.localStorage.getItem("echoo-upgrade-guest-id");
@@ -1838,9 +1838,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
       // Στείλε το πραγματικό access token του χρήστη (όχι το anon key) ώστε η
       // function να επαληθεύσει ποιος καλεί. Στέλνουμε μόνο event_type — όχι targets.
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) {
+      // Χρησιμοποίησε το token που ήρθε από το auth flow· fallback σε getSession
+      // (το getSession μπορεί να είναι null πολύ νωρίς μετά το login).
+      let token = accessToken;
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token ?? null;
+      }
+      if (!token) {
         return;
       }
 
@@ -1848,7 +1853,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
+          "Authorization": `Bearer ${token}`,
           "apikey": `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWV2cGxwbmlwaHBnbmxqcnBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NTU5MDIsImV4cCI6MjA5MzAzMTkwMn0.bZrxEu-OUv5Foegg8eNCArqUOftknBzg8OfBkJn11wQ`,
         },
         body: JSON.stringify({
